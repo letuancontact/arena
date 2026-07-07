@@ -11,6 +11,7 @@ const GAME_CONFIG = {
   MAP_HEIGHT: 2000,
   MAX_PLAYERS: 20,
   MAX_FOOD: 400,
+  FOOD_COUNT: 400, // Thêm dòng này để fix lỗi treo server
   MAX_LEVEL: 40,
 
   // Thông số di chuyển & nội suy
