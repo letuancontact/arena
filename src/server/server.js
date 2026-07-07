@@ -1,10 +1,5 @@
 "use strict";
 
-/**
- * @fileoverview Main Server Entry Point.
- * Quản lý Game Loop, WebSockets và đồng bộ dữ liệu.
- */
-
 const express = require("express");
 const path = require("path");
 const { WebSocketServer } = require("ws");
@@ -46,23 +41,12 @@ wss.on("connection", (ws) => {
       if (!player) return;
 
       if (data.type === "move") {
-        playerLib.handlePlayerMove(player, data, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+        // Chỉ cập nhật Input, không nhận tọa độ x, y
+        playerLib.handlePlayerMove(player, data);
       }
       
-      if (data.type === "lose_xp") {
-        player.xp -= data.amount || 5;
-        player.score -= data.amount || 5;
-        if (player.score < 0) player.score = 0;
-        player.speed = CONFIG.MAX_SPEED;
-        while (player.xp < 0 && player.level > 1) {
-          player.level--;
-          player.radius = playerLib.getRadiusByLevel(player.level);
-          player.xp += playerLib.getXpToNext(player.level);
-        }
-        if (player.level === 1 && player.xp < 0) player.xp = 0;
-        if (player.xp <= 0) player.rightMouseDown = false;
-      }
-      
+      // Xóa BỎ HOÀN TOÀN khối data.type === 'lose_xp' vì Server đã tự lo.
+
       if (data.type === "attack") {
         playerLib.handlePlayerAttack(player);
       }
@@ -87,7 +71,12 @@ let foodDirty = true;
 setInterval(() => {
   const now = Date.now();
 
-  // 1. Quản lý Food
+  // 1. Cập nhật vị trí vật lý (Physics) cho TOÀN BỘ NGƯỜI CHƠI (Bảo mật tuyệt đối)
+  for (const p of players.values()) {
+    playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+  }
+
+  // 2. Quản lý Food
   const oldFoodCount = food.length;
   foodLib.spawnFood(food); 
   if (food.length > oldFoodCount) foodDirty = true;
@@ -99,7 +88,7 @@ setInterval(() => {
 
   const playerArray = [...players.values(), ...bots.values()].filter(e => !e.isDead);
 
-  // 2. Kiểm tra ăn thức ăn
+  // 3. Kiểm tra ăn thức ăn
   for (const p of playerArray) {
     const nearbyFood = spatialIndex.searchNearbyFood(foodTree, p.x, p.y, p.radius + 24);
     for (const f of nearbyFood) {
@@ -124,27 +113,22 @@ setInterval(() => {
     }
   }
 
-  // 3. Xử lý Chiến đấu (Combat Arc Hitbox)
+  // 4. Xử lý Chiến đấu (Combat)
   const playerTree = spatialIndex.buildPlayerIndex(playerArray);
   for (const attacker of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (attacker.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
     
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
-      // Set để ghi nhớ những nạn nhân đã bị chém trúng trong cú vung kiếm này (tránh trừ máu liên tục)
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
       
       const weaponReach = attacker.radius * 4.5;
-      // Cộng thêm 100 vào radius search rbush để bao quát được những nạn nhân khổng lồ nằm ở rìa
       const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, weaponReach + 100);
       
       for (const victim of nearbyVictims) {
         if (victim.id === attacker.id) continue;
         if (victim.justRespawned && now - victim.justRespawned < CONFIG.HIT_COOLDOWN) continue;
-        
-        // Đã dính đòn trong cú chém này rồi thì không trừ thêm máu nữa
         if (attacker.hitVictims.has(victim.id)) continue; 
         
-        // GỌI HÀM ARC HITBOX MỚI
         if (collisionLib.weaponHitsPlayerArc(attacker, victim)) {
           attacker.hitVictims.add(victim.id); 
           
@@ -172,12 +156,10 @@ setInterval(() => {
         }
       }
     } else {
-      // Khi kết thúc animation chém, xóa trí nhớ về các victim bị hit để chuẩn bị cho cú chém sau
       if (attacker.hitVictims) attacker.hitVictims.clear();
     }
   }
 
-  // 4. Reset trạng thái tấn công
   for (const entity of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (entity.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
     if (entity.isAttacking && now - entity.attackTime >= attackDuration) {
@@ -223,7 +205,7 @@ setInterval(() => {
     }
   }
 
-  // 6. Heavy Tick (Hồi sinh & Quản lý AI Bot)
+  // 6. Heavy Tick (Hồi sinh & Bot)
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
     
