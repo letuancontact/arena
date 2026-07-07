@@ -140,9 +140,10 @@ let foodDirty = true;
 setInterval(() => {
   const now = Date.now();
 
-  // 1. Quản lý Food
-  while (food.length < CONFIG.MAX_FOOD) {
-    foodLib.spawnFood(food);
+  // 1. Quản lý Food - ĐÃ SỬA LỖI VÒNG LẶP VÔ HẠN TẠI ĐÂY
+  const oldFoodCount = food.length;
+  foodLib.spawnFood(food); // Hàm này đã có sẵn vòng lặp while bên trong nó
+  if (food.length > oldFoodCount) {
     foodDirty = true;
   }
 
