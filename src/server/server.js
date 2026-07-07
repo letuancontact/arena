@@ -41,12 +41,8 @@ wss.on("connection", (ws) => {
       if (!player) return;
 
       if (data.type === "move") {
-        // Chỉ cập nhật Input, không nhận tọa độ x, y
         playerLib.handlePlayerMove(player, data);
       }
-      
-      // Xóa BỎ HOÀN TOÀN khối data.type === 'lose_xp' vì Server đã tự lo.
-
       if (data.type === "attack") {
         playerLib.handlePlayerAttack(player);
       }
@@ -65,15 +61,15 @@ let lastHeavyTick = Date.now();
 let foodTree = null;
 let foodDirty = true;
 
-/**
- * Main Game Loop (Chạy mỗi 16ms ~ 60 FPS)
- */
 setInterval(() => {
   const now = Date.now();
 
-  // 1. Cập nhật vị trí vật lý (Physics) cho TOÀN BỘ NGƯỜI CHƠI (Bảo mật tuyệt đối)
+  // 1. CẬP NHẬT VẬT LÝ CHO TẤT CẢ (Người và Bot dùng chung 1 ruleset)
   for (const p of players.values()) {
     playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+  }
+  for (const b of bots.values()) {
+    playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   }
 
   // 2. Quản lý Food
@@ -167,7 +163,13 @@ setInterval(() => {
     }
   }
 
-  // 5. Broadcast State (Network Tick)
+  // 5. CẬP NHẬT TRÍ TUỆ BOT (AI Thinking)
+  // Cung cấp RBush Tree cho Bot để chúng "nhìn" thấy xung quanh
+  for (const bot of bots.values()) {
+    if (!bot.isDead) botLib.updateBot(bot, foodTree, playerTree);
+  }
+
+  // 6. Broadcast State (Network Tick)
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
     lastBroadcast = now;
     const allPlayers = [...players.values(), ...bots.values()].map(p => ({
@@ -205,7 +207,7 @@ setInterval(() => {
     }
   }
 
-  // 6. Heavy Tick (Hồi sinh & Bot)
+  // 7. Heavy Tick (Hồi sinh)
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
     
@@ -235,10 +237,6 @@ setInterval(() => {
     }
   }
 
-  // 7. Cập nhật vị trí Bot
-  for (const bot of bots.values()) {
-    if (!bot.isDead) botLib.updateBot(bot, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-  }
 }, CONFIG.SERVER_TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
