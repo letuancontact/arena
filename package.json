@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node -e \"require('fs').copyFileSync('src/client/main.js', 'public/main.js')\"",
+    "build": "node -e \"const fs=require('fs'); fs.cpSync('src/client', 'public', {recursive: true, force: true});\"",
     "start": "npm run build && node src/server/server.js"
   },
   "keywords": [],
