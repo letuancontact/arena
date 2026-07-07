@@ -2,7 +2,6 @@
 
 /**
  * @fileoverview Cấu hình hệ thống dùng chung cho cả Client và Server.
- * Loại bỏ toàn bộ Magic Numbers trong project.
  */
 
 const GAME_CONFIG = {
@@ -11,7 +10,7 @@ const GAME_CONFIG = {
   MAP_HEIGHT: 2000,
   MAX_PLAYERS: 20,
   MAX_FOOD: 400,
-  FOOD_COUNT: 400, // Thêm dòng này để fix lỗi treo server
+  FOOD_COUNT: 400, // Đảm bảo có dòng này để tránh treo thức ăn
   MAX_LEVEL: 40,
 
   // Thông số di chuyển & nội suy
@@ -62,7 +61,7 @@ const GAME_CONFIG = {
     20, 30, 35, 36, 35, 36, 38, 44, 39, 41, // 1-10
     42, 44, 44.5, 43, 43.5, 46, 47, 58, 49, 52, // 11-20
     60, 58, 58, 72, 77, 60, 64, 68, 70, 72, // 21-30
-    76, 66, 68, 69, 70, 77, 68, 83, 74, 76, // 31-40
+    76, 68, 70, 72, 76, 78, 72, 84, 77, 78, // 31-40
   ]
 };
 
