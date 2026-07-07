@@ -3,7 +3,6 @@ import { GameState } from './state.js';
 import { Camera, Resources, Renderer } from './renderer.js';
 
 const CONFIG = window.GAME_CONFIG;
-
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
@@ -23,8 +22,8 @@ const Network = {
       GameState.mapHeight = data.mapHeight || CONFIG.MAP_HEIGHT;
       GameState.clientX = data.x ?? GameState.mapWidth / 2;
       GameState.clientY = data.y ?? GameState.mapHeight / 2;
-      GameState.targetX = GameState.clientX;
-      GameState.targetY = GameState.clientY;
+      GameState.serverX = GameState.clientX;
+      GameState.serverY = GameState.clientY;
     }
     if (data.type === "state") {
       GameState.stateBuffer.push({
@@ -47,24 +46,25 @@ const Network = {
         if (oldLevel !== GameState.clientLevel) {
           Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
         }
+
+        // CHƯƠNG 14: Lấy tọa độ đích từ Server làm mục tiêu nội suy (Reconciliation)
         if (prevDead && !me.isDead) {
-          GameState.clientX = GameState.targetX = me.x;
-          GameState.clientY = GameState.targetY = me.y;
-          GameState.velocityX = GameState.velocityY = 0;
+          GameState.clientX = GameState.serverX = me.x;
+          GameState.clientY = GameState.serverY = me.y;
+        } else {
+          GameState.serverX = me.x;
+          GameState.serverY = me.y;
         }
       }
       
       GameState.isDead = me?.isDead || false;
       GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
-      // KIỂM TRA HIỆU ỨNG CHẾT
+      // Xử lý Hiệu ứng UI
       for (const p of data.players || []) {
-        // Nổ tung Particles khi bất kỳ ai chết (trạng thái chuyển từ sống sang chết)
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
         }
-
-        // Chữ XP nổi lên nếu ta là người giết
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           const gainXp = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
           Renderer.addKillXpEffect(me.x, me.y - (me.radius || 30) - 30, gainXp);
@@ -72,42 +72,30 @@ const Network = {
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
     }
-    if (data.type === "lose_xp") {
-      const me = (data.players || []).find((p) => p.id === GameState.playerId);
-      if (me) {
-        me.xp -= data.amount || 5;
-        if (me.xp <= 0) {
-          GameState.lastAttackTime = 0;
-          GameState.isAttacking = false;
-          GameState.rightMouseDown = false;
-          Network.sendPositionUpdate(true);
-        }
-      }
-    }
   },
-  sendPositionUpdate(forceSendAngle = false) {
+  sendPositionUpdate(forceUpdate = false) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const me = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find((p) => p.id === GameState.playerId);
-    
     if (me && me.isDead) return;
-    if (!forceSendAngle && Date.now() - GameState.lastSentTime < CONFIG.CLIENT_SEND_INTERVAL) return;
     
-    const dx = Math.abs(GameState.clientX - GameState.lastSentX);
-    const dy = Math.abs(GameState.clientY - GameState.lastSentY);
+    if (!forceUpdate && Date.now() - GameState.lastSentTime < CONFIG.CLIENT_SEND_INTERVAL) return;
+    
     const dAngle = Math.abs(GameState.mouseAngle - GameState.lastSentAngle);
+    const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse;
+    const movingChanged = GameState.isMoving !== GameState.lastMoving;
     
-    if (dx > 1 || dy > 1 || forceSendAngle || dAngle > CONFIG.ANGLE_SEND_THRESHOLD) {
+    // Tối ưu hóa băng thông: Chỉ gửi Input (angle, rightMouseDown, isMoving) thay vì x, y
+    if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
       this.ws.send(JSON.stringify({
         type: "move",
-        x: GameState.clientX,
-        y: GameState.clientY,
-        rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0,
         angle: GameState.mouseAngle,
+        rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0,
+        isMoving: GameState.isMoving
       }));
-      GameState.lastSentX = GameState.clientX;
-      GameState.lastSentY = GameState.clientY;
       GameState.lastSentTime = Date.now();
       GameState.lastSentAngle = GameState.mouseAngle;
+      GameState.lastRightMouse = GameState.rightMouseDown;
+      GameState.lastMoving = GameState.isMoving;
     }
   },
 };
@@ -126,19 +114,14 @@ const Input = {
         GameState.lastDy = GameState.mouseY - canvas.height / 2;
         GameState.isMoving = Math.hypot(GameState.lastDx, GameState.lastDy) > GameState.clientRadius;
         GameState.mouseAngle = Math.atan2(GameState.lastDy, GameState.lastDx);
-        Network.sendPositionUpdate(true);
+        Network.sendPositionUpdate(); // Sẽ tự chặn nếu góc không thay đổi đủ lớn
         GameState.mouseMoveThrottled = false;
       });
     });
     canvas.addEventListener("mousedown", (e) => {
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) {
         GameState.rightMouseDown = true;
-        if (!GameState.loseXpInterval) {
-          GameState.loseXpInterval = setInterval(() => {
-            const amount = Math.floor(GameState.clientXpToNext * CONFIG.XP_LOSS_PERCENT);
-            Network.ws.send(JSON.stringify({ type: "lose_xp", amount }));
-          }, CONFIG.XP_LOSS_INTERVAL);
-        }
+        Network.sendPositionUpdate(true);
       }
       if (e.button === 0) {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -152,66 +135,52 @@ const Input = {
     canvas.addEventListener("mouseup", (e) => {
       if (e.button === 2) {
         GameState.rightMouseDown = false;
-        if (GameState.loseXpInterval) { clearInterval(GameState.loseXpInterval); GameState.loseXpInterval = null; }
+        Network.sendPositionUpdate(true);
       }
     });
     window.addEventListener("resize", Renderer.resizeCanvas);
   }
 };
 
-// ===== UPDATE PHYSICS =====
+// CHƯƠNG 14: Client-Side Prediction và Reconciliation
 function updatePhysics() {
   if (GameState.clientX === null || GameState.clientY === null) return;
   
-  if (GameState.targetX !== null && GameState.targetY !== null) {
-    if (GameState.isAttacking) {
-      GameState.targetX = GameState.clientX;
-      GameState.targetY = GameState.clientY;
-      GameState.velocityX = 0;
-      GameState.velocityY = 0;
-    } else if (GameState.isMoving) {
-      const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown ? CONFIG.SPRINT_MULTIPLIER : 1);
-      const length = Math.hypot(GameState.lastDx, GameState.lastDy);
-      if (length > 0) {
-        GameState.targetX = GameState.clientX + (GameState.lastDx / length) * speed;
-        GameState.targetY = GameState.clientY + (GameState.lastDy / length) * speed;
-      }
-    } else {
-      const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
-      const me = latestState?.players.find((p) => p.id === GameState.playerId);
-      if (me) {
-        GameState.clientX = GameState.targetX = me.x;
-        GameState.clientY = GameState.targetY = me.y;
-        GameState.velocityX = GameState.velocityY = 0;
-      }
+  const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
+  
+  // 1. Client-Side Prediction: Tự dự đoán vị trí hiện tại dựa trên Input
+  if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
+    // Đứng im khi chém
+  } else if (GameState.isMoving) {
+    const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
+    GameState.clientX += Math.cos(GameState.mouseAngle) * speed;
+    GameState.clientY += Math.sin(GameState.mouseAngle) * speed;
+  }
+  
+  GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
+  GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
+
+  // 2. Reconciliation: Nhẹ nhàng kéo vị trí Client về khớp với Server để chống sai lệch mạng
+  if (GameState.serverX != null && GameState.serverY != null) {
+    const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
+    if (dist > 150) { 
+      // Sai số lớn (Lag, hoặc Server giật mình) -> Dịch chuyển (Snap) ngay lập tức
+      GameState.clientX = GameState.serverX;
+      GameState.clientY = GameState.serverY;
+    } else if (dist > 1) {
+      // Sai số nhỏ -> Mượt mà trượt về đúng vị trí (Lerp 20% / Khung hình)
+      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.2;
+      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.2;
     }
-    
-    GameState.velocityX += (GameState.targetX - GameState.clientX) * CONFIG.SMOOTHING_FACTOR;
-    GameState.velocityY += (GameState.targetY - GameState.clientY) * CONFIG.SMOOTHING_FACTOR;
-    GameState.velocityX *= 0.85;
-    GameState.velocityY *= 0.85;
-    
-    if (Math.abs(GameState.velocityX) < CONFIG.MIN_VELOCITY && Math.abs(GameState.velocityY) < CONFIG.MIN_VELOCITY) {
-      GameState.velocityX = GameState.velocityY = 0;
-    }
-    
-    GameState.clientX += GameState.velocityX;
-    GameState.clientY += GameState.velocityY;
-    
-    GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
-    GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
   }
 
-  const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) {
     GameState.isAttacking = false;
   }
 }
 
-// ===== MAIN GAME LOOP =====
 function loop() {
   updatePhysics();
-  if (!GameState.isAttacking) Network.sendPositionUpdate();
   Renderer.draw();
   requestAnimationFrame(loop);
 }
@@ -232,7 +201,7 @@ function main() {
     Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) {
       GameState.rightMouseDown = false;
-      if (GameState.loseXpInterval) { clearInterval(GameState.loseXpInterval); GameState.loseXpInterval = null; }
+      Network.sendPositionUpdate(true);
     }
   }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
