@@ -4,7 +4,6 @@ import { Camera, Resources, Renderer } from './renderer.js';
 
 const CONFIG = window.GAME_CONFIG;
 
-// Tự động nhận diện giao thức (http/https)
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
@@ -58,8 +57,14 @@ const Network = {
       GameState.isDead = me?.isDead || false;
       GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
-      const now = Date.now();
+      // KIỂM TRA HIỆU ỨNG CHẾT
       for (const p of data.players || []) {
+        // Nổ tung Particles khi bất kỳ ai chết (trạng thái chuyển từ sống sang chết)
+        if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
+          Renderer.addDeathParticles(p.x, p.y, p.radius);
+        }
+
+        // Chữ XP nổi lên nếu ta là người giết
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           const gainXp = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
           Renderer.addKillXpEffect(me.x, me.y - (me.radius || 30) - 30, gainXp);
@@ -193,12 +198,10 @@ function updatePhysics() {
     GameState.clientX += GameState.velocityX;
     GameState.clientY += GameState.velocityY;
     
-    // Chặn biên bản đồ
     GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
     GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
   }
 
-  // Quản lý Animation chém
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) {
     GameState.isAttacking = false;
