@@ -89,8 +89,28 @@ export const Renderer = {
   minimap: null,
   minimapCtx: null,
   
+  // Hệ thống VFX
+  particles: [],
+  trails: {},
+  
   addKillXpEffect(x, y, amount) {
     pendingKillXpEffects.push({ x, y, amount, start: Date.now() });
+  },
+
+  addDeathParticles(x, y, radius) {
+    const numParticles = 15 + Math.random() * 15; // 15 đến 30 hạt mảnh vỡ
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 6 + 3;
+      this.particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 1.0, 
+        decay: Math.random() * 0.03 + 0.015,
+        size: Math.random() * (radius * 0.35) + 3,
+        color: Math.random() > 0.5 ? "#ff3333" : "#ffcc00"
+      });
+    }
   },
   
   setupUI() {
@@ -353,7 +373,7 @@ export const Renderer = {
     const viewportTop = GameState.clientY - canvas.height / (2 * Camera.currentZoom) - margin;
     const viewportBottom = GameState.clientY + canvas.height / (2 * Camera.currentZoom) + margin;
     
-    // Draw Food
+    // --- 1. Vẽ Food ---
     for (const f of interpFood) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0;
@@ -365,8 +385,45 @@ export const Renderer = {
         }
       }
     }
+
+    // --- 2. Vẽ Sprint Trails (Bóng mờ tốc biến) ---
+    const now = Date.now();
+    for (const id in this.trails) {
+      // Xóa vệt cũ quá 200ms
+      this.trails[id] = this.trails[id].filter(t => now - t.time < 200);
+      if (this.trails[id].length === 0) {
+        delete this.trails[id];
+        continue;
+      }
+      
+      for (const t of this.trails[id]) {
+        const img = Resources.getPlayerImage(t.level || 1);
+        if (img && img.complete) {
+          const life = 1 - (now - t.time) / 200;
+          ctx.save();
+          ctx.globalAlpha = life * 0.35; // Độ mờ tàn ảnh
+          this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle);
+          ctx.restore();
+        }
+      }
+    }
     
-    // Draw other players
+    // --- 3. Vẽ Particles (Hiệu ứng hạt vỡ) ---
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // --- 4. Vẽ Other Players ---
     for (const id in interpPlayers) {
       const p = interpPlayers[id];
       if (p.isDead) continue;
@@ -376,8 +433,14 @@ export const Renderer = {
         let angle = this.lerpAngle(GameState.prevAngles[id] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
         GameState.prevAngles[id] = angle;
         GameState.prevPositions[id] = { x: p.x, y: p.y };
+
+        // Ghi lại tàn ảnh nếu người chơi này đang Sprint
+        if (p.rightMouseDown) {
+          if (!this.trails[p.id]) this.trails[p.id] = [];
+          this.trails[p.id].push({ x: p.x, y: p.y, angle, level: p.level, radius: p.radius, time: now });
+        }
         
-        if (p.rightMouseDown && !p.isDead && Resources.mountImg.complete) {
+        if (p.rightMouseDown && Resources.mountImg.complete) {
           this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (p.radius + 22) * 2, angle);
         }
         
@@ -397,7 +460,7 @@ export const Renderer = {
       }
     }
     
-    // Draw main player
+    // --- 5. Vẽ Main Player ---
     const me = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find((p) => p.id === GameState.playerId);
     
     if (me && me.isDead) {
@@ -406,7 +469,7 @@ export const Renderer = {
         respawnModal.style = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-size:2.5rem;";
         document.body.appendChild(respawnModal);
       }
-      const left = Math.max(0, (CONFIG.RESPAWN_TIME / 1000) - Math.floor((Date.now() - me.deadTime) / 1000));
+      const left = Math.max(0, (CONFIG.RESPAWN_TIME / 1000) - Math.floor((now - me.deadTime) / 1000));
       respawnModal.innerHTML = `<div>Bạn đã bị hạ!</div><div>Hồi sinh sau: <b>${left}</b> giây</div>`;
     } else {
       if (respawnModal) { respawnModal.remove(); respawnModal = null; }
@@ -416,6 +479,12 @@ export const Renderer = {
       GameState.prevAngles[GameState.playerId] = angle;
       GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
+      // Ghi lại tàn ảnh nếu Main Player đang Sprint
+      if (me && me.rightMouseDown) {
+        if (!this.trails[GameState.playerId]) this.trails[GameState.playerId] = [];
+        this.trails[GameState.playerId].push({ x: GameState.clientX, y: GameState.clientY, angle, level: GameState.clientLevel, radius: GameState.clientRadius, time: now });
+      }
+
       if (me && me.rightMouseDown && Resources.mountImg.complete) {
         this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
       }
@@ -428,7 +497,7 @@ export const Renderer = {
       this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
       
       // Cooldown bar
-      const cdElapsed = Date.now() - (GameState.lastAttackTime || 0);
+      const cdElapsed = now - (GameState.lastAttackTime || 0);
       const cooldown = 500 + (GameState.clientLevel - 1) * 60;
       if (cdElapsed < cooldown) {
         const barW = GameState.clientRadius * 2, barH = 7;
