@@ -1,8 +1,13 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+
+// Tự động nhận diện giao thức (http/https) và chuyển thành ws/wss
+const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const wsUrl = `${protocol}//${window.location.host}`;
+
 // ===== CONFIG =====
 const CONFIG = {
-  WEBSOCKET_URL: "ws://localhost:3000",
+  WEBSOCKET_URL: wsUrl,
   MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
   BUFFER_DELAY: 50,
@@ -312,6 +317,9 @@ const Network = {
     }
   },
   sendPositionUpdate(forceSendAngle = false) {
+    // Chặn gửi dữ liệu nếu WebSocket chưa mở
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
     const now = Date.now();
     const me = (
       GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []
