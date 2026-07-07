@@ -1,0 +1,20 @@
+{
+  "name": "evowar-game",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node -e \"require('fs').copyFileSync('src/client/main.js', 'public/main.js')\"",
+    "start": "npm run build && node src/server/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0",
+    "quadtree-lib": "^1.0.9",
+    "rbush": "^3.0.1",
+    "ws": "^8.18.3"
+  }
+}
