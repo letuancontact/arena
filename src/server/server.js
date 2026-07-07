@@ -320,7 +320,7 @@ setInterval(() => {
   }
 }, 16);
 
-// DÁN VÀO ĐOẠN NÀY:
+// Khởi chạy server với cổng tự động từ Render hoặc 3000 ở local
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () =>
   console.log(`Server running on port ${PORT}`)
