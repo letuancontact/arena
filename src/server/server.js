@@ -2,7 +2,7 @@
 
 /**
  * @fileoverview Main Server Entry Point.
- * Quản lý vòng lặp Game Loop, WebSockets và đồng bộ dữ liệu.
+ * Quản lý Game Loop, WebSockets và đồng bộ dữ liệu.
  */
 
 const express = require("express");
@@ -10,7 +10,6 @@ const path = require("path");
 const { WebSocketServer } = require("ws");
 const http = require("http");
 
-// Import cấu hình dùng chung mới
 const CONFIG = require("../shared/constants");
 const utils = require("./utils");
 const playerLib = require("./player");
@@ -23,16 +22,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// Phục vụ thư mục public cho Client
 app.use(express.static(path.join(__dirname, "../../public")));
-// Phục vụ thư mục shared để Client có thể load file constants.js
 app.use("/shared", express.static(path.join(__dirname, "../shared")));
 
 const players = new Map();
 const bots = new Map();
 let food = [];
 
-// Khởi tạo food ban đầu
 foodLib.spawnFood(food);
 
 wss.on("connection", (ws) => {
@@ -41,14 +37,7 @@ wss.on("connection", (ws) => {
   p.y = Math.random() * CONFIG.MAP_HEIGHT;
   players.set(p.id, p);
 
-  ws.send(
-    JSON.stringify({
-      type: "init",
-      id: p.id,
-      mapWidth: CONFIG.MAP_WIDTH,
-      mapHeight: CONFIG.MAP_HEIGHT,
-    })
-  );
+  ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT }));
 
   ws.on("message", (msg) => {
     try {
@@ -57,16 +46,9 @@ wss.on("connection", (ws) => {
       if (!player) return;
 
       if (data.type === "move") {
-        playerLib.handlePlayerMove(
-          player,
-          data,
-          CONFIG.MAP_WIDTH,
-          CONFIG.MAP_HEIGHT
-        );
+        playerLib.handlePlayerMove(player, data, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
       }
       
-      // TODO: Logic này sẽ được refactor ở Chương 13 (Authoritative Server)
-      // Hiện tại giữ nguyên để không phá vỡ behavior.
       if (data.type === "lose_xp") {
         player.xp -= data.amount || 5;
         player.score -= data.amount || 5;
@@ -94,41 +76,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-/**
- * Tính toán vị trí gốc và ngọn của vũ khí để tính sát thương
- * @param {Object} player - Đối tượng người chơi
- * @param {String} which - "left" hoặc "right"
- * @returns {Object} {base, tip}
- */
-function getWeaponBaseAndTip(player, which = "left") {
-  const angle = player.angle || 0;
-  const level = player.level || 1;
-  const radius = player.radius || playerLib.getRadiusByLevel(level);
-  
-  let swing = 0;
-  if (player.isAttacking) {
-    const attackDuration = CONFIG.BASE_ATTACK_DURATION + level * CONFIG.ATTACK_DURATION_PER_LEVEL;
-    const t = Math.min(1, (Date.now() - player.attackTime) / attackDuration);
-    swing = Math.sin(t * Math.PI) * (level < 37 ? CONFIG.ATTACK_SWING_ANGLE : CONFIG.ATTACK_SWING_ANGLE * 0.68);
-  }
-
-  let weaponAngle = which === "left" ? angle - Math.PI * 0.7 + swing : angle + Math.PI * 0.7 - swing;
-  
-  const baseRatio = 2.75;
-  const growPerLevel = 0.04;
-  const weaponSize = radius * (baseRatio + growPerLevel * (level - 1));
-  const weaponHeadOffset = weaponSize * 0.4;
-  
-  const baseX = player.x + Math.cos(weaponAngle) * radius;
-  const baseY = player.y + Math.sin(weaponAngle) * radius;
-  
-  const reach = (weaponHeadOffset + weaponSize / 2) * 1.4;
-  const tipX = baseX + Math.cos(weaponAngle) * reach;
-  const tipY = baseY + Math.sin(weaponAngle) * reach;
-  
-  return { base: { x: baseX, y: baseY }, tip: { x: tipX, y: tipY } };
-}
-
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
 let foodTree = null;
@@ -140,12 +87,10 @@ let foodDirty = true;
 setInterval(() => {
   const now = Date.now();
 
-  // 1. Quản lý Food - ĐÃ SỬA LỖI VÒNG LẶP VÔ HẠN TẠI ĐÂY
+  // 1. Quản lý Food
   const oldFoodCount = food.length;
-  foodLib.spawnFood(food); // Hàm này đã có sẵn vòng lặp while bên trong nó
-  if (food.length > oldFoodCount) {
-    foodDirty = true;
-  }
+  foodLib.spawnFood(food); 
+  if (food.length > oldFoodCount) foodDirty = true;
 
   if (foodDirty || !foodTree) {
     foodTree = spatialIndex.buildFoodIndex(food);
@@ -179,20 +124,30 @@ setInterval(() => {
     }
   }
 
-  // 3. Xử lý Chiến đấu (Combat)
+  // 3. Xử lý Chiến đấu (Combat Arc Hitbox)
   const playerTree = spatialIndex.buildPlayerIndex(playerArray);
   for (const attacker of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (attacker.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
     
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
+      // Set để ghi nhớ những nạn nhân đã bị chém trúng trong cú vung kiếm này (tránh trừ máu liên tục)
+      if (!attacker.hitVictims) attacker.hitVictims = new Set();
+      
       const weaponReach = attacker.radius * 4.5;
-      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, weaponReach);
+      // Cộng thêm 100 vào radius search rbush để bao quát được những nạn nhân khổng lồ nằm ở rìa
+      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, weaponReach + 100);
       
       for (const victim of nearbyVictims) {
         if (victim.id === attacker.id) continue;
         if (victim.justRespawned && now - victim.justRespawned < CONFIG.HIT_COOLDOWN) continue;
         
-        if (collisionLib.weaponHitsPlayer(attacker, victim, getWeaponBaseAndTip)) {
+        // Đã dính đòn trong cú chém này rồi thì không trừ thêm máu nữa
+        if (attacker.hitVictims.has(victim.id)) continue; 
+        
+        // GỌI HÀM ARC HITBOX MỚI
+        if (collisionLib.weaponHitsPlayerArc(attacker, victim)) {
+          attacker.hitVictims.add(victim.id); 
+          
           if (victim.level > 1) {
             victim.level--;
             victim.radius = playerLib.getRadiusByLevel(victim.level);
@@ -200,6 +155,7 @@ setInterval(() => {
           } else {
             victim.xp = 0;
           }
+          
           victim.isDead = true;
           victim.deadTime = now;
           victim.killerId = attacker.id;
@@ -215,6 +171,9 @@ setInterval(() => {
           }
         }
       }
+    } else {
+      // Khi kết thúc animation chém, xóa trí nhớ về các victim bị hit để chuẩn bị cho cú chém sau
+      if (attacker.hitVictims) attacker.hitVictims.clear();
     }
   }
 
@@ -254,15 +213,13 @@ setInterval(() => {
     const statePayload = JSON.stringify({
       type: "state",
       players: allPlayers,
-      food: food, // TODO: Tối ưu không gửi mảng thức ăn full mỗi tick
+      food: food,
       mapWidth: CONFIG.MAP_WIDTH,
       mapHeight: CONFIG.MAP_HEIGHT,
     });
 
     for (const p of players.values()) {
-      if (p.ws.readyState === p.ws.OPEN) {
-        p.ws.send(statePayload);
-      }
+      if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload);
     }
   }
 
@@ -298,9 +255,7 @@ setInterval(() => {
 
   // 7. Cập nhật vị trí Bot
   for (const bot of bots.values()) {
-    if (!bot.isDead) {
-      botLib.updateBot(bot, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-    }
+    if (!bot.isDead) botLib.updateBot(bot, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   }
 }, CONFIG.SERVER_TICK_RATE);
 
