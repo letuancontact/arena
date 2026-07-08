@@ -4,10 +4,14 @@ const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+
+let respawnModal = null;
 let pendingKillXpEffects = [];
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
+  shakeIntensity: 0, // Tính năng Rung màn hình
+  triggerShake(intensity) { this.shakeIntensity = intensity; },
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
@@ -19,6 +23,15 @@ export const Camera = {
     const dist = Math.hypot(targetX - this.x, targetY - this.y);
     if (dist > 200) { this.x = targetX; this.y = targetY; } 
     else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
+    
+    // Xử lý Rung Camera
+    if (this.shakeIntensity > 0) {
+      this.x += (Math.random() - 0.5) * this.shakeIntensity;
+      this.y += (Math.random() - 0.5) * this.shakeIntensity;
+      this.shakeIntensity -= 0.5 * dtMultiplier; // Mờ dần độ rung
+      if (this.shakeIntensity < 0) this.shakeIntensity = 0;
+    }
+
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     else this.currentZoom = this.targetZoom;
   },
@@ -237,7 +250,6 @@ export const Renderer = {
     const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
-    // GIAO DIỆN VẼ NHÂN VẬT CHÍNH ĐƯỢC LÀM GỌN: CHỈ VẼ KHI ĐANG SỐNG
     if (me && !me.isDead) {
       let targetAngle = GameState.isAttacking ? (GameState.prevAngles[GameState.playerId] ?? 0) : GameState.mouseAngle;
       let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
