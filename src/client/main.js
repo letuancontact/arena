@@ -7,21 +7,67 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
+// ===== AUDIO SYSTEM (Không cần tải file MP3) =====
+const Sound = {
+  ctx: null,
+  init() {
+    if (this.ctx) return;
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AudioContext();
+  },
+  play(type) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    
+    const now = this.ctx.currentTime;
+    if (type === 'swing') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
+    } else if (type === 'eat') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'kill') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'levelUp') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.setValueAtTime(600, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    }
+  }
+};
+
 // ===== UI CONTROLLER (MAIN MENU) =====
 const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
-// Tự động nạp tên cũ từ trình duyệt
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 playBtn.addEventListener("click", () => {
+  Sound.init(); // Kích hoạt AudioContext sau tương tác đầu tiên của người dùng
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách";
   localStorage.setItem("evowar_name", name);
   
-  // Gửi lệnh VÀO TRẬN lên Server
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
   playBtn.innerText = "ĐANG VÀO...";
   playBtn.disabled = true;
@@ -64,45 +110,44 @@ const Network = {
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id));
       }
       
-      const prevDead = GameState.isDead ?? true; // Mặc định vào web là đang ở sảnh (chết)
+      const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       
       if (me) {
         const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1;
-        GameState.clientXp = me.xp || 0; GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
+        
+        // --- HIỆU ỨNG ÂM THANH ---
+        if (me.level > oldLevel) Sound.play('levelUp');
+        else if (me.xp > GameState.clientXp) Sound.play('eat');
+        
+        GameState.clientXp = me.xp || 0; 
+        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
+        
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
-        // QUẢN LÝ GIAO DIỆN KHI SỐNG LẠI
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0";
-          setTimeout(() => uiLayer.style.display = "none", 300);
+          uiLayer.style.opacity = "0"; setTimeout(() => uiLayer.style.display = "none", 300);
         } else { 
           GameState.serverX = me.x; GameState.serverY = me.y; 
         }
 
-        // QUẢN LÝ GIAO DIỆN KHI BỊ GIẾT
         if (!prevDead && me.isDead) {
-          uiLayer.style.display = "flex";
-          setTimeout(() => uiLayer.style.opacity = "1", 10);
-          statusText.innerText = "Bạn đã bị hạ gục!";
-          playBtn.disabled = true;
-
+          // --- HIỆU ỨNG CHẾT: RUNG MÀN HÌNH SIÊU MẠNH ---
+          Camera.triggerShake(30);
+          
+          uiLayer.style.display = "flex"; setTimeout(() => uiLayer.style.opacity = "1", 10);
+          statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000);
           playBtn.innerText = `HỒI SINH SAU (${left}s)`;
           
           const interval = setInterval(() => {
             left--;
             if (left <= 0) {
-              clearInterval(interval);
-              playBtn.innerText = "VÀO TRẬN LẠI";
-              playBtn.disabled = false;
-              statusText.innerText = "";
-            } else {
-              playBtn.innerText = `HỒI SINH SAU (${left}s)`;
-            }
+              clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = "";
+            } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; }
           }, 1000);
         }
       }
@@ -112,8 +157,13 @@ const Network = {
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
+        
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
+          
+          // --- HIỆU ỨNG GIẾT ĐỊCH: RUNG CAMERA & PHÁT ÂM THANH ---
+          Sound.play('kill');
+          Camera.triggerShake(15);
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -152,6 +202,7 @@ const Input = {
         Network.sendPositionUpdate(); GameState.mouseMoveThrottled = false;
       });
     });
+    
     canvas.addEventListener("mousedown", (e) => {
       if (GameState.isTouch || GameState.isDead) return;
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) { GameState.rightMouseDown = true; Network.sendPositionUpdate(true); }
@@ -159,9 +210,11 @@ const Input = {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
         if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
           GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
+          Sound.play('swing'); // CHÉM KIẾM -> PHÁT ÂM THANH
         }
       }
     });
+    
     canvas.addEventListener("mouseup", (e) => {
       if (GameState.isTouch) return;
       if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
@@ -182,6 +235,7 @@ const Input = {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
+            Sound.play('swing'); // CHÉM KIẾM BẰNG MOBILE -> PHÁT ÂM THANH
           }
         }
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
