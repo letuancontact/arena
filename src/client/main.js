@@ -7,35 +7,64 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
+// ===== UI CONTROLLER (MAIN MENU) =====
+const uiLayer = document.getElementById("ui-layer");
+const playBtn = document.getElementById("play-btn");
+const nameInput = document.getElementById("name-input");
+const statusText = document.getElementById("status-text");
+
+// Tự động nạp tên cũ từ trình duyệt
+nameInput.value = localStorage.getItem("evowar_name") || "";
+
+playBtn.addEventListener("click", () => {
+  if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
+  const name = nameInput.value.trim() || "Khách";
+  localStorage.setItem("evowar_name", name);
+  
+  // Gửi lệnh VÀO TRẬN lên Server
+  Network.ws.send(JSON.stringify({ type: "join", name: name }));
+  playBtn.innerText = "ĐANG VÀO...";
+  playBtn.disabled = true;
+});
+
+// ===== NETWORK =====
 const Network = {
   ws: null,
-  connect() { this.ws = new WebSocket(wsUrl); this.ws.onmessage = this.onMessage; },
+  connect() { 
+    this.ws = new WebSocket(wsUrl); 
+    this.ws.onopen = () => {
+      statusText.innerText = "";
+      playBtn.innerText = "VÀO TRẬN";
+      playBtn.disabled = false;
+    };
+    this.ws.onclose = () => {
+      statusText.innerText = "Mất kết nối với Server!";
+      playBtn.disabled = true;
+      uiLayer.style.display = "flex";
+      uiLayer.style.opacity = "1";
+    };
+    this.ws.onmessage = this.onMessage; 
+  },
   onMessage(msg) {
     const data = JSON.parse(msg.data);
     if (data.type === "init") {
       GameState.playerId = data.id;
-      GameState.mapWidth = data.mapWidth || CONFIG.MAP_WIDTH; 
-      GameState.mapHeight = data.mapHeight || CONFIG.MAP_HEIGHT;
+      GameState.mapWidth = data.mapWidth || CONFIG.MAP_WIDTH; GameState.mapHeight = data.mapHeight || CONFIG.MAP_HEIGHT;
       GameState.clientX = GameState.serverX = data.x ?? GameState.mapWidth / 2;
       GameState.clientY = GameState.serverY = data.y ?? GameState.mapHeight / 2;
-      // NHẬN 400 THỨC ĂN LẦN ĐẦU
       GameState.food = data.food || [];
     }
     if (data.type === "state") {
-      // LOẠI BỎ THỨC ĂN KHỎI STATE BUFFER (Không nội suy đồ tĩnh nữa)
       GameState.stateBuffer.push({ time: Date.now(), players: data.players || [] });
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
-      // CẬP NHẬT DELTA THỨC ĂN (Mạng nhàn rỗi)
-      if (data.foodAdded && data.foodAdded.length > 0) {
-        GameState.food.push(...data.foodAdded);
-      }
+      if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
       if (data.foodRemoved && data.foodRemoved.length > 0) {
         const removedSet = new Set(data.foodRemoved);
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id));
       }
       
-      const prevDead = GameState.isDead;
+      const prevDead = GameState.isDead ?? true; // Mặc định vào web là đang ở sảnh (chết)
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       
       if (me) {
@@ -45,16 +74,46 @@ const Network = {
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
-        if (prevDead && !me.isDead) { GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; } 
-        else { GameState.serverX = me.x; GameState.serverY = me.y; }
+        // QUẢN LÝ GIAO DIỆN KHI SỐNG LẠI
+        if (prevDead && !me.isDead) { 
+          GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
+          uiLayer.style.opacity = "0";
+          setTimeout(() => uiLayer.style.display = "none", 300);
+        } else { 
+          GameState.serverX = me.x; GameState.serverY = me.y; 
+        }
+
+        // QUẢN LÝ GIAO DIỆN KHI BỊ GIẾT
+        if (!prevDead && me.isDead) {
+          uiLayer.style.display = "flex";
+          setTimeout(() => uiLayer.style.opacity = "1", 10);
+          statusText.innerText = "Bạn đã bị hạ gục!";
+          playBtn.disabled = true;
+
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000);
+          playBtn.innerText = `HỒI SINH SAU (${left}s)`;
+          
+          const interval = setInterval(() => {
+            left--;
+            if (left <= 0) {
+              clearInterval(interval);
+              playBtn.innerText = "VÀO TRẬN LẠI";
+              playBtn.disabled = false;
+              statusText.innerText = "";
+            } else {
+              playBtn.innerText = `HỒI SINH SAU (${left}s)`;
+            }
+          }, 1000);
+        }
       }
       
-      GameState.isDead = me?.isDead || false; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
+      GameState.isDead = me?.isDead ?? true; 
+      GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
-          Renderer.addKillXpEffect(me.x, me.y - (me.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
+          Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -78,6 +137,7 @@ const Network = {
   },
 };
 
+// ===== INPUT =====
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -93,7 +153,7 @@ const Input = {
       });
     });
     canvas.addEventListener("mousedown", (e) => {
-      if (GameState.isTouch) return;
+      if (GameState.isTouch || GameState.isDead) return;
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) { GameState.rightMouseDown = true; Network.sendPositionUpdate(true); }
       if (e.button === 0) {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -110,6 +170,7 @@ const Input = {
     const isPointInCircle = (px, py, cx, cy, radius) => Math.hypot(px - cx, py - cy) < radius;
 
     canvas.addEventListener("touchstart", (e) => {
+      if(GameState.isDead) return;
       GameState.isTouch = true;
       e.preventDefault(); 
       for(let i=0; i<e.changedTouches.length; i++) {
@@ -124,13 +185,10 @@ const Input = {
           }
         }
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
-          GameState.rightMouseDown = true;
-          GameState.sprintTouchId = t.identifier;
-          Network.sendPositionUpdate(true);
+          GameState.rightMouseDown = true; GameState.sprintTouchId = t.identifier; Network.sendPositionUpdate(true);
         }
         else if (tx < w / 2) {
-          GameState.joystick.active = true;
-          GameState.joystick.id = t.identifier;
+          GameState.joystick.active = true; GameState.joystick.id = t.identifier;
           GameState.joystick.baseX = tx; GameState.joystick.baseY = ty;
           GameState.joystick.stickX = tx; GameState.joystick.stickY = ty;
           GameState.isMoving = true;
@@ -139,28 +197,22 @@ const Input = {
     }, {passive: false});
 
     canvas.addEventListener("touchmove", (e) => {
+      if(GameState.isDead) return;
       e.preventDefault();
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
-          const dx = t.clientX - GameState.joystick.baseX;
-          const dy = t.clientY - GameState.joystick.baseY;
-          const dist = Math.hypot(dx, dy);
-          const maxDist = 50; 
+          const dx = t.clientX - GameState.joystick.baseX, dy = t.clientY - GameState.joystick.baseY;
+          const dist = Math.hypot(dx, dy), maxDist = 50; 
           
-          if (dist > 5) {
-            GameState.mouseAngle = Math.atan2(dy, dx);
-            GameState.isMoving = true;
-          } else {
-            GameState.isMoving = false;
-          }
+          if (dist > 5) { GameState.mouseAngle = Math.atan2(dy, dx); GameState.isMoving = true; } 
+          else { GameState.isMoving = false; }
 
           if (dist > maxDist) {
             GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist;
             GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist;
           } else {
-            GameState.joystick.stickX = t.clientX;
-            GameState.joystick.stickY = t.clientY;
+            GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY;
           }
           Network.sendPositionUpdate();
         }
@@ -168,18 +220,15 @@ const Input = {
     }, {passive: false});
 
     canvas.addEventListener("touchend", (e) => {
+      if(GameState.isDead) return;
       e.preventDefault();
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
-          GameState.joystick.active = false;
-          GameState.isMoving = false;
-          Network.sendPositionUpdate(true);
+          GameState.joystick.active = false; GameState.isMoving = false; Network.sendPositionUpdate(true);
         }
         if (GameState.sprintTouchId === t.identifier) {
-          GameState.rightMouseDown = false;
-          GameState.sprintTouchId = null;
-          Network.sendPositionUpdate(true);
+          GameState.rightMouseDown = false; GameState.sprintTouchId = null; Network.sendPositionUpdate(true);
         }
       }
     }, {passive: false});
@@ -189,7 +238,7 @@ const Input = {
 };
 
 function updatePhysics(dtMultiplier) {
-  if (GameState.clientX === null || GameState.clientY === null) return;
+  if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
@@ -232,7 +281,7 @@ function main() {
   
   requestAnimationFrame(loop);
   setInterval(() => {
-    Renderer.updateUI();
+    if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) {
       GameState.rightMouseDown = false;
       Network.sendPositionUpdate(true);
