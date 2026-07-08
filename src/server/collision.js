@@ -1,45 +1,34 @@
 "use strict";
 const CONFIG = require("../shared/constants");
 
-/**
- * CHƯƠNG 7 & 8: ARC HITBOX COLLISION
- * Kiểm tra va chạm theo Vùng Cung Tròn (Pizza slice). 
- * Chuẩn xác 100%, không có điểm mù như thuật toán check 5 điểm cũ.
- */
 function weaponHitsPlayerArc(attacker, victim) {
-  const reach = attacker.radius * 4.5; // Tầm chém dài gấp 4.5 lần bán kính cơ thể
+  // 1. TÍNH TOÁN TẦM CHÉM CHUẨN XÁC: 
+  // Dựa đúng vào công thức vẽ ảnh kiếm (baseRatio 2.75, growPerLevel 0.04)
+  const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
+  const exactReach = attacker.radius + weaponSize * 0.85; // 0.85 là tỷ lệ bù trừ khít với mũi kiếm đồ họa
+  
   const dist = Math.hypot(victim.x - attacker.x, victim.y - attacker.y);
   
-  // 1. Thoát nhanh: Nằm ngoài hoàn toàn tầm chém (đã cộng thêm bán kính nạn nhân)
-  if (dist > reach + victim.radius) return false;
+  // Nằm ngoài hoàn toàn tầm chém (đã cộng thêm bán kính nạn nhân)
+  if (dist > exactReach + victim.radius) return false;
   
-  // 2. Thoát nhanh: Nếu nạn nhân đứng đè lên gốc attacker thì chắc chắn trúng
+  // Đè lên nhau
   if (dist <= victim.radius) return true;
 
-  // 3. Kỹ năng AOE 360 độ: Level 37 trở lên cầm 2 kiếm xoay tròn (trúng mọi góc)
-  if (attacker.level >= 37) {
-      return true;
-  }
+  // Level 37 cầm 2 kiếm xoay tròn
+  if (attacker.level >= 37) return true;
   
-  // 4. Kiểm tra góc chém (Angle Check)
+  // Kiểm tra góc vung kiếm
   const angleToVictim = Math.atan2(victim.y - attacker.y, victim.x - attacker.x);
-  
-  // Tính chênh lệch góc giữa hướng quay mặt của attacker và vị trí của victim
   let diff = angleToVictim - attacker.angle;
   
-  // Chuẩn hóa góc về đoạn [-PI, PI] để tính toán đúng
   while (diff > Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
   diff = Math.abs(diff);
 
-  // Nửa góc vung vũ khí. Ví dụ Swing 180 độ (PI) -> nửa góc là 90 độ (PI/2)
   const halfSwing = (CONFIG.ATTACK_SWING_ANGLE) / 2;
-  
-  // Nạn nhân có bán kính, nên dù tâm của họ nằm ngoài rìa cung chém, 
-  // rìa cơ thể họ vẫn có thể quẹt vào kiếm. Tính góc mở rộng thêm dựa trên bán kính victim.
   const victimAngularSize = Math.asin(victim.radius / dist);
   
-  // Nếu chênh lệch góc nhỏ hơn góc vung vũ khí + góc cơ thể nạn nhân -> TRÚNG ĐÒN
   if (diff <= halfSwing + victimAngularSize) {
       return true;
   }
