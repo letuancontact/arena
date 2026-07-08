@@ -7,7 +7,7 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// ===== AUDIO SYSTEM (Không cần tải file MP3) =====
+// ===== AUDIO SYSTEM =====
 const Sound = {
   ctx: null,
   init() {
@@ -19,42 +19,30 @@ const Sound = {
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    osc.connect(gain); gain.connect(this.ctx.destination);
     
     const now = this.ctx.currentTime;
     if (type === 'swing') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(150, now);
-      osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
       osc.start(now); osc.stop(now + 0.15);
     } else if (type === 'eat') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(600, now);
-      gain.gain.setValueAtTime(0.05, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
       osc.start(now); osc.stop(now + 0.1);
     } else if (type === 'kill') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(200, now);
-      osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.type = 'square'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+      gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.start(now); osc.stop(now + 0.3);
     } else if (type === 'levelUp') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(400, now);
-      osc.frequency.setValueAtTime(600, now + 0.1);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
       osc.start(now); osc.stop(now + 0.4);
     }
   }
 };
 
-// ===== UI CONTROLLER (MAIN MENU) =====
+// ===== UI CONTROLLER =====
 const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
@@ -63,7 +51,7 @@ const statusText = document.getElementById("status-text");
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 playBtn.addEventListener("click", () => {
-  Sound.init(); // Kích hoạt AudioContext sau tương tác đầu tiên của người dùng
+  Sound.init(); 
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách";
   localStorage.setItem("evowar_name", name);
@@ -78,17 +66,8 @@ const Network = {
   ws: null,
   connect() { 
     this.ws = new WebSocket(wsUrl); 
-    this.ws.onopen = () => {
-      statusText.innerText = "";
-      playBtn.innerText = "VÀO TRẬN";
-      playBtn.disabled = false;
-    };
-    this.ws.onclose = () => {
-      statusText.innerText = "Mất kết nối với Server!";
-      playBtn.disabled = true;
-      uiLayer.style.display = "flex";
-      uiLayer.style.opacity = "1";
-    };
+    this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "VÀO TRẬN"; playBtn.disabled = false; };
+    this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; };
     this.ws.onmessage = this.onMessage; 
   },
   onMessage(msg) {
@@ -118,13 +97,10 @@ const Network = {
         GameState.clientLevel = me.level || 1;
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        // --- HIỆU ỨNG ÂM THANH ---
         if (me.level > oldLevel) Sound.play('levelUp');
         else if (me.xp > GameState.clientXp) Sound.play('eat');
         
-        GameState.clientXp = me.xp || 0; 
-        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
-        
+        GameState.clientXp = me.xp || 0; GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
@@ -135,35 +111,27 @@ const Network = {
         }
 
         if (!prevDead && me.isDead) {
-          // --- HIỆU ỨNG CHẾT: RUNG MÀN HÌNH SIÊU MẠNH ---
-          Camera.triggerShake(30);
-          
+          // ĐÃ XÓA BỎ LỆNH RUNG MÀN HÌNH TẠI ĐÂY THEO Ý BẠN
           uiLayer.style.display = "flex"; setTimeout(() => uiLayer.style.opacity = "1", 10);
           statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000);
-          playBtn.innerText = `HỒI SINH SAU (${left}s)`;
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
           
           const interval = setInterval(() => {
             left--;
-            if (left <= 0) {
-              clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = "";
-            } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; }
+            if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } 
+            else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; }
           }, 1000);
         }
       }
       
-      GameState.isDead = me?.isDead ?? true; 
-      GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
+      GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
-        
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
-          
-          // --- HIỆU ỨNG GIẾT ĐỊCH: RUNG CAMERA & PHÁT ÂM THANH ---
           Sound.play('kill');
-          Camera.triggerShake(15);
+          // ĐÃ XÓA BỎ LỆNH RUNG MÀN HÌNH KHI DIỆT ĐỊCH TẠI ĐÂY
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -210,11 +178,10 @@ const Input = {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
         if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
           GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-          Sound.play('swing'); // CHÉM KIẾM -> PHÁT ÂM THANH
+          Sound.play('swing'); 
         }
       }
     });
-    
     canvas.addEventListener("mouseup", (e) => {
       if (GameState.isTouch) return;
       if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
@@ -224,18 +191,15 @@ const Input = {
 
     canvas.addEventListener("touchstart", (e) => {
       if(GameState.isDead) return;
-      GameState.isTouch = true;
-      e.preventDefault(); 
+      GameState.isTouch = true; e.preventDefault(); 
       for(let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        const tx = t.clientX, ty = t.clientY;
-        const w = canvas.width, h = canvas.height;
+        const t = e.changedTouches[i]; const tx = t.clientX, ty = t.clientY; const w = canvas.width, h = canvas.height;
         
         if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-            Sound.play('swing'); // CHÉM KIẾM BẰNG MOBILE -> PHÁT ÂM THANH
+            Sound.play('swing'); 
           }
         }
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
@@ -244,8 +208,7 @@ const Input = {
         else if (tx < w / 2) {
           GameState.joystick.active = true; GameState.joystick.id = t.identifier;
           GameState.joystick.baseX = tx; GameState.joystick.baseY = ty;
-          GameState.joystick.stickX = tx; GameState.joystick.stickY = ty;
-          GameState.isMoving = true;
+          GameState.joystick.stickX = tx; GameState.joystick.stickY = ty; GameState.isMoving = true;
         }
       }
     }, {passive: false});
@@ -265,9 +228,7 @@ const Input = {
           if (dist > maxDist) {
             GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist;
             GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist;
-          } else {
-            GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY;
-          }
+          } else { GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY; }
           Network.sendPositionUpdate();
         }
       }
@@ -278,12 +239,8 @@ const Input = {
       e.preventDefault();
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
-          GameState.joystick.active = false; GameState.isMoving = false; Network.sendPositionUpdate(true);
-        }
-        if (GameState.sprintTouchId === t.identifier) {
-          GameState.rightMouseDown = false; GameState.sprintTouchId = null; Network.sendPositionUpdate(true);
-        }
+        if (GameState.joystick.active && t.identifier === GameState.joystick.id) { GameState.joystick.active = false; GameState.isMoving = false; Network.sendPositionUpdate(true); }
+        if (GameState.sprintTouchId === t.identifier) { GameState.rightMouseDown = false; GameState.sprintTouchId = null; Network.sendPositionUpdate(true); }
       }
     }, {passive: false});
 
@@ -291,6 +248,7 @@ const Input = {
   }
 };
 
+// ===== TIÊU CHUẨN VẬT LÝ MỚI CHỐNG GIẬT CHO MOBILE =====
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
@@ -305,10 +263,15 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
+  // TỐI ƯU RECONCILIATION: Khóa chết hệ số Lerp cố định (0.2) thay vì phụ thuộc dtMultiplier
+  // Biện pháp này triệt tiêu hoàn toàn sự rung lắc hình ảnh khi Mobile bị trồi sụt khung hình thực tế
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
     if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
-    else if (dist > 1) { GameState.clientX += (GameState.serverX - GameState.clientX) * 0.15 * dtMultiplier; GameState.clientY += (GameState.serverY - GameState.clientY) * 0.15 * dtMultiplier; }
+    else if (dist > 0.5) { 
+      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.2; 
+      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.2; 
+    }
   }
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
@@ -326,20 +289,13 @@ function loop(currentTime) {
 }
 
 function main() {
-  Renderer.resizeCanvas();
-  Resources.load();
-  Renderer.setupUI();
-  Network.connect();
-  Input.setup();
+  Renderer.resizeCanvas(); Resources.load(); Renderer.setupUI(); Network.connect(); Input.setup();
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   
   requestAnimationFrame(loop);
   setInterval(() => {
     if (!GameState.isDead) Renderer.updateUI();
-    if (GameState.clientXp <= 0 && GameState.rightMouseDown) {
-      GameState.rightMouseDown = false;
-      Network.sendPositionUpdate(true);
-    }
+    if (GameState.clientXp <= 0 && GameState.rightMouseDown) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
   }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
 
