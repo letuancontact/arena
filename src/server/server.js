@@ -64,7 +64,6 @@ let foodDirty = true;
 setInterval(() => {
   const now = Date.now();
 
-  // 1. CẬP NHẬT VẬT LÝ CHO TẤT CẢ (Người và Bot dùng chung 1 ruleset)
   for (const p of players.values()) {
     playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   }
@@ -72,7 +71,6 @@ setInterval(() => {
     playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   }
 
-  // 2. Quản lý Food
   const oldFoodCount = food.length;
   foodLib.spawnFood(food); 
   if (food.length > oldFoodCount) foodDirty = true;
@@ -84,7 +82,6 @@ setInterval(() => {
 
   const playerArray = [...players.values(), ...bots.values()].filter(e => !e.isDead);
 
-  // 3. Kiểm tra ăn thức ăn
   for (const p of playerArray) {
     const nearbyFood = spatialIndex.searchNearbyFood(foodTree, p.x, p.y, p.radius + 24);
     for (const f of nearbyFood) {
@@ -109,7 +106,6 @@ setInterval(() => {
     }
   }
 
-  // 4. Xử lý Chiến đấu (Combat)
   const playerTree = spatialIndex.buildPlayerIndex(playerArray);
   for (const attacker of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (attacker.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
@@ -117,8 +113,11 @@ setInterval(() => {
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
       
-      const weaponReach = attacker.radius * 4.5;
-      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, weaponReach + 100);
+      // SỬA LỖI 3: Dùng Tầm chém khít đồ họa để search Spatial Index
+      const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
+      const exactReach = attacker.radius + weaponSize * 0.85;
+
+      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, exactReach + 100);
       
       for (const victim of nearbyVictims) {
         if (victim.id === attacker.id) continue;
@@ -163,13 +162,10 @@ setInterval(() => {
     }
   }
 
-  // 5. CẬP NHẬT TRÍ TUỆ BOT (AI Thinking)
-  // Cung cấp RBush Tree cho Bot để chúng "nhìn" thấy xung quanh
   for (const bot of bots.values()) {
     if (!bot.isDead) botLib.updateBot(bot, foodTree, playerTree);
   }
 
-  // 6. Broadcast State (Network Tick)
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
     lastBroadcast = now;
     const allPlayers = [...players.values(), ...bots.values()].map(p => ({
@@ -207,7 +203,6 @@ setInterval(() => {
     }
   }
 
-  // 7. Heavy Tick (Hồi sinh)
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
     
