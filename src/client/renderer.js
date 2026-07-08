@@ -4,8 +4,6 @@ const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
-let respawnModal = null;
 let pendingKillXpEffects = [];
 
 export const Camera = {
@@ -67,6 +65,10 @@ export const Renderer = {
     } else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
   updateUI() {
+    this.xpBar.style.display = GameState.isDead ? "none" : "block";
+    this.levelCircle.style.display = GameState.isDead ? "none" : "flex";
+    if (GameState.isDead) return;
+
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
     this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
     this.minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; this.minimapCtx.strokeRect(4, 4, this.minimap.width - 8, this.minimap.height - 8);
@@ -100,7 +102,6 @@ export const Renderer = {
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
   getMoveAngle(id, curr, prev) { if (!prev) return 0; const dx = curr.x - prev.x, dy = curr.y - prev.y; if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return GameState.prevAngles[id] ?? 0; return Math.atan2(dy, dx); },
-  
   getInterpolatedState() {
     const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY;
     let older, newer;
@@ -121,9 +122,8 @@ export const Renderer = {
       }
       interpPlayers[p.id] = interp;
     }
-    return { interpPlayers }; // ĐÃ LOẠI BỎ FOOD RA KHỎI NỘI SUY (TIẾT KIỆM 90% CPU)
+    return { interpPlayers }; 
   },
-  
   drawWeapons(x, y, radius, level, angle, isAttacking = false, attackTime = 0) {
     const weaponImg = Resources.getWeaponImage(level || 1);
     if (weaponImg && weaponImg.complete && weaponImg.naturalHeight !== 0) {
@@ -150,6 +150,7 @@ export const Renderer = {
   },
 
   drawMobileUI() {
+    if(GameState.isDead) return;
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); const w = canvas.width, h = canvas.height;
     if (GameState.joystick.active) {
       ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2); ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
@@ -182,7 +183,6 @@ export const Renderer = {
     const viewportLeft = Camera.x - canvas.width / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + canvas.width / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - canvas.height / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + canvas.height / (2 * Camera.currentZoom) + margin;
     
-    // CHƯƠNG 10: Vẽ tĩnh trực tiếp từ State.food (Tối ưu cực đỉnh)
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
@@ -237,31 +237,24 @@ export const Renderer = {
     const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
-    if (me && me.isDead) {
-      if (!respawnModal) {
-        respawnModal = document.createElement("div"); respawnModal.style = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-size:2.5rem;"; document.body.appendChild(respawnModal);
-      }
-      const left = Math.max(0, (CONFIG.RESPAWN_TIME / 1000) - Math.floor((now - me.deadTime) / 1000));
-      respawnModal.innerHTML = `<div>Bạn đã bị hạ!</div><div>Hồi sinh sau: <b>${left}</b> giây</div>`;
-    } else {
-      if (respawnModal) { respawnModal.remove(); respawnModal = null; }
-      
+    // GIAO DIỆN VẼ NHÂN VẬT CHÍNH ĐƯỢC LÀM GỌN: CHỈ VẼ KHI ĐANG SỐNG
+    if (me && !me.isDead) {
       let targetAngle = GameState.isAttacking ? (GameState.prevAngles[GameState.playerId] ?? 0) : GameState.mouseAngle;
       let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
       GameState.prevAngles[GameState.playerId] = angle; GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
-      if (me && me.rightMouseDown) {
+      if (me.rightMouseDown) {
         if (!this.trails[GameState.playerId]) this.trails[GameState.playerId] = [];
         this.trails[GameState.playerId].push({ x: GameState.clientX, y: GameState.clientY, angle, level: GameState.clientLevel, radius: GameState.clientRadius, time: now });
       }
 
-      if (me && me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
+      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
       
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, GameState.clientRadius * 2, angle);
       
       this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
-      if (me && me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
+      if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
       if (cdElapsed < cooldown) {
@@ -270,7 +263,7 @@ export const Renderer = {
         ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
       }
       
-      if (me && me.name) {
+      if (me.name) {
         ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
         ctx.strokeText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.restore();
       }
