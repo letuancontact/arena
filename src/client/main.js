@@ -7,9 +7,10 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// ===== AUDIO SYSTEM: TỰ TỔNG HỢP ÂM THANH BẰNG CODE KHÔNG CẦN FILE MP3 =====
+// ===== ĐÃ FIX LỖI AUDIO: THÊM BỘ ĐỆM (THROTTLE) CHỐNG PHÁT LIÊN TỤC GÂY ỒN =====
 const Sound = {
   ctx: null,
+  lastPlay: {}, 
   init() {
     if (this.ctx) return;
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -17,31 +18,34 @@ const Sound = {
   },
   play(type) {
     if (!this.ctx) return;
+    
+    const nowMs = Date.now();
+    // Chặn không cho cùng 1 loại âm thanh phát quá nhiều lần trong 100ms
+    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; 
+    this.lastPlay[type] = nowMs;
+
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain); gain.connect(this.ctx.destination);
     
     const now = this.ctx.currentTime;
     if (type === 'swing') {
-      // Tiếng vung kiếm: Tần số giảm nhanh tạo tiếng "vút"
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-      osc.start(now); osc.stop(now + 0.15);
-    } else if (type === 'eat') {
-      // Tiếng nhặt hạt: Một tiếng "Bíp" cao và ngắn
-      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
-      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
       osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'eat') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
     } else if (type === 'kill') {
-      // Tiếng chém trúng: Âm trầm đục, mạnh
-      osc.type = 'square'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
-      gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.start(now); osc.stop(now + 0.3);
+      // Đổi thành âm bass sâu, ngắn gọn (Triangle) để không bị xé tiếng
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc.start(now); osc.stop(now + 0.2);
     } else if (type === 'levelUp') {
-      // Tiếng lên cấp: Giai điệu ngắn tăng lên
       osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1);
-      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-      osc.start(now); osc.stop(now + 0.4);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
     }
   }
 };
@@ -55,7 +59,7 @@ const statusText = document.getElementById("status-text");
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 playBtn.addEventListener("click", () => {
-  Sound.init(); // Trình duyệt yêu cầu user click chuột mới được bật tiếng
+  Sound.init(); 
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách";
   localStorage.setItem("evowar_name", name);
@@ -114,8 +118,7 @@ const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        // KIỂM TRA ĐỂ PHÁT ÂM THANH LEVEL UP & ĂN THỨC ĂN
-        if (GameState.clientLevel > oldLevel) Sound.play('levelUp');
+        if (me.level > oldLevel) Sound.play('levelUp');
         else if (GameState.clientXp > oldXp) Sound.play('eat');
 
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
@@ -129,7 +132,6 @@ const Network = {
         }
 
         if (!prevDead && me.isDead) {
-          // CAMERA SHAKE KHI CHẾT ĐÃ ĐƯỢC GỠ BỎ Ở ĐÂY 
           uiLayer.style.display = "flex";
           setTimeout(() => uiLayer.style.opacity = "1", 10);
           statusText.innerText = "Bạn đã bị hạ gục!";
@@ -159,10 +161,7 @@ const Network = {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
-          
-          // PHÁT ÂM THANH KHI GIẾT ĐỊCH CHUẨN XÁC, VÀ GỠ CAMERA SHAKE
-          Sound.play('kill'); 
-          Camera.triggerShake(15); // Chỉ rung nhẹ xíu khi mình là người kết liễu tạo cảm giác tay (Nếu không thích bạn có thể xóa luôn dòng này)
+          Sound.play('kill');
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -208,7 +207,7 @@ const Input = {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
         if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
           GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-          Sound.play('swing'); // ÂM THANH KHI CHÉM TRÊN PC
+          Sound.play('swing'); 
         }
       }
     });
@@ -232,7 +231,7 @@ const Input = {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-            Sound.play('swing'); // ÂM THANH KHI CHÉM TRÊN MOBILE
+            Sound.play('swing'); 
           }
         }
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
