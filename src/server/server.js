@@ -30,22 +30,24 @@ wss.on("connection", (ws) => {
   const p = playerLib.createPlayer(ws);
   p.x = Math.random() * CONFIG.MAP_WIDTH;
   p.y = Math.random() * CONFIG.MAP_HEIGHT;
+  p.isDead = true; // KHÔNG ĐƯỢC CHƠI NGAY, PHẢI CHỜ BẤM NÚT VÀO TRẬN
   players.set(p.id, p);
 
-  // CHƯƠNG 12: Gửi toàn bộ 400 thức ăn DUY NHẤT 1 LẦN khi người chơi mới kết nối
-  ws.send(JSON.stringify({ 
-    type: "init", 
-    id: p.id, 
-    mapWidth: CONFIG.MAP_WIDTH, 
-    mapHeight: CONFIG.MAP_HEIGHT,
-    food: food 
-  }));
+  ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT, food: food }));
 
   ws.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
       const player = players.get(p.id);
       if (!player) return;
+
+      // NHẬN TÊN VÀ CHO PHÉP HỒI SINH
+      if (data.type === "join") {
+        if (player.isDead) {
+          player.name = String(data.name || "Khách").substring(0, 15);
+          playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+        }
+      }
 
       if (data.type === "move") playerLib.handlePlayerMove(player, data);
       if (data.type === "attack") playerLib.handlePlayerAttack(player);
@@ -63,8 +65,6 @@ let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
 let lastTick = Date.now(); 
 let foodTree = null;
-
-// Biến theo dõi Delta Sync
 let foodAdded = [];
 let foodRemoved = [];
 
@@ -76,14 +76,9 @@ setInterval(() => {
   for (const p of players.values()) playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
   for (const b of bots.values()) playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
 
-  // CHƯƠNG 10: Theo dõi thức ăn sinh ra thêm
   const newlySpawned = foodLib.spawnFood(food); 
-  if (newlySpawned.length > 0) {
-    foodAdded.push(...newlySpawned);
-    foodTree = spatialIndex.buildFoodIndex(food);
-  } else if (!foodTree) {
-    foodTree = spatialIndex.buildFoodIndex(food);
-  }
+  if (newlySpawned.length > 0) { foodAdded.push(...newlySpawned); foodTree = spatialIndex.buildFoodIndex(food); } 
+  else if (!foodTree) { foodTree = spatialIndex.buildFoodIndex(food); }
 
   const playerArray = [...players.values(), ...bots.values()].filter(e => !e.isDead);
 
@@ -91,21 +86,14 @@ setInterval(() => {
     const nearbyFood = spatialIndex.searchNearbyFood(foodTree, p.x, p.y, p.radius + 24);
     for (const f of nearbyFood) {
       if (collisionLib.checkFoodCollision(p, f)) {
-        // CHƯƠNG 10: Đánh dấu thức ăn bị xóa
-        food.splice(food.indexOf(f), 1);
-        foodRemoved.push(f.id);
-        
+        food.splice(food.indexOf(f), 1); foodRemoved.push(f.id);
         if (p.level < CONFIG.MAX_LEVEL) {
-          p.xp += f.xp || 10;
-          p.score += f.xp || 10;
+          p.xp += f.xp || 10; p.score += f.xp || 10;
           while (p.xp >= playerLib.getXpToNext(p.level) && p.level < CONFIG.MAX_LEVEL) {
-            p.xp -= playerLib.getXpToNext(p.level);
-            p.level++;
-            p.radius = playerLib.getRadiusByLevel(p.level);
+            p.xp -= playerLib.getXpToNext(p.level); p.level++; p.radius = playerLib.getRadiusByLevel(p.level);
           }
         } else {
-          p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL));
-          p.score += f.xp || 10;
+          p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL)); p.score += f.xp || 10;
         }
         break;
       }
@@ -115,130 +103,72 @@ setInterval(() => {
   const playerTree = spatialIndex.buildPlayerIndex(playerArray);
   for (const attacker of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (attacker.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
-    
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
-      
       const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
       const exactReach = attacker.radius + weaponSize * 0.85;
 
       const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, exactReach + 100);
-      
       for (const victim of nearbyVictims) {
-        if (victim.id === attacker.id) continue;
-        if (victim.justRespawned && now - victim.justRespawned < CONFIG.HIT_COOLDOWN) continue;
-        if (attacker.hitVictims.has(victim.id)) continue; 
+        if (victim.id === attacker.id || (victim.justRespawned && now - victim.justRespawned < CONFIG.HIT_COOLDOWN) || attacker.hitVictims.has(victim.id)) continue; 
         
         if (collisionLib.weaponHitsPlayerArc(attacker, victim)) {
           attacker.hitVictims.add(victim.id); 
+          if (victim.level > 1) { victim.level--; victim.radius = playerLib.getRadiusByLevel(victim.level); victim.xp = playerLib.getXpToNext(victim.level); } 
+          else { victim.xp = 0; }
           
-          if (victim.level > 1) {
-            victim.level--;
-            victim.radius = playerLib.getRadiusByLevel(victim.level);
-            victim.xp = playerLib.getXpToNext(victim.level);
-          } else {
-            victim.xp = 0;
-          }
-          
-          victim.isDead = true;
-          victim.deadTime = now;
-          victim.killerId = attacker.id;
-          
+          victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           let gainXp = Math.floor((victim.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_ATTACKER);
-          attacker.xp += gainXp;
-          attacker.score = (attacker.score || 0) + gainXp;
+          attacker.xp += gainXp; attacker.score = (attacker.score || 0) + gainXp;
           
           while (attacker.xp >= playerLib.getXpToNext(attacker.level) && attacker.level < CONFIG.MAX_LEVEL) {
-            attacker.xp -= playerLib.getXpToNext(attacker.level);
-            attacker.level++;
-            attacker.radius = playerLib.getRadiusByLevel(attacker.level);
+            attacker.xp -= playerLib.getXpToNext(attacker.level); attacker.level++; attacker.radius = playerLib.getRadiusByLevel(attacker.level);
           }
         }
       }
-    } else {
-      if (attacker.hitVictims) attacker.hitVictims.clear();
-    }
+    } else { if (attacker.hitVictims) attacker.hitVictims.clear(); }
   }
 
   for (const entity of playerArray) {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (entity.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
-    if (entity.isAttacking && now - entity.attackTime >= attackDuration) {
-      entity.isAttacking = false;
-    }
+    if (entity.isAttacking && now - entity.attackTime >= attackDuration) entity.isAttacking = false;
   }
 
-  for (const bot of bots.values()) {
-    if (!bot.isDead) botLib.updateBot(bot, foodTree, playerTree);
-  }
+  for (const bot of bots.values()) { if (!bot.isDead) botLib.updateBot(bot, foodTree, playerTree); }
 
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
     lastBroadcast = now;
     const allPlayers = [...players.values(), ...bots.values()].map(p => ({
-      id: p.id,
-      x: Math.round(p.x),
-      y: Math.round(p.y),
-      radius: p.radius,
-      level: p.level || 1,
-      xp: p.xp || 0,
-      xpToNext: playerLib.getXpToNext(p.level || 1),
-      rightMouseDown: !!p.rightMouseDown,
-      angle: p.angle || 0,
-      name: p.name,
-      score: p.score || 0,
-      isAttacking: !!p.isAttacking,
-      attackTime: p.attackTime || 0,
-      lastAttackTime: p.lastAttackTime || 0,
-      justRespawned: p.justRespawned || 0,
-      isDead: !!p.isDead,
-      deadTime: p.deadTime || 0,
-      killerId: p.killerId || null,
-      isBot: !!p.isBot,
+      id: p.id, x: Math.round(p.x), y: Math.round(p.y), radius: p.radius, level: p.level || 1, xp: p.xp || 0,
+      xpToNext: playerLib.getXpToNext(p.level || 1), rightMouseDown: !!p.rightMouseDown, angle: p.angle || 0,
+      name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
+      lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
+      deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
     }));
     
-    // CHƯƠNG 12: Đóng gói gọn gàng. Chỉ đính kèm mảng Food nếu nó có sự thay đổi
-    const statePayload = JSON.stringify({
-      type: "state",
-      players: allPlayers,
-      foodAdded: foodAdded.length > 0 ? foodAdded : undefined,
-      foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined
-    });
-
-    for (const p of players.values()) {
-      if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload);
-    }
-
-    // Reset Delta tracking sau khi gửi xong
-    foodAdded = [];
-    foodRemoved = [];
+    const statePayload = JSON.stringify({ type: "state", players: allPlayers, foodAdded: foodAdded.length > 0 ? foodAdded : undefined, foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined });
+    for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
+    foodAdded = []; foodRemoved = [];
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
-    
     for (const entity of [...players.values(), ...bots.values()]) {
       if (entity.isDead && now - entity.deadTime >= CONFIG.RESPAWN_TIME) {
-        playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-        if (entity.isBot) entity.angle = Math.random() * Math.PI * 2;
-        entity.killerId = null;
+        // CHỈ AUTO-RESPAWN CHO BOT. Người thật phải bấm nút.
+        if (entity.isBot) {
+          playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          entity.angle = Math.random() * Math.PI * 2;
+          entity.killerId = null;
+        }
       }
     }
     
     const realPlayers = players.size;
     let botTarget = Math.max(0, CONFIG.MAX_PLAYERS - realPlayers);
     let botCount = bots.size;
-    
-    if (botCount < botTarget) {
-      for (let i = botCount; i < botTarget; i++) {
-        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-        bots.set(bot.id, bot);
-      }
-    } else if (botCount > botTarget) {
-      let removeCount = botCount - botTarget;
-      for (const [id, bot] of bots) {
-        bots.delete(id);
-        if (--removeCount <= 0) break;
-      }
-    }
+    if (botCount < botTarget) { for (let i = botCount; i < botTarget; i++) bots.set("bot_" + utils.uuid(), botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT)); } 
+    else if (botCount > botTarget) { let removeCount = botCount - botTarget; for (const [id, bot] of bots) { bots.delete(id); if (--removeCount <= 0) break; } }
   }
 
 }, CONFIG.SERVER_TICK_RATE);
