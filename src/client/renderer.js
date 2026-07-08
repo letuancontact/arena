@@ -8,7 +8,6 @@ const ctx = canvas.getContext("2d");
 let respawnModal = null;
 let pendingKillXpEffects = [];
 
-// CAMERA MỚI: Thêm trục tọa độ và Damping (Trượt mềm mại)
 export const Camera = {
   x: null,
   y: null,
@@ -32,9 +31,14 @@ export const Camera = {
   update(targetX, targetY, dtMultiplier) {
     if (this.x === null) { this.x = targetX; this.y = targetY; }
     
-    // Hiệu ứng Cinematic Damping (Camera trượt nhẹ nhàng theo nhân vật)
-    this.x += (targetX - this.x) * 0.1 * dtMultiplier;
-    this.y += (targetY - this.y) * 0.1 * dtMultiplier;
+    const dist = Math.hypot(targetX - this.x, targetY - this.y);
+    if (dist > 200) {
+      this.x = targetX; this.y = targetY; // Dịch chuyển ngay lập tức nếu nhảy quá xa
+    } else {
+      // Camera Damping - Chống giật khung hình
+      this.x += (targetX - this.x) * 0.15 * dtMultiplier;
+      this.y += (targetY - this.y) * 0.15 * dtMultiplier;
+    }
 
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) {
       this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
@@ -302,12 +306,10 @@ export const Renderer = {
     ctx.restore();
   },
 
-  // HÀM DRAW BỔ SUNG THAM SỐ DELTATIME (CHỐNG LỖI MÀN HÌNH 144HZ)
   draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
     const now = Date.now();
     
-    // GỌI HÀM UPDATE CAMERA MỚI
     Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
     
     const centerX = canvas.width / 2, centerY = canvas.height / 2;
@@ -354,7 +356,6 @@ export const Renderer = {
     
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]; 
-      // Áp dụng dtMultiplier vào Physics của Mảnh vỡ để Mọi màn hình rớt chuẩn tốc độ
       p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
       if (p.life <= 0) { this.particles.splice(i, 1); } 
       else { ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
