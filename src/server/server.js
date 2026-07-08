@@ -40,12 +40,8 @@ wss.on("connection", (ws) => {
       const player = players.get(p.id);
       if (!player) return;
 
-      if (data.type === "move") {
-        playerLib.handlePlayerMove(player, data);
-      }
-      if (data.type === "attack") {
-        playerLib.handlePlayerAttack(player);
-      }
+      if (data.type === "move") playerLib.handlePlayerMove(player, data);
+      if (data.type === "attack") playerLib.handlePlayerAttack(player);
     } catch (err) {
       console.error("Invalid message:", msg);
     }
@@ -58,18 +54,20 @@ wss.on("connection", (ws) => {
 
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
+let lastTick = Date.now(); // Biến đếm DeltaTime
 let foodTree = null;
 let foodDirty = true;
 
 setInterval(() => {
   const now = Date.now();
+  
+  // TÍNH TOÁN DELTA TIME (Giới hạn tối đa X3 để tránh dịch chuyển tức thời khi server giật)
+  const dtMultiplier = Math.min(((now - lastTick) / 1000) * 60, 3);
+  lastTick = now;
 
-  for (const p of players.values()) {
-    playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-  }
-  for (const b of bots.values()) {
-    playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-  }
+  // Truyền dtMultiplier vào để Physics luôn đi đúng tốc độ
+  for (const p of players.values()) playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
+  for (const b of bots.values()) playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
 
   const oldFoodCount = food.length;
   foodLib.spawnFood(food); 
@@ -113,7 +111,6 @@ setInterval(() => {
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
       
-      // SỬA LỖI 3: Dùng Tầm chém khít đồ họa để search Spatial Index
       const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
       const exactReach = attacker.radius + weaponSize * 0.85;
 
