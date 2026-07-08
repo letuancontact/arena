@@ -4,14 +4,10 @@ const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
-let respawnModal = null;
 let pendingKillXpEffects = [];
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
-  shakeIntensity: 0, // Tính năng Rung màn hình
-  triggerShake(intensity) { this.shakeIntensity = intensity; },
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
@@ -20,18 +16,16 @@ export const Camera = {
   },
   update(targetX, targetY, dtMultiplier) {
     if (this.x === null) { this.x = targetX; this.y = targetY; }
-    const dist = Math.hypot(targetX - this.x, targetY - this.y);
-    if (dist > 200) { this.x = targetX; this.y = targetY; } 
-    else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
     
-    // Xử lý Rung Camera
-    if (this.shakeIntensity > 0) {
-      this.x += (Math.random() - 0.5) * this.shakeIntensity;
-      this.y += (Math.random() - 0.5) * this.shakeIntensity;
-      this.shakeIntensity -= 0.5 * dtMultiplier; // Mờ dần độ rung
-      if (this.shakeIntensity < 0) this.shakeIntensity = 0;
+    // Đã loại bỏ hoàn toàn logic Rung (Screen Shake)
+    const dist = Math.hypot(targetX - this.x, targetY - this.y);
+    if (dist > 150) { 
+      this.x = targetX; this.y = targetY; 
+    } else { 
+      this.x += (targetX - this.x) * 0.2 * dtMultiplier; 
+      this.y += (targetY - this.y) * 0.2 * dtMultiplier; 
     }
-
+    
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     else this.currentZoom = this.targetZoom;
   },
@@ -99,17 +93,21 @@ export const Renderer = {
     const sorted = [...playersArr].sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); });
     const isMob = window.innerWidth <= 768; const titleSize = isMob ? '12px' : '16px';
     let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
-    sorted.slice(0, 8).forEach((p, i) => { html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; });
+    sorted.slice(0, 8).forEach((p, i) => {
+      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`;
+    });
     this.leaderboardDiv.innerHTML = html;
   },
   getScaledImageSize(img, targetSize) {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return { width: targetSize, height: targetSize };
-    const aspectRatio = img.naturalWidth / img.naturalHeight; return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
   },
   drawImageWithAspectRatio(img, x, y, targetSize, angle = 0) {
     const { width, height } = this.getScaledImageSize(img, targetSize);
-    if (angle !== 0) { ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.drawImage(img, -width / 2, -height / 2, width, height); ctx.restore(); } 
-    else { ctx.drawImage(img, x - width / 2, y - height / 2, width, height); }
+    if (angle !== 0) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.drawImage(img, -width / 2, -height / 2, width, height); ctx.restore();
+    } else { ctx.drawImage(img, x - width / 2, y - height / 2, width, height); }
   },
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
@@ -178,7 +176,6 @@ export const Renderer = {
 
   draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
-    const now = Date.now();
     Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
     
     const centerX = canvas.width / 2, centerY = canvas.height / 2;
