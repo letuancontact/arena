@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EvoWar Arena</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>EvoWar Clone</title>
     <style>
       body {
         margin: 0;
@@ -11,6 +11,10 @@
         overflow: hidden;
         background: #000;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        /* THIẾT LẬP MOBILE: Cấm các thao tác vuốt cuộn trang (pull-to-refresh) của trình duyệt */
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
       }
 
       #game {
@@ -23,7 +27,6 @@
     <canvas id="game"></canvas>
 
     <script src="/shared/constants.js"></script>
-    
     <script type="module" src="main.js"></script>
   </body>
 </html>
