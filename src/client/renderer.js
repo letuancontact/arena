@@ -4,6 +4,7 @@ const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+let pendingKillXpEffects = [];
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
@@ -36,48 +37,24 @@ export const Resources = {
 };
 
 export const Renderer = {
-  leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
+  leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, particles: [], trails: {},
+  addKillXpEffect(x, y, amount) { pendingKillXpEffects.push({ x, y, amount, start: Date.now() }); },
   
-  // CHƯƠNG 18: OBJECT POOLING - KHỞI TẠO BỘ NHỚ CỐ ĐỊNH CHỐNG GIẬT LAG
-  particles: Array.from({length: 1000}, () => ({active: false, x:0, y:0, vx:0, vy:0, life:0, decay:0, size:0, color:""})),
-  trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
-  xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
-
-  addKillXpEffect(x, y, amount) {
-    for(let i=0; i<this.xpEffects.length; i++) {
-      if(!this.xpEffects[i].active) {
-        const e = this.xpEffects[i];
-        e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true;
-        break;
-      }
-    }
-  },
-  
+  // ĐÃ FIX: Giảm số lượng hạt, thu nhỏ size và cho mờ đi cực nhanh để tránh rối mắt
   addDeathParticles(x, y, radius) {
-    const numParticles = 15 + Math.random() * 15;
-    let added = 0;
-    for (let i = 0; i < this.particles.length && added < numParticles; i++) {
-      const p = this.particles[i];
-      if (!p.active) {
-        const angle = Math.random() * Math.PI * 2, speed = Math.random() * 6 + 3;
-        p.x = x; p.y = y; p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed;
-        p.life = 1.0; p.decay = Math.random() * 0.03 + 0.015; p.size = Math.random() * (radius * 0.35) + 3;
-        p.color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00"; p.active = true;
-        added++;
-      }
+    const numParticles = 6 + Math.random() * 4; // Chỉ còn 6-10 hạt
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2, speed = Math.random() * 4 + 2;
+      this.particles.push({ 
+        x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, 
+        life: 1.0, 
+        decay: Math.random() * 0.05 + 0.05, // Tan biến cực nhanh
+        size: Math.random() * (radius * 0.2) + 2, // Hạt bé hơn
+        color: Math.random() > 0.5 ? "#ff3333" : "#ffcc00" 
+      });
     }
   },
-
-  addTrail(x, y, angle, level, radius) {
-    for (let i = 0; i < this.trails.length; i++) {
-      const t = this.trails[i];
-      if (!t.active) {
-        t.x = x; t.y = y; t.angle = angle; t.level = level; t.radius = radius; t.time = Date.now(); t.active = true;
-        break;
-      }
-    }
-  },
-
+  
   setupUI() {
     const isMob = window.innerWidth <= 768; 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
@@ -223,26 +200,19 @@ export const Renderer = {
       }
     }
 
-    // HIỂN THỊ TÀN ẢNH TỪ POOL
-    for (let i = 0; i < this.trails.length; i++) {
-      const t = this.trails[i];
-      if (t.active) {
-        if (now - t.time >= 200) { t.active = false; } 
-        else {
-          const img = Resources.getPlayerImage(t.level || 1);
-          if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
-        }
+    for (const id in this.trails) {
+      this.trails[id] = this.trails[id].filter(t => now - t.time < 200);
+      if (this.trails[id].length === 0) { delete this.trails[id]; continue; }
+      for (const t of this.trails[id]) {
+        const img = Resources.getPlayerImage(t.level || 1);
+        if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
       }
     }
     
-    // HIỂN THỊ MẢNH VỠ TỪ POOL
-    for (let i = 0; i < this.particles.length; i++) {
-      const p = this.particles[i]; 
-      if (p.active) {
-        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
-        if (p.life <= 0) { p.active = false; } 
-        else { ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-      }
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i]; p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
+      if (p.life <= 0) { this.particles.splice(i, 1); } 
+      else { ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
     }
 
     for (const id in interpPlayers) {
@@ -255,7 +225,8 @@ export const Renderer = {
         GameState.prevAngles[id] = angle; GameState.prevPositions[id] = { x: p.x, y: p.y };
 
         if (p.rightMouseDown) {
-          this.addTrail(p.x, p.y, angle, p.level, p.radius);
+          if (!this.trails[p.id]) this.trails[p.id] = [];
+          this.trails[p.id].push({ x: p.x, y: p.y, angle, level: p.level, radius: p.radius, time: now });
         }
         
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (p.radius + 22) * 2, angle);
@@ -281,7 +252,8 @@ export const Renderer = {
       GameState.prevAngles[GameState.playerId] = angle; GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
       if (me.rightMouseDown) {
-        this.addTrail(GameState.clientX, GameState.clientY, angle, GameState.clientLevel, GameState.clientRadius);
+        if (!this.trails[GameState.playerId]) this.trails[GameState.playerId] = [];
+        this.trails[GameState.playerId].push({ x: GameState.clientX, y: GameState.clientY, angle, level: GameState.clientLevel, radius: GameState.clientRadius, time: now });
       }
 
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
@@ -311,18 +283,12 @@ export const Renderer = {
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     this.updateLeaderboard(allPlayersArr);
     
-    // HIỂN THỊ CHỮ XP TỪ POOL
     const nowKillXp = Date.now();
-    for (let i = 0; i < this.xpEffects.length; i++) {
-      const e = this.xpEffects[i];
-      if (e.active) {
-        if (nowKillXp - e.start >= 1000) { e.active = false; } 
-        else {
-          const t = (nowKillXp - e.start) / 1000;
-          ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.strokeText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.restore();
-        }
-      }
+    pendingKillXpEffects = pendingKillXpEffects.filter(e => nowKillXp - e.start < 1000);
+    for (const e of pendingKillXpEffects) {
+      const t = (nowKillXp - e.start) / 1000;
+      ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.strokeText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.restore();
     }
   }
 };
