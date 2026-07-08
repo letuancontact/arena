@@ -66,11 +66,12 @@ const Network = {
   },
 };
 
-// ===== INPUT =====
+// ===== INPUT & MOBILE TOUCH =====
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     
+    // --- CHUỘT ---
     canvas.addEventListener("mousemove", (e) => {
       if (GameState.mouseMoveThrottled || GameState.isTouch) return;
       GameState.mouseMoveThrottled = true;
@@ -98,16 +99,99 @@ const Input = {
         Network.sendPositionUpdate(true);
       }
     });
+
+    // --- CẢM ỨNG (MOBILE) ---
+    const isPointInCircle = (px, py, cx, cy, radius) => Math.hypot(px - cx, py - cy) < radius;
+
+    canvas.addEventListener("touchstart", (e) => {
+      GameState.isTouch = true;
+      e.preventDefault(); 
+      for(let i=0; i<e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        const tx = t.clientX, ty = t.clientY;
+        const w = canvas.width, h = canvas.height;
+        
+        // Bấm nút CHÉM
+        if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
+          const cooldown = 500 + (GameState.clientLevel - 1) * 60;
+          if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
+            GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
+          }
+        }
+        // Bấm nút TỐC BIẾN
+        else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
+          GameState.rightMouseDown = true;
+          GameState.sprintTouchId = t.identifier;
+          Network.sendPositionUpdate(true);
+        }
+        // Chạm nửa trái -> Gọi JOYSTICK
+        else if (tx < w / 2) {
+          GameState.joystick.active = true;
+          GameState.joystick.id = t.identifier;
+          GameState.joystick.baseX = tx; GameState.joystick.baseY = ty;
+          GameState.joystick.stickX = tx; GameState.joystick.stickY = ty;
+          GameState.isMoving = true;
+        }
+      }
+    }, {passive: false});
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      for(let i=0; i<e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
+          const dx = t.clientX - GameState.joystick.baseX;
+          const dy = t.clientY - GameState.joystick.baseY;
+          const dist = Math.hypot(dx, dy);
+          const maxDist = 50; 
+          
+          if (dist > 5) {
+            GameState.mouseAngle = Math.atan2(dy, dx);
+            GameState.isMoving = true;
+          } else {
+            GameState.isMoving = false;
+          }
+
+          if (dist > maxDist) {
+            GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist;
+            GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist;
+          } else {
+            GameState.joystick.stickX = t.clientX;
+            GameState.joystick.stickY = t.clientY;
+          }
+          Network.sendPositionUpdate();
+        }
+      }
+    }, {passive: false});
+
+    canvas.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      for(let i=0; i<e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
+          GameState.joystick.active = false;
+          GameState.isMoving = false;
+          Network.sendPositionUpdate(true);
+        }
+        if (GameState.sprintTouchId === t.identifier) {
+          GameState.rightMouseDown = false;
+          GameState.sprintTouchId = null;
+          Network.sendPositionUpdate(true);
+        }
+      }
+    }, {passive: false});
+
     window.addEventListener("resize", Renderer.resizeCanvas);
   }
 };
 
-// THÊM dtMultiplier ĐỂ BÌNH THƯỜNG HÓA TỐC ĐỘ DI CHUYỂN
+// ===== UPDATE PHYSICS (CHỐNG GIẬT LAG) =====
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null) return;
   
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
+  // 1. Client Prediction
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
   } else if (GameState.isMoving) {
     const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
@@ -118,20 +202,21 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
+  // 2. Client Reconciliation (Bù trừ siêu mượt)
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
     if (dist > 150) { 
       GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; 
     } else if (dist > 1) { 
-      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.2 * dtMultiplier; 
-      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.2 * dtMultiplier; 
+      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.15 * dtMultiplier; 
+      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.15 * dtMultiplier; 
     }
   }
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
 }
 
-// ===== MAIN GAME LOOP VỚI DELTATIME =====
+// ===== MAIN GAME LOOP =====
 let lastFrameTime = null;
 
 function loop(currentTime) {
@@ -140,7 +225,7 @@ function loop(currentTime) {
   lastFrameTime = currentTime;
   
   const safeDt = Math.min(dt, 0.1); 
-  const dtMultiplier = safeDt * 60; // Tính toán tỷ lệ so với 60 FPS chuẩn
+  const dtMultiplier = safeDt * 60; 
 
   updatePhysics(dtMultiplier);
   Renderer.draw(dtMultiplier);
