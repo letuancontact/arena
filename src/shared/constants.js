@@ -17,7 +17,7 @@ const GAME_CONFIG = {
   MIN_SPEED: 2.2,
   MAX_SPEED: 4,
   SPRINT_MULTIPLIER: 2,
-  BOT_SPEED_MULTIPLIER: 0.85,  // Tốc độ Bot chỉ bằng 85% người thật (Giải quyết Issue 4)
+  BOT_SPEED_MULTIPLIER: 0.70,  // BOT GIỜ CHỈ CHẠY BẰNG 70% NGƯỜI CHƠI
   MIN_VELOCITY: 0.1,
   SMOOTHING_FACTOR: 0.15,
   ANGLE_LERP: 0.25,
@@ -34,7 +34,7 @@ const GAME_CONFIG = {
   BASE_ATTACK_DURATION: 320,
   ATTACK_DURATION_PER_LEVEL: 10,
   ATTACK_SWING_ANGLE: Math.PI,
-  HIT_COOLDOWN: 5000,          // Tăng khiên bảo vệ lên 5 giây (Giải quyết Issue 3)
+  HIT_COOLDOWN: 5000,          
   RESPAWN_TIME: 5000,
 
   // Kinh nghiệm (XP) & Thức ăn
