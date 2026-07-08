@@ -66,12 +66,11 @@ const Network = {
   },
 };
 
-// ===== INPUT (KẾT HỢP CHUỘT VÀ MOBILE TOUCH) =====
+// ===== INPUT =====
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     
-    // --- SỰ KIỆN CHUỘT (PC) ---
     canvas.addEventListener("mousemove", (e) => {
       if (GameState.mouseMoveThrottled || GameState.isTouch) return;
       GameState.mouseMoveThrottled = true;
@@ -97,27 +96,26 @@ const Input = {
       if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
     });
 
-    // --- SỰ KIỆN CHẠM (MOBILE) ---
     const isPointInCircle = (px, py, cx, cy, radius) => Math.hypot(px - cx, py - cy) < radius;
 
     canvas.addEventListener("touchstart", (e) => {
       GameState.isTouch = true;
-      e.preventDefault();
+      e.preventDefault(); // CHỐNG ZOOM/CUỘN TRANG TRÊN TRÌNH DUYỆT
       
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         const tx = t.clientX, ty = t.clientY;
         const w = canvas.width, h = canvas.height;
         
-        // Bấm nút CHÉM
-        if (isPointInCircle(tx, ty, w - 200, h - 140, 70)) {
+        // TỌA ĐỘ MỚI: Bấm nút CHÉM (Đỏ - Góc phải dưới)
+        if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
           }
         }
-        // Bấm nút TỐC BIẾN
-        else if (isPointInCircle(tx, ty, w - 80, h - 80, 60)) {
+        // TỌA ĐỘ MỚI: Bấm nút TỐC BIẾN (Vàng - Dịch sang trái)
+        else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
           GameState.rightMouseDown = true;
           GameState.sprintTouchId = t.identifier;
           Network.sendPositionUpdate(true);
@@ -141,10 +139,10 @@ const Input = {
           const dx = t.clientX - GameState.joystick.baseX;
           const dy = t.clientY - GameState.joystick.baseY;
           const dist = Math.hypot(dx, dy);
-          const maxDist = 60;
+          const maxDist = 50; // Thu nhỏ bán kính kéo của Joystick
           
           GameState.mouseAngle = Math.atan2(dy, dx);
-          GameState.isMoving = dist > 10; // Kéo quá 10px thì mới tính là đi
+          GameState.isMoving = dist > 10; 
 
           if (dist > maxDist) {
             GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist;
@@ -179,7 +177,6 @@ const Input = {
   }
 };
 
-// ===== UPDATE PHYSICS =====
 function updatePhysics() {
   if (GameState.clientX === null || GameState.clientY === null) return;
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
