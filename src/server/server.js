@@ -32,7 +32,14 @@ wss.on("connection", (ws) => {
   p.y = Math.random() * CONFIG.MAP_HEIGHT;
   players.set(p.id, p);
 
-  ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT }));
+  // CHƯƠNG 12: Gửi toàn bộ 400 thức ăn DUY NHẤT 1 LẦN khi người chơi mới kết nối
+  ws.send(JSON.stringify({ 
+    type: "init", 
+    id: p.id, 
+    mapWidth: CONFIG.MAP_WIDTH, 
+    mapHeight: CONFIG.MAP_HEIGHT,
+    food: food 
+  }));
 
   ws.on("message", (msg) => {
     try {
@@ -54,28 +61,28 @@ wss.on("connection", (ws) => {
 
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
-let lastTick = Date.now(); // Biến đếm DeltaTime
+let lastTick = Date.now(); 
 let foodTree = null;
-let foodDirty = true;
+
+// Biến theo dõi Delta Sync
+let foodAdded = [];
+let foodRemoved = [];
 
 setInterval(() => {
   const now = Date.now();
-  
-  // TÍNH TOÁN DELTA TIME (Giới hạn tối đa X3 để tránh dịch chuyển tức thời khi server giật)
   const dtMultiplier = Math.min(((now - lastTick) / 1000) * 60, 3);
   lastTick = now;
 
-  // Truyền dtMultiplier vào để Physics luôn đi đúng tốc độ
   for (const p of players.values()) playerLib.updatePhysics(p, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
   for (const b of bots.values()) playerLib.updatePhysics(b, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT, dtMultiplier);
 
-  const oldFoodCount = food.length;
-  foodLib.spawnFood(food); 
-  if (food.length > oldFoodCount) foodDirty = true;
-
-  if (foodDirty || !foodTree) {
+  // CHƯƠNG 10: Theo dõi thức ăn sinh ra thêm
+  const newlySpawned = foodLib.spawnFood(food); 
+  if (newlySpawned.length > 0) {
+    foodAdded.push(...newlySpawned);
     foodTree = spatialIndex.buildFoodIndex(food);
-    foodDirty = false;
+  } else if (!foodTree) {
+    foodTree = spatialIndex.buildFoodIndex(food);
   }
 
   const playerArray = [...players.values(), ...bots.values()].filter(e => !e.isDead);
@@ -84,8 +91,9 @@ setInterval(() => {
     const nearbyFood = spatialIndex.searchNearbyFood(foodTree, p.x, p.y, p.radius + 24);
     for (const f of nearbyFood) {
       if (collisionLib.checkFoodCollision(p, f)) {
+        // CHƯƠNG 10: Đánh dấu thức ăn bị xóa
         food.splice(food.indexOf(f), 1);
-        foodDirty = true;
+        foodRemoved.push(f.id);
         
         if (p.level < CONFIG.MAX_LEVEL) {
           p.xp += f.xp || 10;
@@ -187,17 +195,21 @@ setInterval(() => {
       isBot: !!p.isBot,
     }));
     
+    // CHƯƠNG 12: Đóng gói gọn gàng. Chỉ đính kèm mảng Food nếu nó có sự thay đổi
     const statePayload = JSON.stringify({
       type: "state",
       players: allPlayers,
-      food: food,
-      mapWidth: CONFIG.MAP_WIDTH,
-      mapHeight: CONFIG.MAP_HEIGHT,
+      foodAdded: foodAdded.length > 0 ? foodAdded : undefined,
+      foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined
     });
 
     for (const p of players.values()) {
       if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload);
     }
+
+    // Reset Delta tracking sau khi gửi xong
+    foodAdded = [];
+    foodRemoved = [];
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
