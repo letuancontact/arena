@@ -139,13 +139,14 @@ const Network = {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const me = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find((p) => p.id === GameState.playerId);
     if (me && me.isDead) return;
-    if (!forceUpdate && Date.now() - GameState.lastSentTime < CONFIG.CLIENT_SEND_INTERVAL) return;
     
     const dAngle = Math.abs(GameState.mouseAngle - GameState.lastSentAngle);
     const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse;
     const movingChanged = GameState.isMoving !== GameState.lastMoving;
+    const timeElapsed = Date.now() - GameState.lastSentTime;
     
-    if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
+    // TỐI ƯU CẢM GIÁC TAY: Nếu đổi hướng hoặc bấm nút, gửi LẬP TỨC để giảm độ trễ mạng xuống 0ms
+    if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged || timeElapsed >= CONFIG.CLIENT_SEND_INTERVAL) {
       this.ws.send(JSON.stringify({ type: "move", angle: GameState.mouseAngle, rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, isMoving: GameState.isMoving }));
       GameState.lastSentTime = Date.now(); GameState.lastSentAngle = GameState.mouseAngle;
       GameState.lastRightMouse = GameState.rightMouseDown; GameState.lastMoving = GameState.isMoving;
@@ -246,39 +247,27 @@ const Input = {
   }
 };
 
-// ===== TIÊU CHUẨN VẬT LÝ MỚI =====
+// ===== ĐỒNG BỘ VẬT LÝ KHÔNG GIAN (CHỮA LỖI ĐỨNG IM VÀ GIẬT LÙI) =====
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
-  const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
-  
-  let isPredictingMove = false; // Cờ kiểm tra trạng thái đang chủ động chạy
 
-  if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
-  } else if (GameState.isMoving) {
-    const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
-    GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
-    GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
-    isPredictingMove = true;
-  }
-  
-  GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
-  GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
-
-  // TỐI ƯU RECONCILIATION: Tránh hiện tượng kéo co (Rubber-banding)
+  // CHƯƠNG 14: AUTHORITATIVE LERP SYNC
+  // Triệt tiêu hệ thống dự đoán ảo cục bộ chạy chồng chéo gây lỗi thun kéo.
+  // Giao toàn quyền vị trí cho Server, Client Lerp mượt đuổi theo vị trí thực của máy chủ.
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 150) { 
-      GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; 
-    } else if (dist > 2) { 
-      // SỬA LỖI: Cực kỳ nhẹ nhàng nắn đường khi đang chạy (0.02) để không cản tốc độ
-      // Kéo về nhanh hơn một chút (0.1) khi đang đứng im.
-      const lerpFactor = isPredictingMove ? 0.02 : 0.1;
-      GameState.clientX += (GameState.serverX - GameState.clientX) * lerpFactor * dtMultiplier; 
-      GameState.clientY += (GameState.serverY - GameState.clientY) * lerpFactor * dtMultiplier; 
+    
+    if (dist > 200) {
+      // Nếu lag siêu nặng đứt đoạn mạng, Snap thẳng tới vị trí Server
+      GameState.clientX = GameState.serverX;
+      GameState.clientY = GameState.serverY;
+    } else if (dist > 0.1) {
+      // Tỷ lệ vuốt Lerp 25% kết hợp DeltaTime bình ổn tốc độ trên mọi khung hình (60-144Hz)
+      const catchUpSpeed = 0.25 * dtMultiplier;
+      GameState.clientX += (GameState.serverX - GameState.clientX) * Math.min(catchUpSpeed, 0.9);
+      GameState.clientY += (GameState.serverY - GameState.clientY) * Math.min(catchUpSpeed, 0.9);
     }
   }
-
-  if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
 }
 
 let lastFrameTime = null;
@@ -293,7 +282,11 @@ function loop(currentTime) {
 }
 
 function main() {
-  Renderer.resizeCanvas(); Resources.load(); Renderer.setupUI(); Network.connect(); Input.setup();
+  Renderer.resizeCanvas();
+  Resources.load();
+  Renderer.setupUI();
+  Network.connect();
+  Input.setup();
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   
   requestAnimationFrame(loop);
