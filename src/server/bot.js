@@ -23,7 +23,7 @@ function createBot(mapWidth, mapHeight) {
     isAttacking: false,
     attackTime: 0,
     lastAttackTime: 0,
-    justRespawned: Date.now(),
+    justRespawned: 0, // SỬA LỖI: Bot sinh ra lần đầu TUYỆT ĐỐI KHÔNG có khiên
     isDead: false,
     deadTime: 0,
     lastXpDrain: 0,
@@ -37,7 +37,6 @@ function createBot(mapWidth, mapHeight) {
 function updateBot(bot, foodTree, playerTree) {
   const now = Date.now();
   
-  // 1. Máy trạng thái (Suy nghĩ điều hướng)
   if (now - bot.changeStateTime > 500) {
     bot.changeStateTime = now;
     bot.rightMouseDown = false;
@@ -52,13 +51,9 @@ function updateBot(bot, foodTree, playerTree) {
 
     for (const p of nearbyPlayers) {
       if (p.id === bot.id || p.isDead) continue;
-      
-      // BỎ QUA những người đang có khiên bảo vệ (Giải quyết Issue 1)
-      if (now - (p.justRespawned || 0) < CONFIG.HIT_COOLDOWN) continue;
+      if (now - (p.justRespawned || 0) < CONFIG.HIT_COOLDOWN) continue; // Bỏ qua người có khiên
       
       const dist = Math.hypot(p.x - bot.x, p.y - bot.y);
-      
-      // Chỉ bỏ chạy nếu kẻ thù LỚN HƠN MÌNH QUÁ 3 CẤP. Nếu chênh lệch ít, bot sẽ dũng cảm lao vào!
       if (p.level > bot.level + 3) {
         if (dist < minThreatDist) { minThreatDist = dist; nearestThreat = p; }
       } else {
@@ -89,17 +84,16 @@ function updateBot(bot, foodTree, playerTree) {
     }
   }
 
-  // 2. Logic chém (Giải quyết Issue 2 - Kẻ yếu lật kèo kẻ mạnh)
-  // Bất kể đang chạy trốn hay tấn công, hễ có con mồi (không có khiên) lọt vào tầm kiếm là vung chém!
-  const weaponReach = bot.radius * 4.5;
-  const potentialVictims = spatialIndex.searchNearbyPlayers(playerTree, bot.x, bot.y, weaponReach);
-  
+  // SỬA LỖI TẦM CHÉM CỦA BOT: Giảm tầm quét vũ khí xuống khớp với chiều dài kiếm thực tế
+  const weaponSize = bot.radius * (2.75 + 0.04 * (bot.level - 1));
+  const exactReach = bot.radius + weaponSize * 0.85; 
+
+  const potentialVictims = spatialIndex.searchNearbyPlayers(playerTree, bot.x, bot.y, exactReach);
   for (const v of potentialVictims) {
     if (v.id !== bot.id && !v.isDead) {
-      // Đảm bảo nạn nhân không có khiên bảo vệ
       if (now - (v.justRespawned || 0) >= CONFIG.HIT_COOLDOWN) {
         handlePlayerAttack(bot);
-        break; // Vung 1 phát là đủ, vòng lặp sau sẽ tự tính sát thương (Server lo)
+        break; 
       }
     }
   }
