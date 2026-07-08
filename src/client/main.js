@@ -7,7 +7,6 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// ===== NETWORK =====
 const Network = {
   ws: null,
   connect() { this.ws = new WebSocket(wsUrl); this.ws.onmessage = this.onMessage; },
@@ -15,13 +14,26 @@ const Network = {
     const data = JSON.parse(msg.data);
     if (data.type === "init") {
       GameState.playerId = data.id;
-      GameState.mapWidth = data.mapWidth || CONFIG.MAP_WIDTH; GameState.mapHeight = data.mapHeight || CONFIG.MAP_HEIGHT;
+      GameState.mapWidth = data.mapWidth || CONFIG.MAP_WIDTH; 
+      GameState.mapHeight = data.mapHeight || CONFIG.MAP_HEIGHT;
       GameState.clientX = GameState.serverX = data.x ?? GameState.mapWidth / 2;
       GameState.clientY = GameState.serverY = data.y ?? GameState.mapHeight / 2;
+      // NHẬN 400 THỨC ĂN LẦN ĐẦU
+      GameState.food = data.food || [];
     }
     if (data.type === "state") {
-      GameState.stateBuffer.push({ time: Date.now(), food: data.food || [], players: data.players || [] });
+      // LOẠI BỎ THỨC ĂN KHỎI STATE BUFFER (Không nội suy đồ tĩnh nữa)
+      GameState.stateBuffer.push({ time: Date.now(), players: data.players || [] });
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
+
+      // CẬP NHẬT DELTA THỨC ĂN (Mạng nhàn rỗi)
+      if (data.foodAdded && data.foodAdded.length > 0) {
+        GameState.food.push(...data.foodAdded);
+      }
+      if (data.foodRemoved && data.foodRemoved.length > 0) {
+        const removedSet = new Set(data.foodRemoved);
+        GameState.food = GameState.food.filter(f => !removedSet.has(f.id));
+      }
       
       const prevDead = GameState.isDead;
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
@@ -66,12 +78,10 @@ const Network = {
   },
 };
 
-// ===== INPUT & MOBILE TOUCH =====
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     
-    // --- CHUỘT ---
     canvas.addEventListener("mousemove", (e) => {
       if (GameState.mouseMoveThrottled || GameState.isTouch) return;
       GameState.mouseMoveThrottled = true;
@@ -94,13 +104,9 @@ const Input = {
     });
     canvas.addEventListener("mouseup", (e) => {
       if (GameState.isTouch) return;
-      if (e.button === 2) {
-        GameState.rightMouseDown = false;
-        Network.sendPositionUpdate(true);
-      }
+      if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
     });
 
-    // --- CẢM ỨNG (MOBILE) ---
     const isPointInCircle = (px, py, cx, cy, radius) => Math.hypot(px - cx, py - cy) < radius;
 
     canvas.addEventListener("touchstart", (e) => {
@@ -111,20 +117,17 @@ const Input = {
         const tx = t.clientX, ty = t.clientY;
         const w = canvas.width, h = canvas.height;
         
-        // Bấm nút CHÉM
         if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
           }
         }
-        // Bấm nút TỐC BIẾN
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
           GameState.rightMouseDown = true;
           GameState.sprintTouchId = t.identifier;
           Network.sendPositionUpdate(true);
         }
-        // Chạm nửa trái -> Gọi JOYSTICK
         else if (tx < w / 2) {
           GameState.joystick.active = true;
           GameState.joystick.id = t.identifier;
@@ -185,13 +188,10 @@ const Input = {
   }
 };
 
-// ===== UPDATE PHYSICS (CHỐNG GIẬT LAG) =====
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null) return;
-  
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
-  // 1. Client Prediction
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
   } else if (GameState.isMoving) {
     const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
@@ -202,30 +202,20 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
-  // 2. Client Reconciliation (Bù trừ siêu mượt)
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 150) { 
-      GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; 
-    } else if (dist > 1) { 
-      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.15 * dtMultiplier; 
-      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.15 * dtMultiplier; 
-    }
+    if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
+    else if (dist > 1) { GameState.clientX += (GameState.serverX - GameState.clientX) * 0.15 * dtMultiplier; GameState.clientY += (GameState.serverY - GameState.clientY) * 0.15 * dtMultiplier; }
   }
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
 }
 
-// ===== MAIN GAME LOOP =====
 let lastFrameTime = null;
-
 function loop(currentTime) {
   if (!lastFrameTime) lastFrameTime = currentTime;
-  const dt = (currentTime - lastFrameTime) / 1000;
+  const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.1) * 60; 
   lastFrameTime = currentTime;
-  
-  const safeDt = Math.min(dt, 0.1); 
-  const dtMultiplier = safeDt * 60; 
 
   updatePhysics(dtMultiplier);
   Renderer.draw(dtMultiplier);
@@ -238,12 +228,9 @@ function main() {
   Renderer.setupUI();
   Network.connect();
   Input.setup();
-  
-  Camera.currentZoom = Camera.getZoomByLevel(1);
-  Camera.targetZoom = Camera.currentZoom;
+  Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   
   requestAnimationFrame(loop);
-  
   setInterval(() => {
     Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) {
