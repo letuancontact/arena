@@ -8,7 +8,10 @@ const ctx = canvas.getContext("2d");
 let respawnModal = null;
 let pendingKillXpEffects = [];
 
+// CAMERA MỚI: Thêm trục tọa độ và Damping (Trượt mềm mại)
 export const Camera = {
+  x: null,
+  y: null,
   currentZoom: 1.0,
   targetZoom: 1.0,
   getZoomByLevel(level) {
@@ -26,9 +29,15 @@ export const Camera = {
     }
     return zoom;
   },
-  updateZoom() {
+  update(targetX, targetY, dtMultiplier) {
+    if (this.x === null) { this.x = targetX; this.y = targetY; }
+    
+    // Hiệu ứng Cinematic Damping (Camera trượt nhẹ nhàng theo nhân vật)
+    this.x += (targetX - this.x) * 0.1 * dtMultiplier;
+    this.y += (targetY - this.y) * 0.1 * dtMultiplier;
+
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) {
-      this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING;
+      this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     } else {
       this.currentZoom = this.targetZoom;
     }
@@ -94,9 +103,7 @@ export const Renderer = {
   },
   
   setupUI() {
-    const isMob = window.innerWidth <= 768; // Tự nhận diện Mobile
-
-    // --- XP BAR ---
+    const isMob = window.innerWidth <= 768; 
     this.xpBar = document.createElement("div");
     this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`;
     document.body.appendChild(this.xpBar);
@@ -110,14 +117,10 @@ export const Renderer = {
     this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`;
     this.levelCircle.textContent = GameState.clientLevel;
     document.body.appendChild(this.levelCircle);
-
-    // --- LEADERBOARD (Thu nhỏ trên Mobile) ---
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div");
     this.leaderboardDiv.id = "leaderboard";
     this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`;
     document.body.appendChild(this.leaderboardDiv);
-
-    // --- MINIMAP (Thu nhỏ trên Mobile) ---
     this.minimap = document.createElement("canvas");
     this.minimap.width = isMob ? 100 : 180;
     this.minimap.height = isMob ? 66 : 120;
@@ -266,13 +269,11 @@ export const Renderer = {
     }
   },
 
-  // --- TỐI ƯU HÓA HÌNH ẢNH MOBILE (CHỐNG LAG & TÁI ĐỊNH VỊ) ---
   drawMobileUI() {
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Đưa tọa độ về gốc màn hình
+    ctx.setTransform(1, 0, 0, 1, 0, 0); 
     const w = canvas.width, h = canvas.height;
     
-    // 1. Joystick
     if (GameState.joystick.active) {
       ctx.globalAlpha = 0.3;
       ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2);
@@ -282,38 +283,36 @@ export const Renderer = {
       ctx.fillStyle = "white"; ctx.fill();
     }
 
-    // 2. Nút Chém (Primary - Đỏ - Đặt ở góc phải dưới)
-    // Tọa độ mới: Cực kỳ thuận tay cái
     const attackX = w - 75, attackY = h - 75, attackR = 40;
     ctx.globalAlpha = 0.5;
     ctx.beginPath(); ctx.arc(attackX, attackY, attackR, 0, Math.PI * 2);
     ctx.fillStyle = "#ff3333"; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
-    // Vẽ tâm nhỏ bên trong thay vì chữ để chống FPS Drop
     ctx.beginPath(); ctx.arc(attackX, attackY, attackR * 0.5, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
 
-    // 3. Nút Tốc biến (Secondary - Vàng - Đặt chéo lên bên trái)
     const sprintX = w - 160, sprintY = h - 75, sprintR = 30;
     ctx.globalAlpha = GameState.rightMouseDown ? 0.8 : 0.5;
     ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR, 0, Math.PI * 2);
     ctx.fillStyle = "#ffcc00"; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
-    // Tâm nhỏ
     ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR * 0.5, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
     
     ctx.restore();
   },
 
-  draw() {
+  // HÀM DRAW BỔ SUNG THAM SỐ DELTATIME (CHỐNG LỖI MÀN HÌNH 144HZ)
+  draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
     const now = Date.now();
-    Camera.updateZoom();
+    
+    // GỌI HÀM UPDATE CAMERA MỚI
+    Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
     
     const centerX = canvas.width / 2, centerY = canvas.height / 2;
-    const offsetX = centerX - GameState.clientX * Camera.currentZoom;
-    const offsetY = centerY - GameState.clientY * Camera.currentZoom;
+    const offsetX = centerX - Camera.x * Camera.currentZoom;
+    const offsetY = centerY - Camera.y * Camera.currentZoom;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -331,10 +330,10 @@ export const Renderer = {
     
     const { interpFood, interpPlayers } = this.getInterpolatedState();
     const margin = 100 / Camera.currentZoom;
-    const viewportLeft = GameState.clientX - canvas.width / (2 * Camera.currentZoom) - margin;
-    const viewportRight = GameState.clientX + canvas.width / (2 * Camera.currentZoom) + margin;
-    const viewportTop = GameState.clientY - canvas.height / (2 * Camera.currentZoom) - margin;
-    const viewportBottom = GameState.clientY + canvas.height / (2 * Camera.currentZoom) + margin;
+    const viewportLeft = Camera.x - canvas.width / (2 * Camera.currentZoom) - margin;
+    const viewportRight = Camera.x + canvas.width / (2 * Camera.currentZoom) + margin;
+    const viewportTop = Camera.y - canvas.height / (2 * Camera.currentZoom) - margin;
+    const viewportBottom = Camera.y + canvas.height / (2 * Camera.currentZoom) + margin;
     
     for (const f of interpFood) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
@@ -354,7 +353,9 @@ export const Renderer = {
     }
     
     for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+      const p = this.particles[i]; 
+      // Áp dụng dtMultiplier vào Physics của Mảnh vỡ để Mọi màn hình rớt chuẩn tốc độ
+      p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
       if (p.life <= 0) { this.particles.splice(i, 1); } 
       else { ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
     }
@@ -433,7 +434,6 @@ export const Renderer = {
     
     ctx.restore();
     
-    // VẼ NÚT CẢM ỨNG NẾU DÙNG ĐIỆN THOẠI
     if (GameState.isTouch) {
       this.drawMobileUI();
     }
