@@ -111,7 +111,6 @@ const Network = {
         }
 
         if (!prevDead && me.isDead) {
-          // ĐÃ XÓA BỎ LỆNH RUNG MÀN HÌNH TẠI ĐÂY THEO Ý BẠN
           uiLayer.style.display = "flex"; setTimeout(() => uiLayer.style.opacity = "1", 10);
           statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
@@ -131,7 +130,6 @@ const Network = {
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
           Sound.play('kill');
-          // ĐÃ XÓA BỎ LỆNH RUNG MÀN HÌNH KHI DIỆT ĐỊCH TẠI ĐÂY
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -248,29 +246,35 @@ const Input = {
   }
 };
 
-// ===== TIÊU CHUẨN VẬT LÝ MỚI CHỐNG GIẬT CHO MOBILE =====
+// ===== TIÊU CHUẨN VẬT LÝ MỚI =====
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
+  let isPredictingMove = false; // Cờ kiểm tra trạng thái đang chủ động chạy
+
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
   } else if (GameState.isMoving) {
     const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
     GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
     GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
+    isPredictingMove = true;
   }
   
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
-  // TỐI ƯU RECONCILIATION: Khóa chết hệ số Lerp cố định (0.2) thay vì phụ thuộc dtMultiplier
-  // Biện pháp này triệt tiêu hoàn toàn sự rung lắc hình ảnh khi Mobile bị trồi sụt khung hình thực tế
+  // TỐI ƯU RECONCILIATION: Tránh hiện tượng kéo co (Rubber-banding)
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
-    else if (dist > 0.5) { 
-      GameState.clientX += (GameState.serverX - GameState.clientX) * 0.2; 
-      GameState.clientY += (GameState.serverY - GameState.clientY) * 0.2; 
+    if (dist > 150) { 
+      GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; 
+    } else if (dist > 2) { 
+      // SỬA LỖI: Cực kỳ nhẹ nhàng nắn đường khi đang chạy (0.02) để không cản tốc độ
+      // Kéo về nhanh hơn một chút (0.1) khi đang đứng im.
+      const lerpFactor = isPredictingMove ? 0.02 : 0.1;
+      GameState.clientX += (GameState.serverX - GameState.clientX) * lerpFactor * dtMultiplier; 
+      GameState.clientY += (GameState.serverY - GameState.clientY) * lerpFactor * dtMultiplier; 
     }
   }
 
