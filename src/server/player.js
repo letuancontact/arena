@@ -30,7 +30,7 @@ function createPlayer(ws) {
     isAttacking: false,
     attackTime: 0,
     lastAttackTime: 0,
-    justRespawned: Date.now(), // SỬA LỖI: Người chơi MỚI VÀO GAME được cấp ngay khiên 5s
+    justRespawned: Date.now(), 
     isDead: false,
     deadTime: 0,
     lastXpDrain: 0,
@@ -56,7 +56,8 @@ function handlePlayerAttack(player) {
   }
 }
 
-function updatePhysics(player, mapWidth, mapHeight) {
+// Bổ sung tham số dtMultiplier (DeltaTime)
+function updatePhysics(player, mapWidth, mapHeight, dtMultiplier = 1) {
   if (player.isDead) return;
 
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (player.level * CONFIG.ATTACK_DURATION_PER_LEVEL);
@@ -93,7 +94,9 @@ function updatePhysics(player, mapWidth, mapHeight) {
     const t = (player.level - 1) / (CONFIG.MAX_LEVEL - 1);
     const baseSpeed = CONFIG.MAX_SPEED - (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.sqrt(t);
     const botPenalty = player.isBot ? CONFIG.BOT_SPEED_MULTIPLIER : 1;
-    const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1) * botPenalty;
+    
+    // Áp dụng DeltaTime vào vận tốc (chống sai số khung hình)
+    const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1) * botPenalty * dtMultiplier;
     
     player.x += Math.cos(player.angle) * speed;
     player.y += Math.sin(player.angle) * speed;
@@ -112,8 +115,6 @@ function respawnPlayer(player, mapWidth, mapHeight) {
   player.speed = 4;
   player.score = 0;
   player.isDead = false;
-  
-  // SỬA LỖI: Nếu là Bot hồi sinh thì giá trị là 0 (Không có khiên)
   player.justRespawned = player.isBot ? 0 : Date.now();
   player.hitVictims = new Set();
 }
