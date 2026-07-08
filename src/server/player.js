@@ -30,7 +30,7 @@ function createPlayer(ws) {
     isAttacking: false,
     attackTime: 0,
     lastAttackTime: 0,
-    justRespawned: 0,
+    justRespawned: Date.now(), // SỬA LỖI: Người chơi MỚI VÀO GAME được cấp ngay khiên 5s
     isDead: false,
     deadTime: 0,
     lastXpDrain: 0,
@@ -92,8 +92,6 @@ function updatePhysics(player, mapWidth, mapHeight) {
   if (player.isMoving) {
     const t = (player.level - 1) / (CONFIG.MAX_LEVEL - 1);
     const baseSpeed = CONFIG.MAX_SPEED - (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.sqrt(t);
-    
-    // ÁP DỤNG HÌNH PHẠT TỐC ĐỘ CHO BOT
     const botPenalty = player.isBot ? CONFIG.BOT_SPEED_MULTIPLIER : 1;
     const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1) * botPenalty;
     
@@ -114,7 +112,9 @@ function respawnPlayer(player, mapWidth, mapHeight) {
   player.speed = 4;
   player.score = 0;
   player.isDead = false;
-  player.justRespawned = Date.now();
+  
+  // SỬA LỖI: Nếu là Bot hồi sinh thì giá trị là 0 (Không có khiên)
+  player.justRespawned = player.isBot ? 0 : Date.now();
   player.hitVictims = new Set();
 }
 
