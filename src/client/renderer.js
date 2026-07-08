@@ -94,8 +94,11 @@ export const Renderer = {
   },
   
   setupUI() {
+    const isMob = window.innerWidth <= 768; // Tự nhận diện Mobile
+
+    // --- XP BAR ---
     this.xpBar = document.createElement("div");
-    this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%);width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`;
+    this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`;
     document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div");
     this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`;
@@ -104,16 +107,21 @@ export const Renderer = {
     this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`;
     this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div");
-    this.levelCircle.style.cssText = `position:fixed;bottom:22px;left:calc(50% - 142px);width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`;
+    this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`;
     this.levelCircle.textContent = GameState.clientLevel;
     document.body.appendChild(this.levelCircle);
+
+    // --- LEADERBOARD (Thu nhỏ trên Mobile) ---
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div");
     this.leaderboardDiv.id = "leaderboard";
-    this.leaderboardDiv.style.cssText = `position:fixed;top:20px;left:20px;background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;font-size:14px;line-height:1.6;border-radius:10px;padding:14px 20px;z-index:1002;min-width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.08);`;
+    this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`;
     document.body.appendChild(this.leaderboardDiv);
+
+    // --- MINIMAP (Thu nhỏ trên Mobile) ---
     this.minimap = document.createElement("canvas");
-    this.minimap.width = 180; this.minimap.height = 120;
-    this.minimap.style.cssText = `position:fixed;top:5px;right:20px;background:rgba(20,20,20,0.92);border-radius:10px;z-index:1002;width:200px !important;height:100px !important;pointer-events:none;margin-top:10px;`;
+    this.minimap.width = isMob ? 100 : 180;
+    this.minimap.height = isMob ? 66 : 120;
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '100px' : '200px'} !important;height:${isMob ? '66px' : '100px'} !important;pointer-events:none;`;
     document.body.appendChild(this.minimap);
     this.minimapCtx = this.minimap.getContext("2d");
   },
@@ -136,9 +144,10 @@ export const Renderer = {
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
     this.fillImage.style.left = -215 + percent * 215 + "px";
     this.levelCircle.textContent = GameState.clientLevel;
+    
     this.minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height);
     this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2;
-    this.minimapCtx.strokeRect(8, 8, this.minimap.width - 16, this.minimap.height - 16);
+    this.minimapCtx.strokeRect(4, 4, this.minimap.width - 8, this.minimap.height - 8);
     
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null;
@@ -146,31 +155,34 @@ export const Renderer = {
       top1 = allPlayersArr.slice().sort((a, b) => {
         if (b.level !== a.level) return b.level - a.level;
         return (b.score || 0) - (a.score || 0);
-      })[0];
+      });
+      top1 = top1[0];
     }
     if (top1) {
-      const px = 8 + (top1.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 16);
-      const py = 8 + (top1.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 16);
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 5, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill();
+      const px = 4 + (top1.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 8);
+      const py = 4 + (top1.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 8);
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill();
     }
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) {
-      const px = 8 + (me.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 16);
-      const py = 8 + (me.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 16);
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 5, 0, Math.PI * 2);
-      this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 2;
+      const px = 4 + (me.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 8);
+      const py = 4 + (me.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 8);
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2);
+      this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1;
       this.minimapCtx.fill(); this.minimapCtx.stroke();
     }
   },
   updateLeaderboard(playersArr) {
-    if (!playersArr || playersArr.length === 0) { this.leaderboardDiv.innerHTML = "<b>TOP PLAYERS</b><br/><i>No players</i>"; return; }
+    if (!playersArr || playersArr.length === 0) return;
     const sorted = [...playersArr].sort((a, b) => {
       if (b.level !== a.level) return b.level - a.level;
       return (b.score || 0) - (a.score || 0);
     });
-    let html = `<div style="font-weight:bold;font-size:16px;color:#00ffff;margin-bottom:6px;">★ TOP PLAYERS ★</div>`;
+    const isMob = window.innerWidth <= 768;
+    const titleSize = isMob ? '12px' : '16px';
+    let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
     sorted.slice(0, 8).forEach((p, i) => {
-      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}.</span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;">Lv${p.level}</span><span style="float:right;color:#f88;"><b>${p.score || 0}</b></span></div>`;
+      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`;
     });
     this.leaderboardDiv.innerHTML = html;
   },
@@ -254,49 +266,42 @@ export const Renderer = {
     }
   },
 
-  // --- HÀM VẼ GIAO DIỆN MOBILE ---
+  // --- TỐI ƯU HÓA HÌNH ẢNH MOBILE (CHỐNG LAG & TÁI ĐỊNH VỊ) ---
   drawMobileUI() {
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Đưa tọa độ về gốc màn hình thực
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Đưa tọa độ về gốc màn hình
+    const w = canvas.width, h = canvas.height;
     
-    // Vẽ Joystick nếu đang chạm
+    // 1. Joystick
     if (GameState.joystick.active) {
-      ctx.globalAlpha = 0.4;
-      // Trục ngoài
-      ctx.beginPath();
-      ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 60, 0, Math.PI * 2);
-      ctx.fillStyle = "black"; ctx.fill();
-      ctx.lineWidth = 3; ctx.strokeStyle = "white"; ctx.stroke();
-      
-      // Cục xoay
-      ctx.globalAlpha = 0.7;
-      ctx.beginPath();
-      ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 30, 0, Math.PI * 2);
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2);
+      ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 25, 0, Math.PI * 2);
       ctx.fillStyle = "white"; ctx.fill();
     }
 
-    // Vẽ Nút Tốc Biến & Tấn Công
-    const w = canvas.width, h = canvas.height;
-    
-    // Nút Tốc biến (Nhỏ hơn, nằm góc phải dưới)
-    ctx.globalAlpha = GameState.rightMouseDown ? 0.8 : 0.4;
-    ctx.beginPath();
-    ctx.arc(w - 80, h - 80, 50, 0, Math.PI * 2);
-    ctx.fillStyle = GameState.rightMouseDown ? "#ffcc00" : "black"; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = "white"; ctx.stroke();
-    ctx.fillStyle = GameState.rightMouseDown ? "black" : "white";
-    ctx.font = "bold 16px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
-    ctx.fillText("TỐC BIẾN", w - 80, h - 80);
-
-    // Nút Tấn Công (To hơn, nằm nhích lên trên một chút)
+    // 2. Nút Chém (Primary - Đỏ - Đặt ở góc phải dưới)
+    // Tọa độ mới: Cực kỳ thuận tay cái
+    const attackX = w - 75, attackY = h - 75, attackR = 40;
     ctx.globalAlpha = 0.5;
-    ctx.beginPath();
-    ctx.arc(w - 200, h - 140, 60, 0, Math.PI * 2);
-    ctx.fillStyle = "black"; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = "white"; ctx.stroke();
-    ctx.fillStyle = "white";
-    ctx.font = "bold 22px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
-    ctx.fillText("CHÉM", w - 200, h - 140);
+    ctx.beginPath(); ctx.arc(attackX, attackY, attackR, 0, Math.PI * 2);
+    ctx.fillStyle = "#ff3333"; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
+    // Vẽ tâm nhỏ bên trong thay vì chữ để chống FPS Drop
+    ctx.beginPath(); ctx.arc(attackX, attackY, attackR * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
+
+    // 3. Nút Tốc biến (Secondary - Vàng - Đặt chéo lên bên trái)
+    const sprintX = w - 160, sprintY = h - 75, sprintR = 30;
+    ctx.globalAlpha = GameState.rightMouseDown ? 0.8 : 0.5;
+    ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffcc00"; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
+    // Tâm nhỏ
+    ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
     
     ctx.restore();
   },
@@ -428,7 +433,7 @@ export const Renderer = {
     
     ctx.restore();
     
-    // GỌI HÀM VẼ GIAO DIỆN MOBILE NẾU LÀ ĐIỆN THOẠI
+    // VẼ NÚT CẢM ỨNG NẾU DÙNG ĐIỆN THOẠI
     if (GameState.isTouch) {
       this.drawMobileUI();
     }
