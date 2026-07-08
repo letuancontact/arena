@@ -25,19 +25,30 @@ export const GameState = {
   lastSentY: 0,
   lastSentTime: 0,
   lastSentAngle: 0,
-  mouseAngle: 0, // Lưu góc chuột hiện tại để tách biệt với Input
+  mouseAngle: 0,
   stateBuffer: [],
   prevPositions: {},
   prevAngles: {},
   mouseX: 0,
   mouseY: 0,
   mouseMoveThrottled: false,
-  loseXpInterval: null,
   isAttacking: false,
   attackTime: 0,
   lastAttackTime: 0,
   prevPlayerDeadState: {},
   
+  // --- MOBILE STATE ---
+  isTouch: false, // Cờ nhận diện có đang dùng điện thoại không
+  sprintTouchId: null, // ID của ngón tay đang đè nút chạy
+  joystick: {
+    active: false,
+    id: null, // ID của ngón tay đang điều khiển Joystick
+    baseX: 0,
+    baseY: 0,
+    stickX: 0,
+    stickY: 0
+  },
+
   getXpToNext(level) {
     return Math.floor(100 * Math.pow(1.2, level - 1));
   },
