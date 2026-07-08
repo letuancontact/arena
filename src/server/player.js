@@ -38,7 +38,6 @@ function createPlayer(ws) {
   };
 }
 
-// CHƯƠNG 13: Authoritative Logic - Chỉ nhận THAO TÁC, từ chối nhận TỌA ĐỘ từ Client
 function handlePlayerMove(player, data) {
   if (player.isDead) return;
   if (typeof data.angle === "number") player.angle = data.angle;
@@ -57,18 +56,15 @@ function handlePlayerAttack(player) {
   }
 }
 
-// CHƯƠNG 13: Game Loop Physics cho Player chạy trực tiếp trên Server
 function updatePhysics(player, mapWidth, mapHeight) {
   if (player.isDead) return;
 
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (player.level * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
-  // Đứng im khi đang vung kiếm
   if (player.isAttacking && Date.now() - player.attackTime < attackDuration) {
     return;
   }
 
-  // Quản lý Chạy nước rút (Sprint) & Tự động trừ XP trên Server
   let isSprinting = false;
   if (player.rightMouseDown && player.xp > 0 && player.level >= 1) {
     isSprinting = true;
@@ -93,16 +89,17 @@ function updatePhysics(player, mapWidth, mapHeight) {
     player.rightMouseDown = false;
   }
 
-  // Di chuyển (Physics)
   if (player.isMoving) {
     const t = (player.level - 1) / (CONFIG.MAX_LEVEL - 1);
     const baseSpeed = CONFIG.MAX_SPEED - (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.sqrt(t);
-    const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1);
+    
+    // ÁP DỤNG HÌNH PHẠT TỐC ĐỘ CHO BOT
+    const botPenalty = player.isBot ? CONFIG.BOT_SPEED_MULTIPLIER : 1;
+    const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1) * botPenalty;
     
     player.x += Math.cos(player.angle) * speed;
     player.y += Math.sin(player.angle) * speed;
     
-    // Giới hạn biên
     player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
     player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
   }
@@ -121,12 +118,4 @@ function respawnPlayer(player, mapWidth, mapHeight) {
   player.hitVictims = new Set();
 }
 
-module.exports = {
-  getRadiusByLevel,
-  getXpToNext,
-  createPlayer,
-  handlePlayerMove,
-  handlePlayerAttack,
-  updatePhysics,
-  respawnPlayer
-};
+module.exports = { getRadiusByLevel, getXpToNext, createPlayer, handlePlayerMove, handlePlayerAttack, updatePhysics, respawnPlayer };
