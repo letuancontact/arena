@@ -4,14 +4,18 @@ const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-let pendingKillXpEffects = [];
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
-    for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) return minZoom; }
+    for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) { zoom = minZoom; break; } }
+    
+    // MỞ RỘNG TẦM NHÌN: Riêng thiết bị Mobile sẽ được Zoom Out siêu rộng để dễ quan sát
+    if (window.innerWidth <= 768) {
+      zoom *= 0.55; 
+    }
     return zoom;
   },
   update(targetX, targetY, dtMultiplier) {
@@ -38,8 +42,9 @@ export const Resources = {
 
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  particles: [], trails: [],
-  // KHỞI TẠO BỘ NHỚ POOLING
+  particles: Array.from({length: 1000}, () => ({active: false, x:0, y:0, vx:0, vy:0, life:0, decay:0, size:0, color:""})),
+  trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
+  xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
 
   addLevelUpEffect(x, y, radius) {
@@ -51,15 +56,34 @@ export const Renderer = {
       }
     }
   },
-
-  addKillXpEffect(x, y, amount) { pendingKillXpEffects.push({ x, y, amount, start: Date.now() }); },
-  addDeathParticles(x, y, radius) {
-    const numParticles = 15 + Math.random() * 15;
-    for (let i = 0; i < numParticles; i++) {
-      const angle = Math.random() * Math.PI * 2, speed = Math.random() * 6 + 3;
-      this.particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1.0, decay: Math.random() * 0.03 + 0.015, size: Math.random() * (radius * 0.35) + 3, color: Math.random() > 0.5 ? "#ff3333" : "#ffcc00" });
+  addKillXpEffect(x, y, amount) {
+    for(let i=0; i<this.xpEffects.length; i++) {
+      if(!this.xpEffects[i].active) {
+        const e = this.xpEffects[i];
+        e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break;
+      }
     }
   },
+  addDeathParticles(x, y, radius) {
+    const numParticles = 6 + Math.random() * 4; 
+    let added = 0;
+    for (let i = 0; i < this.particles.length && added < numParticles; i++) {
+      const p = this.particles[i];
+      if (!p.active) {
+        const angle = Math.random() * Math.PI * 2, speed = Math.random() * 4 + 2;
+        p.x = x; p.y = y; p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed;
+        p.life = 1.0; p.decay = Math.random() * 0.05 + 0.05; p.size = Math.random() * (radius * 0.2) + 2;
+        p.color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00"; p.active = true; added++;
+      }
+    }
+  },
+  addTrail(x, y, angle, level, radius) {
+    for (let i = 0; i < this.trails.length; i++) {
+      const t = this.trails[i];
+      if (!t.active) { t.x = x; t.y = y; t.angle = angle; t.level = level; t.radius = radius; t.time = Date.now(); t.active = true; break; }
+    }
+  },
+
   setupUI() {
     const isMob = window.innerWidth <= 768; 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
@@ -67,7 +91,14 @@ export const Renderer = {
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
-    this.minimap = document.createElement("canvas"); this.minimap.width = isMob ? 100 : 180; this.minimap.height = isMob ? 66 : 120; this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '100px' : '200px'} !important;height:${isMob ? '66px' : '100px'} !important;pointer-events:none;`; document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d");
+    
+    // TỐI ƯU MOBILE: Thu nhỏ size thật của thẻ Canvas Minimap để không cản trở màn hình
+    this.minimap = document.createElement("canvas"); 
+    this.minimap.width = isMob ? 80 : 180; 
+    this.minimap.height = isMob ? 53 : 120; 
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '80px' : '200px'} !important;height:${isMob ? '53px' : '100px'} !important;pointer-events:none;`; 
+    document.body.appendChild(this.minimap); 
+    this.minimapCtx = this.minimap.getContext("2d");
   },
   resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; },
   renderBackground() {
@@ -85,14 +116,17 @@ export const Renderer = {
 
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
     this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
-    this.minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; this.minimapCtx.strokeRect(4, 4, this.minimap.width - 8, this.minimap.height - 8);
+    
+    this.minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; 
+    this.minimapCtx.strokeRect(2, 2, this.minimap.width - 4, this.minimap.height - 4);
+    
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null;
     if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
-    if (top1) { const px = 4 + (top1.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 8); const py = 4 + (top1.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 8); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
+    if (top1) { const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 4); const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 4); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) {
-      const px = 4 + (me.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 8); const py = 4 + (me.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 8); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke();
+      const px = 2 + (me.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 4); const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 4); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke();
     }
   },
   updateLeaderboard(playersArr) {
@@ -205,19 +239,24 @@ export const Renderer = {
       }
     }
 
-    for (const id in this.trails) {
-      this.trails[id] = this.trails[id].filter(t => now - t.time < 200);
-      if (this.trails[id].length === 0) { delete this.trails[id]; continue; }
-      for (const t of this.trails[id]) {
-        const img = Resources.getPlayerImage(t.level || 1);
-        if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
+    for (let i = 0; i < this.trails.length; i++) {
+      const t = this.trails[i];
+      if (t.active) {
+        if (now - t.time >= 200) { t.active = false; } 
+        else {
+          const img = Resources.getPlayerImage(t.level || 1);
+          if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
+        }
       }
     }
     
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i]; p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
-      if (p.life <= 0) { this.particles.splice(i, 1); } 
-      else { ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i]; 
+      if (p.active) {
+        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
+        if (p.life <= 0) { p.active = false; } 
+        else { ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      }
     }
 
     for (const id in interpPlayers) {
@@ -230,8 +269,7 @@ export const Renderer = {
         GameState.prevAngles[id] = angle; GameState.prevPositions[id] = { x: p.x, y: p.y };
 
         if (p.rightMouseDown) {
-          if (!this.trails[p.id]) this.trails[p.id] = [];
-          this.trails[p.id].push({ x: p.x, y: p.y, angle, level: p.level, radius: p.radius, time: now });
+          this.addTrail(p.x, p.y, angle, p.level, p.radius);
         }
         
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (p.radius + 22) * 2, angle);
@@ -257,8 +295,7 @@ export const Renderer = {
       GameState.prevAngles[GameState.playerId] = angle; GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
       if (me.rightMouseDown) {
-        if (!this.trails[GameState.playerId]) this.trails[GameState.playerId] = [];
-        this.trails[GameState.playerId].push({ x: GameState.clientX, y: GameState.clientY, angle, level: GameState.clientLevel, radius: GameState.clientRadius, time: now });
+        this.addTrail(GameState.clientX, GameState.clientY, angle, GameState.clientLevel, GameState.clientRadius);
       }
 
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
@@ -282,56 +319,44 @@ export const Renderer = {
       }
     }
 
-    // --- VẼ HIỆU ỨNG LEVEL UP (TRONG KHÔNG GIAN BẢN ĐỒ) ---
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
         if (now - e.start >= 1500) { e.active = false; }
         else {
           const t = (now - e.start) / 1500;
-          const alpha = 1 - Math.pow(t, 3); // Mờ dần đẹp hơn (hàm mũ)
+          const alpha = 1 - Math.pow(t, 3); 
           
-          ctx.save();
-          ctx.globalAlpha = alpha;
+          ctx.save(); ctx.globalAlpha = alpha;
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
+          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff"; ctx.stroke();
           
-          // 1. Vòng sáng Aura tỏa ra xung quanh
-          ctx.beginPath(); 
-          ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
-          ctx.lineWidth = 8 * (1 - t); 
-          ctx.strokeStyle = "#00ffff"; // Hào quang xanh dương siêu đẹp
-          ctx.shadowBlur = 20; 
-          ctx.shadowColor = "#00ffff"; 
-          ctx.stroke();
-          
-          // 2. Chữ "LEVEL UP!" nổi dần lên trời
-          ctx.font = "900 36px Arial"; 
-          ctx.textAlign = "center"; 
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = "#ffffff"; 
-          ctx.strokeStyle = "#0088ff"; 
-          ctx.lineWidth = 5;
+          ctx.font = "900 36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 5;
           const textY = e.y - e.radius - 40 - (t * 100);
-          ctx.strokeText("LEVEL UP!", e.x, textY); 
-          ctx.fillText("LEVEL UP!", e.x, textY);
-          
+          ctx.strokeText("LEVEL UP!", e.x, textY); ctx.fillText("LEVEL UP!", e.x, textY);
           ctx.restore();
         }
       }
     }
     
-    ctx.restore(); // KẾT THÚC VÒNG LẶP CAMERA 
-
+    ctx.restore();
     if (GameState.isTouch) this.drawMobileUI();
 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     this.updateLeaderboard(allPlayersArr);
     
     const nowKillXp = Date.now();
-    pendingKillXpEffects = pendingKillXpEffects.filter(e => nowKillXp - e.start < 1000);
-    for (const e of pendingKillXpEffects) {
-      const t = (nowKillXp - e.start) / 1000;
-      ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-      ctx.strokeText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.restore();
+    for (let i = 0; i < this.xpEffects.length; i++) {
+      const e = this.xpEffects[i];
+      if (e.active) {
+        if (nowKillXp - e.start >= 1000) { e.active = false; } 
+        else {
+          const t = (nowKillXp - e.start) / 1000;
+          ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.strokeText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.restore();
+        }
+      }
     }
   }
 };
