@@ -26,22 +26,43 @@ let food = [];
 
 foodLib.spawnFood(food);
 
-// THUẬT TOÁN HỒI SINH AN TOÀN (SAFE SPAWN)
+// ===== ĐÃ FIX: THUẬT TOÁN HỒI SINH AN TOÀN THÔNG MINH (SMART SAFE SPAWN) =====
 function getSafeSpawn(activePlayers, mapW, mapH) {
-  for (let i = 0; i < 15; i++) { // Cố gắng tìm tối đa 15 tọa độ
+  let bestPos = { x: Math.random() * mapW, y: Math.random() * mapH };
+  let maxDistFound = -1;
+
+  // Thử 30 lần để quét radar toàn bản đồ
+  for (let i = 0; i < 30; i++) { 
     const tx = Math.random() * mapW;
     const ty = Math.random() * mapH;
-    let isSafe = true;
+    
+    let minDistToPlayer = Infinity;
+    
+    // Đo khoảng cách tới người chơi gần nhất tại tọa độ này
     for (const p of activePlayers) {
-      // Bán kính cách ly 1200px so với MỌI thực thể đang sống
-      if (!p.isDead && Math.hypot(p.x - tx, p.y - ty) < 1200) {
-        isSafe = false; break;
+      if (!p.isDead) {
+        const d = Math.hypot(p.x - tx, p.y - ty);
+        if (d < minDistToPlayer) minDistToPlayer = d;
       }
     }
-    if (isSafe) return { x: tx, y: ty };
+
+    // Nếu server chưa có ai, chọn luôn điểm này
+    if (minDistToPlayer === Infinity) return { x: tx, y: ty };
+
+    // 800 pixel là đủ an toàn, nằm ngoài rìa camera của người chơi
+    if (minDistToPlayer > 800) {
+      return { x: tx, y: ty }; // Đạt chuẩn, xuất hiện ngay!
+    }
+
+    // GHI NHỚ: Nếu không đạt chuẩn tuyệt đối, cứ lưu lại điểm "vắng nhất" đã từng quét qua
+    if (minDistToPlayer > maxDistFound) {
+      maxDistFound = minDistToPlayer;
+      bestPos = { x: tx, y: ty };
+    }
   }
-  // Nếu map quá đông người, nhượng bộ xuất hiện ngẫu nhiên
-  return { x: Math.random() * mapW, y: Math.random() * mapH };
+  
+  // Trả về nơi vắng vẻ nhất tìm được (chống việc rớt ngẫu nhiên trúng đầu người khác)
+  return bestPos;
 }
 
 wss.on("connection", (ws) => {
@@ -64,8 +85,10 @@ wss.on("connection", (ws) => {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          
+          // Người chơi cũng được hưởng ké thuật toán Hồi sinh an toàn mới
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          player.x = safePos.x; player.y = safePos.y; // Áp dụng vị trí an toàn
+          player.x = safePos.x; player.y = safePos.y; 
         }
       }
 
@@ -177,8 +200,10 @@ setInterval(() => {
       if (entity.isDead && now - entity.deadTime >= CONFIG.RESPAWN_TIME) {
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          
+          // Bắt buộc Bot phải áp dụng vị trí an toàn tuyệt đối khi hồi sinh
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          entity.x = safePos.x; entity.y = safePos.y; // Áp dụng vị trí an toàn cho Bot
+          entity.x = safePos.x; entity.y = safePos.y; 
           entity.angle = Math.random() * Math.PI * 2;
           entity.killerId = null;
         }
@@ -191,8 +216,11 @@ setInterval(() => {
     if (botCount < botTarget) { 
       for (let i = botCount; i < botTarget; i++) {
         const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+        
+        // Bắt buộc Bot mới tạo cũng phải áp dụng vị trí an toàn tuyệt đối
         const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
         bot.x = safePos.x; bot.y = safePos.y;
+        
         bots.set(bot.id, bot); 
       }
     } 
