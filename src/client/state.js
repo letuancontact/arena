@@ -36,9 +36,8 @@ export const GameState = {
   attackTime: 0,
   lastAttackTime: 0,
   prevPlayerDeadState: {},
-  prevPlayerLevels: {}, // <-- LƯU TRỮ CẤP ĐỘ ĐỂ PHÁT HIỆN LEVEL UP
+  prevPlayerLevels: {},
   
-  // --- MOBILE STATE ---
   isTouch: false, 
   sprintTouchId: null, 
   joystick: {
@@ -51,7 +50,8 @@ export const GameState = {
   },
 
   getXpToNext(level) {
-    return Math.floor(100 * Math.pow(1.2, level - 1));
+    // ĐÃ FIX: Tăng độ khó lên cấp theo cấp số nhân x1.35 thay vì x1.2
+    return Math.floor(100 * Math.pow(1.35, level - 1));
   },
   getRadiusByLevel(level) {
     return CONFIG.RADIUS_TABLE[Math.max(0, Math.min(CONFIG.RADIUS_TABLE.length - 1, level - 1))];
