@@ -7,6 +7,50 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
+// ===== AUDIO SYSTEM ĐÃ ĐƯỢC KHÔI PHỤC VÀ TỐI ƯU =====
+const Sound = {
+  ctx: null,
+  lastPlay: {},
+  init() {
+    if (!this.ctx) {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioContext();
+    }
+    // Trình duyệt đôi khi tự chặn âm thanh, hàm resume() sẽ đánh thức nó
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  play(type) {
+    if (!this.ctx) return;
+    const nowMs = Date.now();
+    // Bộ đệm (Throttle): Chống phát 2 âm thanh giống nhau trong 100ms gây ồn
+    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; 
+    this.lastPlay[type] = nowMs;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    
+    const now = this.ctx.currentTime;
+    if (type === 'swing') {
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'eat') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
+    } else if (type === 'kill') {
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc.start(now); osc.stop(now + 0.2);
+    } else if (type === 'levelUp') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    }
+  }
+};
+
 // ===== UI CONTROLLER (MAIN MENU) =====
 const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
@@ -16,6 +60,7 @@ const statusText = document.getElementById("status-text");
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 playBtn.addEventListener("click", () => {
+  Sound.init(); // Kích hoạt âm thanh khi người dùng bấm nút
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách";
   localStorage.setItem("evowar_name", name);
@@ -67,9 +112,17 @@ const Network = {
       
       if (me) {
         const oldLevel = GameState.clientLevel;
+        const oldXp = GameState.clientXp;
+
         GameState.clientLevel = me.level || 1;
-        GameState.clientXp = me.xp || 0; GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
+        GameState.clientXp = me.xp || 0; 
+        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
+        
+        // --- PHÁT ÂM THANH KHI ĂN HOẶC LÊN CẤP ---
+        if (GameState.clientLevel > oldLevel) Sound.play('levelUp');
+        else if (GameState.clientXp > oldXp) Sound.play('eat');
+
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
@@ -106,18 +159,20 @@ const Network = {
       GameState.isDead = me?.isDead ?? true; 
       GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
-      // QUÉT MỌI NGƯỜI CHƠI ĐỂ XỬ LÝ SỰ KIỆN CHẾT & LÊN CẤP
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
+          Sound.play('kill');
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
 
-        // BẮT SỰ KIỆN LÊN CẤP (LEVEL UP) CHO TẤT CẢ
-        const prevLevel = GameState.prevPlayerLevels[p.id];
-        if (prevLevel && p.level > prevLevel && !p.isDead) {
-          Renderer.addLevelUpEffect(p.x, p.y, p.radius);
+        // VẤN ĐỀ 1 ĐÃ ĐƯỢC FIX: Hiệu ứng ánh sáng Level Up giờ CHỈ BẬT KHI LÀ CHÍNH BẠN
+        if (p.id === GameState.playerId) {
+          const prevLevel = GameState.prevPlayerLevels[p.id];
+          if (prevLevel && p.level > prevLevel && !p.isDead) {
+            Renderer.addLevelUpEffect(p.x, p.y, p.radius);
+          }
         }
         GameState.prevPlayerLevels[p.id] = p.level;
       }
@@ -156,16 +211,20 @@ const Input = {
         Network.sendPositionUpdate(); GameState.mouseMoveThrottled = false;
       });
     });
+    
     canvas.addEventListener("mousedown", (e) => {
       if (GameState.isTouch || GameState.isDead) return;
+      Sound.init(); // Trình duyệt yêu cầu user click chuột mới được bật tiếng
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) { GameState.rightMouseDown = true; Network.sendPositionUpdate(true); }
       if (e.button === 0) {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
         if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
           GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
+          Sound.play('swing');
         }
       }
     });
+    
     canvas.addEventListener("mouseup", (e) => {
       if (GameState.isTouch) return;
       if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
@@ -177,6 +236,7 @@ const Input = {
       if(GameState.isDead) return;
       GameState.isTouch = true;
       e.preventDefault(); 
+      Sound.init(); // Bật âm thanh trên Mobile
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         const tx = t.clientX, ty = t.clientY;
@@ -186,6 +246,7 @@ const Input = {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
             GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
+            Sound.play('swing');
           }
         }
         else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
@@ -243,6 +304,7 @@ const Input = {
 
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
+  
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
@@ -255,10 +317,17 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
+  // TỐI ƯU RECONCILIATION: Nội suy tịnh tiến bám đuổi Server
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
-    else if (dist > 1) { GameState.clientX += (GameState.serverX - GameState.clientX) * 0.15 * dtMultiplier; GameState.clientY += (GameState.serverY - GameState.clientY) * 0.15 * dtMultiplier; }
+    if (dist > 200) {
+      GameState.clientX = GameState.serverX;
+      GameState.clientY = GameState.serverY;
+    } else if (dist > 0.1) {
+      const catchUpSpeed = 0.25 * dtMultiplier;
+      GameState.clientX += (GameState.serverX - GameState.clientX) * Math.min(catchUpSpeed, 0.9);
+      GameState.clientY += (GameState.serverY - GameState.clientY) * Math.min(catchUpSpeed, 0.9);
+    }
   }
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
