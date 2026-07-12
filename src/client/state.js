@@ -36,13 +36,14 @@ export const GameState = {
   attackTime: 0,
   lastAttackTime: 0,
   prevPlayerDeadState: {},
+  prevPlayerLevels: {}, // <-- LƯU TRỮ CẤP ĐỘ ĐỂ PHÁT HIỆN LEVEL UP
   
   // --- MOBILE STATE ---
-  isTouch: false, // Cờ nhận diện có đang dùng điện thoại không
-  sprintTouchId: null, // ID của ngón tay đang đè nút chạy
+  isTouch: false, 
+  sprintTouchId: null, 
   joystick: {
     active: false,
-    id: null, // ID của ngón tay đang điều khiển Joystick
+    id: null, 
     baseX: 0,
     baseY: 0,
     stickX: 0,
