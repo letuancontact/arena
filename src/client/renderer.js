@@ -10,12 +10,7 @@ export const Camera = {
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
-    for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) { zoom = minZoom; break; } }
-    
-    // MỞ RỘNG TẦM NHÌN: Riêng thiết bị Mobile sẽ được Zoom Out siêu rộng để dễ quan sát
-    if (window.innerWidth <= 768) {
-      zoom *= 0.55; 
-    }
+    for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) return minZoom; }
     return zoom;
   },
   update(targetX, targetY, dtMultiplier) {
@@ -92,7 +87,6 @@ export const Renderer = {
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
-    // TỐI ƯU MOBILE: Thu nhỏ size thật của thẻ Canvas Minimap để không cản trở màn hình
     this.minimap = document.createElement("canvas"); 
     this.minimap.width = isMob ? 80 : 180; 
     this.minimap.height = isMob ? 53 : 120; 
@@ -279,9 +273,10 @@ export const Renderer = {
         this.drawWeapons(p.x, p.y, p.radius, p.level, p.angle, p.isAttacking, p.attackTime);
         if (p.justRespawned) this.drawShield(p.x, p.y, p.radius, p.justRespawned);
         
+        // FIX UI OVERLAP: Dời Tên nhân vật (kẻ địch) xuống phía dưới
         if (p.name) {
           ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
-          ctx.strokeText(p.name, p.x, p.y + p.radius + 8); ctx.fillText(p.name, p.x, p.y + p.radius + 8); ctx.restore();
+          ctx.strokeText(p.name, p.x, p.y + p.radius + 22); ctx.fillText(p.name, p.x, p.y + p.radius + 22); ctx.restore();
         }
       }
     }
@@ -306,16 +301,17 @@ export const Renderer = {
       this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
+      // FIX UI OVERLAP: Thanh hồi chiêu đặt cách chân nhân vật 10px, Tên nằm dưới (cách 22px)
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
       if (cdElapsed < cooldown) {
-        const barW = GameState.clientRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + GameState.clientRadius + 12;
+        const barW = GameState.clientRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + GameState.clientRadius + 10;
         ctx.save(); ctx.beginPath(); ctx.strokeStyle = "#bfa600"; ctx.lineWidth = 2; ctx.rect(barX, barY, barW, barH); ctx.stroke();
         ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
       }
       
       if (me.name) {
         ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
-        ctx.strokeText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.restore();
+        ctx.strokeText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 22); ctx.fillText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 22); ctx.restore();
       }
     }
 
