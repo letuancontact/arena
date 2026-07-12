@@ -92,11 +92,12 @@ export const Renderer = {
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
-    // ĐÃ FIX: MINIMAP THU NHỎ TRÊN MOBILE ĐỂ TRÁNH CHE MÀN HÌNH
+    // FIX NHÒE BẢN ĐỒ: Giữ độ phân giải Canvas cực cao (180x120) kể cả trên Mobile, 
+    // chỉ dùng CSS để nén kích thước hiển thị lại. Bản đồ sẽ siêu sắc nét!
     this.minimap = document.createElement("canvas"); 
-    this.minimap.width = isMob ? 80 : 180; 
-    this.minimap.height = isMob ? 53 : 120; 
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '80px' : '200px'} !important;height:${isMob ? '53px' : '100px'} !important;pointer-events:none;`; 
+    this.minimap.width = 180; 
+    this.minimap.height = 120; 
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d");
   },
@@ -117,16 +118,22 @@ export const Renderer = {
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
     this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
     
-    this.minimapCtx.clearRect(0, 0, this.minimap.width, this.minimap.height); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; 
-    this.minimapCtx.strokeRect(2, 2, this.minimap.width - 4, this.minimap.height - 4);
+    // Vì Canvas gốc luôn là 180x120, ta tính toán tĩnh tọa độ
+    this.minimapCtx.clearRect(0, 0, 180, 120); 
+    this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; 
+    this.minimapCtx.strokeRect(2, 2, 176, 116);
     
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null;
     if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
-    if (top1) { const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 4); const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 4); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
+    if (top1) { 
+      const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * 116; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); 
+    }
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) {
-      const px = 2 + (me.x / CONFIG.MAP_WIDTH) * (this.minimap.width - 4); const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * (this.minimap.height - 4); this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke();
+      const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke();
     }
   },
   updateLeaderboard(playersArr) {
@@ -279,7 +286,7 @@ export const Renderer = {
         this.drawWeapons(p.x, p.y, p.radius, p.level, p.angle, p.isAttacking, p.attackTime);
         if (p.justRespawned) this.drawShield(p.x, p.y, p.radius, p.justRespawned);
         
-        // ĐÃ FIX: TÊN NHÂN VẬT KẺ ĐỊCH DỜI LÊN TRÊN ĐẦU
+        // Tên ở trên đầu
         if (p.name) {
           ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
           ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
@@ -308,7 +315,7 @@ export const Renderer = {
       this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
-      // ĐÃ FIX: THANH HỒI CHIÊU NẰM DƯỚI GẦM CHÂN (Không bị tên đè)
+      // Thanh hồi chiêu dưới chân
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
       if (cdElapsed < cooldown) {
         const barW = GameState.clientRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + GameState.clientRadius + 12;
@@ -316,7 +323,7 @@ export const Renderer = {
         ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
       }
       
-      // ĐÃ FIX: TÊN CỦA BẠN DỜI LÊN TRÊN ĐỈNH ĐẦU
+      // Tên ở trên đầu
       if (me.name) {
         ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
         ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
