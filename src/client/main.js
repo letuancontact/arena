@@ -7,7 +7,6 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// ===== AUDIO SYSTEM ĐÃ ĐƯỢC KHÔI PHỤC VÀ TỐI ƯU =====
 const Sound = {
   ctx: null,
   lastPlay: {},
@@ -16,13 +15,11 @@ const Sound = {
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContext();
     }
-    // Trình duyệt đôi khi tự chặn âm thanh, hàm resume() sẽ đánh thức nó
     if (this.ctx.state === 'suspended') this.ctx.resume();
   },
   play(type) {
     if (!this.ctx) return;
     const nowMs = Date.now();
-    // Bộ đệm (Throttle): Chống phát 2 âm thanh giống nhau trong 100ms gây ồn
     if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; 
     this.lastPlay[type] = nowMs;
 
@@ -51,7 +48,6 @@ const Sound = {
   }
 };
 
-// ===== UI CONTROLLER (MAIN MENU) =====
 const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
@@ -60,7 +56,7 @@ const statusText = document.getElementById("status-text");
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 playBtn.addEventListener("click", () => {
-  Sound.init(); // Kích hoạt âm thanh khi người dùng bấm nút
+  Sound.init(); 
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách";
   localStorage.setItem("evowar_name", name);
@@ -70,7 +66,6 @@ playBtn.addEventListener("click", () => {
   playBtn.disabled = true;
 });
 
-// ===== NETWORK =====
 const Network = {
   ws: null,
   connect() { 
@@ -119,7 +114,6 @@ const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        // --- PHÁT ÂM THANH KHI ĂN HOẶC LÊN CẤP ---
         if (GameState.clientLevel > oldLevel) Sound.play('levelUp');
         else if (GameState.clientXp > oldXp) Sound.play('eat');
 
@@ -167,7 +161,6 @@ const Network = {
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
 
-        // VẤN ĐỀ 1 ĐÃ ĐƯỢC FIX: Hiệu ứng ánh sáng Level Up giờ CHỈ BẬT KHI LÀ CHÍNH BẠN
         if (p.id === GameState.playerId) {
           const prevLevel = GameState.prevPlayerLevels[p.id];
           if (prevLevel && p.level > prevLevel && !p.isDead) {
@@ -196,7 +189,6 @@ const Network = {
   },
 };
 
-// ===== INPUT =====
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -214,7 +206,7 @@ const Input = {
     
     canvas.addEventListener("mousedown", (e) => {
       if (GameState.isTouch || GameState.isDead) return;
-      Sound.init(); // Trình duyệt yêu cầu user click chuột mới được bật tiếng
+      Sound.init(); 
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) { GameState.rightMouseDown = true; Network.sendPositionUpdate(true); }
       if (e.button === 0) {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -236,7 +228,7 @@ const Input = {
       if(GameState.isDead) return;
       GameState.isTouch = true;
       e.preventDefault(); 
-      Sound.init(); // Bật âm thanh trên Mobile
+      Sound.init(); 
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         const tx = t.clientX, ty = t.clientY;
@@ -304,7 +296,6 @@ const Input = {
 
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
-  
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
@@ -317,16 +308,16 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
-  // TỐI ƯU RECONCILIATION: Nội suy tịnh tiến bám đuổi Server
+  // FIX LỖI GIẬT MOBILE: Nội suy Exponential Decay chống giật khi FPS điện thoại tụt
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 200) {
-      GameState.clientX = GameState.serverX;
-      GameState.clientY = GameState.serverY;
-    } else if (dist > 0.1) {
-      const catchUpSpeed = 0.25 * dtMultiplier;
-      GameState.clientX += (GameState.serverX - GameState.clientX) * Math.min(catchUpSpeed, 0.9);
-      GameState.clientY += (GameState.serverY - GameState.clientY) * Math.min(catchUpSpeed, 0.9);
+    if (dist > 150) { 
+      GameState.clientX = GameState.serverX; 
+      GameState.clientY = GameState.serverY; 
+    } else if (dist > 1) { 
+      const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); // Khử giật frame-independent
+      GameState.clientX += (GameState.serverX - GameState.clientX) * lerpFactor; 
+      GameState.clientY += (GameState.serverY - GameState.clientY) * lerpFactor; 
     }
   }
 
@@ -336,7 +327,8 @@ function updatePhysics(dtMultiplier) {
 let lastFrameTime = null;
 function loop(currentTime) {
   if (!lastFrameTime) lastFrameTime = currentTime;
-  const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.1) * 60; 
+  // Capping dtMultiplier to max ~3 frames to prevent huge physics jumps on severe lag
+  const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.05) * 60; 
   lastFrameTime = currentTime;
 
   updatePhysics(dtMultiplier);
