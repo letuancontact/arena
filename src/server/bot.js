@@ -23,7 +23,7 @@ function createBot(mapWidth, mapHeight) {
     isAttacking: false,
     attackTime: 0,
     lastAttackTime: 0,
-    justRespawned: 0, // Bot sinh ra hoàn toàn không có khiên
+    justRespawned: 0, // Bot sinh ra tuyệt đối không có khiên 5s
     isDead: false,
     deadTime: 0,
     lastXpDrain: 0,
@@ -41,9 +41,9 @@ function updateBot(bot, foodTree, playerTree) {
     bot.changeStateTime = now;
     bot.rightMouseDown = false;
     
-    // NERF 1: CẬN THỊ - Giảm tầm nhìn săn mồi từ x12 xuống x6 
-    const huntVision = bot.radius * 6;
-    const escapeVision = bot.radius * 12; // Nhưng vẫn nhìn xa để bỏ chạy nếu thấy kẻ thù mạnh
+    // NERF TẦM NHÌN: Cận thị nặng, chỉ thấy con mồi cực kỳ gần
+    const huntVision = bot.radius * 4.5;
+    const escapeVision = bot.radius * 12; 
     
     const nearbyPlayers = spatialIndex.searchNearbyPlayers(playerTree, bot.x, bot.y, escapeVision);
     
@@ -54,13 +54,9 @@ function updateBot(bot, foodTree, playerTree) {
 
     for (const p of nearbyPlayers) {
       if (p.id === bot.id || p.isDead) continue;
-      
-      // Tôn trọng vòng bảo vệ 5 giây của người chơi mới
       if (now - (p.justRespawned || 0) < CONFIG.HIT_COOLDOWN) continue; 
       
       const dist = Math.hypot(p.x - bot.x, p.y - bot.y);
-      
-      // Bỏ chạy nếu gặp người chơi hơn 1 cấp
       if (p.level > bot.level + 1) {
         if (dist < minThreatDist) { minThreatDist = dist; nearestThreat = p; }
       } else {
@@ -71,16 +67,13 @@ function updateBot(bot, foodTree, playerTree) {
     if (nearestThreat && minThreatDist < escapeVision) {
       bot.state = "ESCAPE";
       bot.angle = Math.atan2(bot.y - nearestThreat.y, bot.x - nearestThreat.x) + Math.PI;
-      
-      // Bot chỉ được quyền chạy nước rút (sprint) khi đang hoảng loạn trốn chạy
       if (minThreatDist < bot.radius * 4 && bot.xp > 0) bot.rightMouseDown = true;
     } 
     else if (nearestPrey && minPreyDist < huntVision) {
       bot.state = "ATTACK";
       bot.angle = Math.atan2(nearestPrey.y - bot.y, nearestPrey.x - bot.x);
-      
-      // NERF 2: CẤM TỐC BIẾN - Bot bị tước quyền dùng chạy nước rút khi đi săn người
-      bot.rightMouseDown = false;
+      // CẤM BOT DÙNG CHUỘT PHẢI (TỐC BIẾN) ĐỂ TRUY ĐUỔI NGƯỜI CHƠI
+      bot.rightMouseDown = false; 
     } 
     else {
       bot.state = "COLLECT";
@@ -95,10 +88,8 @@ function updateBot(bot, foodTree, playerTree) {
     }
   }
 
-  // NERF 3: ĐỘ TRỄ CON NGƯỜI (HUMAN DELAY)
-  // Mỗi khung hình, Bot có 25% cơ hội "bị ngáo" không vung kiếm ngay lập tức 
-  // Dù người chơi đã nằm trong tầm chém. Điều này tạo cơ hội cho người chơi lách qua!
-  if (Math.random() > 0.25) {
+  // NERF PHẢN XẠ: 40% Tỷ lệ "bị ngáo" không vung kiếm ngay cả khi bạn lọt vào tầm đánh
+  if (Math.random() > 0.4) {
     const weaponSize = bot.radius * (2.75 + 0.04 * ((bot.level || 1) - 1));
     const exactReach = bot.radius + weaponSize * 0.85;
 
