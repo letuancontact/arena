@@ -8,7 +8,8 @@ function getRadiusByLevel(level) {
 }
 
 function getXpToNext(level) {
-  return Math.floor(100 * Math.pow(1.2, level - 1));
+  // ĐÃ FIX: Tăng độ khó lên cấp theo cấp số nhân x1.35 thay vì x1.2
+  return Math.floor(100 * Math.pow(1.35, level - 1));
 }
 
 function createPlayer(ws) {
@@ -56,7 +57,6 @@ function handlePlayerAttack(player) {
   }
 }
 
-// Bổ sung tham số dtMultiplier (DeltaTime)
 function updatePhysics(player, mapWidth, mapHeight, dtMultiplier = 1) {
   if (player.isDead) return;
 
@@ -95,7 +95,6 @@ function updatePhysics(player, mapWidth, mapHeight, dtMultiplier = 1) {
     const baseSpeed = CONFIG.MAX_SPEED - (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.sqrt(t);
     const botPenalty = player.isBot ? CONFIG.BOT_SPEED_MULTIPLIER : 1;
     
-    // Áp dụng DeltaTime vào vận tốc (chống sai số khung hình)
     const speed = baseSpeed * (isSprinting ? CONFIG.SPRINT_MULTIPLIER : 1) * botPenalty * dtMultiplier;
     
     player.x += Math.cos(player.angle) * speed;
