@@ -23,14 +23,15 @@ function createBot(mapWidth, mapHeight) {
     isAttacking: false,
     attackTime: 0,
     lastAttackTime: 0,
-    justRespawned: 0, // Bot sinh ra tuyệt đối không có khiên 5s
+    justRespawned: 0, 
     isDead: false,
     deadTime: 0,
     lastXpDrain: 0,
     hitVictims: new Set(),
     isBot: true,
     state: "EXPLORE",
-    changeStateTime: 0
+    changeStateTime: 0,
+    lastReaction: 0 // Biến mới kiểm soát thời gian phản xạ của AI
   };
 }
 
@@ -41,7 +42,6 @@ function updateBot(bot, foodTree, playerTree) {
     bot.changeStateTime = now;
     bot.rightMouseDown = false;
     
-    // NERF TẦM NHÌN: Cận thị nặng, chỉ thấy con mồi cực kỳ gần
     const huntVision = bot.radius * 4.5;
     const escapeVision = bot.radius * 12; 
     
@@ -72,7 +72,6 @@ function updateBot(bot, foodTree, playerTree) {
     else if (nearestPrey && minPreyDist < huntVision) {
       bot.state = "ATTACK";
       bot.angle = Math.atan2(nearestPrey.y - bot.y, nearestPrey.x - bot.x);
-      // CẤM BOT DÙNG CHUỘT PHẢI (TỐC BIẾN) ĐỂ TRUY ĐUỔI NGƯỜI CHƠI
       bot.rightMouseDown = false; 
     } 
     else {
@@ -88,17 +87,22 @@ function updateBot(bot, foodTree, playerTree) {
     }
   }
 
-  // NERF PHẢN XẠ: 40% Tỷ lệ "bị ngáo" không vung kiếm ngay cả khi bạn lọt vào tầm đánh
-  if (Math.random() > 0.4) {
-    const weaponSize = bot.radius * (2.75 + 0.04 * ((bot.level || 1) - 1));
-    const exactReach = bot.radius + weaponSize * 0.85;
+  // ĐÃ FIX: CHỈ CHO PHÉP BOT QUÉT ĐIỀU KIỆN CHÉM SAU MỖI 400ms (Độ trễ con người)
+  if (now - bot.lastReaction > 400) {
+    bot.lastReaction = now;
 
-    const potentialVictims = spatialIndex.searchNearbyPlayers(playerTree, bot.x, bot.y, exactReach);
-    for (const v of potentialVictims) {
-      if (v.id !== bot.id && !v.isDead) {
-        if (now - (v.justRespawned || 0) >= CONFIG.HIT_COOLDOWN) {
-          handlePlayerAttack(bot);
-          break; 
+    // 70% cơ hội tung chiêu (30% cơ hội đứng nhìn do bị cuống)
+    if (Math.random() < 0.70) {
+      const weaponSize = bot.radius * (2.75 + 0.04 * ((bot.level || 1) - 1));
+      const exactReach = bot.radius + weaponSize * 0.85;
+
+      const potentialVictims = spatialIndex.searchNearbyPlayers(playerTree, bot.x, bot.y, exactReach);
+      for (const v of potentialVictims) {
+        if (v.id !== bot.id && !v.isDead) {
+          if (now - (v.justRespawned || 0) >= CONFIG.HIT_COOLDOWN) {
+            handlePlayerAttack(bot);
+            break; 
+          }
         }
       }
     }
