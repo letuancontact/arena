@@ -12,7 +12,6 @@ export const Camera = {
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
     for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) { zoom = minZoom; break; } }
     
-    // MỞ RỘNG GÓC NHÌN CHO MOBILE: Giúp quan sát dễ dàng hơn trên điện thoại
     if (window.innerWidth <= 768) {
       zoom *= 0.55; 
     }
@@ -86,20 +85,31 @@ export const Renderer = {
 
   setupUI() {
     const isMob = window.innerWidth <= 768; 
+    
+    // TỐI ƯU SẮC NÉT (RETINA DISPLAY): Lấy mật độ điểm ảnh của máy
+    const dpr = window.devicePixelRatio || 1; 
+
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
-    // FIX NHÒE BẢN ĐỒ: Giữ độ phân giải Canvas cực cao (180x120) kể cả trên Mobile, 
-    // chỉ dùng CSS để nén kích thước hiển thị lại. Bản đồ sẽ siêu sắc nét!
+    // ÁP DỤNG ĐỘ NÉT RETINA VÀO MINIMAP
     this.minimap = document.createElement("canvas"); 
-    this.minimap.width = 180; 
-    this.minimap.height = 120; 
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
+    
+    // Kích thước LÕI (Nội bộ) được nhân lên theo chuẩn màn hình HD
+    this.minimap.width = 180 * dpr; 
+    this.minimap.height = 120 * dpr; 
+    
+    // Kích thước VỎ (Hiển thị) dùng CSS để ép nhỏ lại cho Mobile (80x53) hoặc PC (180x120)
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '80px' : '180px'} !important;height:${isMob ? '53px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
+    
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d");
+    
+    // Tự động scale thuật toán vẽ để ta không cần đổi mã vẽ bên dưới
+    this.minimapCtx.scale(dpr, dpr);
   },
   resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; },
   renderBackground() {
@@ -118,7 +128,7 @@ export const Renderer = {
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
     this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
     
-    // Vì Canvas gốc luôn là 180x120, ta tính toán tĩnh tọa độ
+    // Mã vẽ Minimap giờ đây dựa vào tọa độ chuẩn 180x120 (Tự sắc nét nhờ lệnh scale)
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; 
     this.minimapCtx.strokeRect(2, 2, 176, 116);
@@ -286,7 +296,6 @@ export const Renderer = {
         this.drawWeapons(p.x, p.y, p.radius, p.level, p.angle, p.isAttacking, p.attackTime);
         if (p.justRespawned) this.drawShield(p.x, p.y, p.radius, p.justRespawned);
         
-        // Tên ở trên đầu
         if (p.name) {
           ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
           ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
@@ -315,7 +324,6 @@ export const Renderer = {
       this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
-      // Thanh hồi chiêu dưới chân
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
       if (cdElapsed < cooldown) {
         const barW = GameState.clientRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + GameState.clientRadius + 12;
@@ -323,7 +331,6 @@ export const Renderer = {
         ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
       }
       
-      // Tên ở trên đầu
       if (me.name) {
         ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
         ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
