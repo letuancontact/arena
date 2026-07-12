@@ -37,24 +37,29 @@ export const Resources = {
 };
 
 export const Renderer = {
-  leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, particles: [], trails: {},
-  addKillXpEffect(x, y, amount) { pendingKillXpEffects.push({ x, y, amount, start: Date.now() }); },
-  
-  // ĐÃ FIX: Giảm số lượng hạt, thu nhỏ size và cho mờ đi cực nhanh để tránh rối mắt
-  addDeathParticles(x, y, radius) {
-    const numParticles = 6 + Math.random() * 4; // Chỉ còn 6-10 hạt
-    for (let i = 0; i < numParticles; i++) {
-      const angle = Math.random() * Math.PI * 2, speed = Math.random() * 4 + 2;
-      this.particles.push({ 
-        x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, 
-        life: 1.0, 
-        decay: Math.random() * 0.05 + 0.05, // Tan biến cực nhanh
-        size: Math.random() * (radius * 0.2) + 2, // Hạt bé hơn
-        color: Math.random() > 0.5 ? "#ff3333" : "#ffcc00" 
-      });
+  leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
+  particles: [], trails: [],
+  // KHỞI TẠO BỘ NHỚ POOLING
+  levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
+
+  addLevelUpEffect(x, y, radius) {
+    for(let i=0; i<this.levelUpEffects.length; i++) {
+      if(!this.levelUpEffects[i].active) {
+        const e = this.levelUpEffects[i];
+        e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true;
+        break;
+      }
     }
   },
-  
+
+  addKillXpEffect(x, y, amount) { pendingKillXpEffects.push({ x, y, amount, start: Date.now() }); },
+  addDeathParticles(x, y, radius) {
+    const numParticles = 15 + Math.random() * 15;
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2, speed = Math.random() * 6 + 3;
+      this.particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1.0, decay: Math.random() * 0.03 + 0.015, size: Math.random() * (radius * 0.35) + 3, color: Math.random() > 0.5 ? "#ff3333" : "#ffcc00" });
+    }
+  },
   setupUI() {
     const isMob = window.innerWidth <= 768; 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
@@ -276,8 +281,46 @@ export const Renderer = {
         ctx.strokeText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY + GameState.clientRadius + 8); ctx.restore();
       }
     }
+
+    // --- VẼ HIỆU ỨNG LEVEL UP (TRONG KHÔNG GIAN BẢN ĐỒ) ---
+    for (let i = 0; i < this.levelUpEffects.length; i++) {
+      const e = this.levelUpEffects[i];
+      if (e.active) {
+        if (now - e.start >= 1500) { e.active = false; }
+        else {
+          const t = (now - e.start) / 1500;
+          const alpha = 1 - Math.pow(t, 3); // Mờ dần đẹp hơn (hàm mũ)
+          
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          
+          // 1. Vòng sáng Aura tỏa ra xung quanh
+          ctx.beginPath(); 
+          ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
+          ctx.lineWidth = 8 * (1 - t); 
+          ctx.strokeStyle = "#00ffff"; // Hào quang xanh dương siêu đẹp
+          ctx.shadowBlur = 20; 
+          ctx.shadowColor = "#00ffff"; 
+          ctx.stroke();
+          
+          // 2. Chữ "LEVEL UP!" nổi dần lên trời
+          ctx.font = "900 36px Arial"; 
+          ctx.textAlign = "center"; 
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#ffffff"; 
+          ctx.strokeStyle = "#0088ff"; 
+          ctx.lineWidth = 5;
+          const textY = e.y - e.radius - 40 - (t * 100);
+          ctx.strokeText("LEVEL UP!", e.x, textY); 
+          ctx.fillText("LEVEL UP!", e.x, textY);
+          
+          ctx.restore();
+        }
+      }
+    }
     
-    ctx.restore();
+    ctx.restore(); // KẾT THÚC VÒNG LẶP CAMERA 
+
     if (GameState.isTouch) this.drawMobileUI();
 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
