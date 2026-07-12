@@ -26,11 +26,30 @@ let food = [];
 
 foodLib.spawnFood(food);
 
+// THUẬT TOÁN HỒI SINH AN TOÀN (SAFE SPAWN)
+function getSafeSpawn(activePlayers, mapW, mapH) {
+  for (let i = 0; i < 15; i++) { // Cố gắng tìm tối đa 15 tọa độ
+    const tx = Math.random() * mapW;
+    const ty = Math.random() * mapH;
+    let isSafe = true;
+    for (const p of activePlayers) {
+      // Bán kính cách ly 1200px so với MỌI thực thể đang sống
+      if (!p.isDead && Math.hypot(p.x - tx, p.y - ty) < 1200) {
+        isSafe = false; break;
+      }
+    }
+    if (isSafe) return { x: tx, y: ty };
+  }
+  // Nếu map quá đông người, nhượng bộ xuất hiện ngẫu nhiên
+  return { x: Math.random() * mapW, y: Math.random() * mapH };
+}
+
 wss.on("connection", (ws) => {
   const p = playerLib.createPlayer(ws);
-  p.x = Math.random() * CONFIG.MAP_WIDTH;
-  p.y = Math.random() * CONFIG.MAP_HEIGHT;
-  p.isDead = true; // KHÔNG ĐƯỢC CHƠI NGAY, PHẢI CHỜ BẤM NÚT VÀO TRẬN
+  const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+  p.x = safePos.x;
+  p.y = safePos.y;
+  p.isDead = true; 
   players.set(p.id, p);
 
   ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT, food: food }));
@@ -41,11 +60,12 @@ wss.on("connection", (ws) => {
       const player = players.get(p.id);
       if (!player) return;
 
-      // NHẬN TÊN VÀ CHO PHÉP HỒI SINH
       if (data.type === "join") {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          player.x = safePos.x; player.y = safePos.y; // Áp dụng vị trí an toàn
         }
       }
 
@@ -155,9 +175,10 @@ setInterval(() => {
     lastHeavyTick = now;
     for (const entity of [...players.values(), ...bots.values()]) {
       if (entity.isDead && now - entity.deadTime >= CONFIG.RESPAWN_TIME) {
-        // CHỈ AUTO-RESPAWN CHO BOT. Người thật phải bấm nút.
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          entity.x = safePos.x; entity.y = safePos.y; // Áp dụng vị trí an toàn cho Bot
           entity.angle = Math.random() * Math.PI * 2;
           entity.killerId = null;
         }
@@ -167,7 +188,14 @@ setInterval(() => {
     const realPlayers = players.size;
     let botTarget = Math.max(0, CONFIG.MAX_PLAYERS - realPlayers);
     let botCount = bots.size;
-    if (botCount < botTarget) { for (let i = botCount; i < botTarget; i++) bots.set("bot_" + utils.uuid(), botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT)); } 
+    if (botCount < botTarget) { 
+      for (let i = botCount; i < botTarget; i++) {
+        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+        const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+        bot.x = safePos.x; bot.y = safePos.y;
+        bots.set(bot.id, bot); 
+      }
+    } 
     else if (botCount > botTarget) { let removeCount = botCount - botTarget; for (const [id, bot] of bots) { bots.delete(id); if (--removeCount <= 0) break; } }
   }
 
