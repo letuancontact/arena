@@ -5,6 +5,7 @@ const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// --- 1. CAMERA ENGINE ---
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
   shakeX: 0, shakeY: 0, shakePower: 0,
@@ -52,6 +53,7 @@ export const Resources = {
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
+// --- 2. ADVANCED PARTICLE SYSTEM ---
 export const FX = {
   particles: Array.from({length: 1000}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   
@@ -109,9 +111,20 @@ export const Renderer = {
   trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
   xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
-  
-  // Lưu trữ độ mượt của Scale
   visualRadius: {},
+
+  // --- 3. GIẢ LẬP LIGHTING & BLOOM (TỐI ƯU SIÊU NHẸ) ---
+  // Thay vì dùng shadowBlur nặng nề, ta dùng cấp số Radial Gradient hoặc hòa trộn màu để tạo ánh sáng Neon cực nhanh
+  drawRadialGlow(x, y, radius, color) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen"; // Chế độ cộng sáng hòa trộn cao cấp
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  },
 
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
@@ -157,10 +170,8 @@ export const Renderer = {
   
   resizeCanvas() { 
     const dpr = Math.min(window.devicePixelRatio || 1, 2); 
-    canvas.width = window.innerWidth * dpr; 
-    canvas.height = window.innerHeight * dpr; 
-    canvas.style.width = window.innerWidth + "px";
-    canvas.style.height = window.innerHeight + "px";
+    canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr; 
+    canvas.style.width = window.innerWidth + "px"; canvas.style.height = window.innerHeight + "px";
   },
   
   renderBackground() {
@@ -195,35 +206,18 @@ export const Renderer = {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return { width: targetSize, height: targetSize };
     const aspectRatio = img.naturalWidth / img.naturalHeight; return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
   },
-  
-  // ĐÃ SỬA: Hàm vẽ nay hỗ trợ truyền tham số Scale rỗng để làm nhịp thở (Breath)
   drawImageWithAspectRatio(img, x, y, targetSize, angle = 0, scaleY = 1.0) {
     const { width, height } = this.getScaledImageSize(img, targetSize);
-    ctx.save(); 
-    ctx.translate(x, y); 
-    ctx.rotate(angle); 
-    ctx.scale(1.0, scaleY); // Áp dụng độ xẹp/phồng
-    ctx.drawImage(img, -width / 2, -height / 2, width, height); 
-    ctx.restore(); 
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(1.0, scaleY); ctx.drawImage(img, -width / 2, -height / 2, width, height); ctx.restore(); 
   },
-  
-  // ĐÃ THÊM: Vẽ bóng mờ dưới chân
   drawShadow(x, y, radius, scaleY = 1.0) {
-    ctx.save();
-    ctx.translate(x, y + radius * 0.2); // Bóng nằm hơi lệch xuống dưới
-    ctx.scale(1.0, 0.4 * scaleY); // Dẹp thành hình elip
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; // Bóng đen mờ
-    ctx.filter = 'blur(4px)'; // Làm mềm viền bóng
-    ctx.fill();
-    ctx.restore();
+    ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * scaleY); ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
 
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
-  getMoveAngle(id, curr, prev) { if (!prev) return 0; const dx = curr.x - prev.x, dy = curr.y - prev.y; if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return GameState.prevAngles[id] ?? 0; return Math.atan2(dy, dx); },
   
   getInterpolatedState() {
     const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
@@ -248,38 +242,32 @@ export const Renderer = {
     const weaponImg = Resources.getWeaponImage(level || 1);
     if (weaponImg && weaponImg.complete && weaponImg.naturalHeight !== 0) {
       const weaponSize = radius * (2.75 + 0.04 * (level - 1)), weaponHeadOffset = weaponSize * 0.4;
-      let swing = 0;
-      let t = 0;
-      
-      // Weapon Sway (Lắc lư vũ khí khi đang chạy)
-      let sway = 0;
-      if (isMoving && !isAttacking) {
-        sway = Math.sin(Date.now() / 150) * 0.15; // Đu đưa góc nhỏ
-      }
+      let swing = 0; let t = 0;
+      let sway = 0; if (isMoving && !isAttacking) sway = Math.sin(Date.now() / 150) * 0.15;
       
       if (isAttacking && attackTime > 0) {
         t = Math.min(1, (Date.now() - attackTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
         swing = Math.sin(t * Math.PI) * (level < 37 ? CONFIG.ATTACK_SWING_ANGLE : CONFIG.ATTACK_SWING_ANGLE * 0.68);
         
         if (t > 0.1 && t < 0.9) {
-          ctx.save();
-          ctx.translate(x, y);
-          const startArc = angle - Math.PI * 0.7;
-          const currentArc = startArc + swing;
-          ctx.beginPath();
-          ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false);
-          ctx.lineWidth = radius * 0.5;
+          ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
+          ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
           const grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + weaponHeadOffset * 2);
-          grad.addColorStop(0, "rgba(255, 255, 255, 0)");
-          grad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * (1-t)})`); 
-          grad.addColorStop(1, "rgba(255, 255, 255, 0)");
-          ctx.strokeStyle = grad; ctx.lineCap = "round"; ctx.stroke();
-          ctx.restore();
+          grad.addColorStop(0, "rgba(255, 255, 255, 0)"); grad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * (1-t)})`); grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.strokeStyle = grad; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
         }
       }
       
       let leftWeaponAngle = angle - Math.PI * 0.7 + swing + sway;
-      this.drawImageWithAspectRatio(weaponImg, x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset, y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
+      const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
+      const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
+      
+      // --- NÂNG CẤP: WEAPON GLOW KHI CHÉM (BLOOM GIẢ LẬP) ---
+      if (isAttacking) {
+        this.drawRadialGlow(wx, wy, weaponSize * 0.8, "rgba(0, 200, 255, 0.25)");
+      }
+
+      this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
 
@@ -308,10 +296,8 @@ export const Renderer = {
     const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
     
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const winW = window.innerWidth;
-    const winH = window.innerHeight;
-    const centerX = winW / 2; 
-    const centerY = winH / 2;
+    const winW = window.innerWidth; const winH = window.innerHeight;
+    const centerX = winW / 2; const centerY = winH / 2;
     const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; 
     const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
     
@@ -327,11 +313,28 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
+    // --- 4. NÂNG CẤP LUỒNG FOOD: PULSE, GLOW & TWINKLE SPARKLE ---
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
-        if (img && img.complete && img.naturalHeight !== 0) { this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2); } 
-        else { ctx.beginPath(); ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2); ctx.fillStyle = "#ccc"; ctx.fill(); }
+        
+        // Sinh mầm hạt (Seed) từ ID của food để tạo kích thước lệch pha ngẫu nhiên cố định
+        const seed = f.id ? (f.id % 10) : 0;
+        const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; // Pulse co giãn 8%
+        
+        // Vẽ vòng hào quang Neon dưới chân thức ăn (Glow)
+        this.drawRadialGlow(f.x, f.y, f.radius * 3.5 * pulse, "rgba(255, 235, 180, 0.12)");
+
+        if (img && img.complete && img.naturalHeight !== 0) { 
+          this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
+          
+          // Thêm hiệu ứng lấp lánh (Sparkle Overlays) ngẫu nhiên theo thời gian
+          if (Math.sin(now / 40 + seed * 5) > 0.82) {
+            ctx.save(); ctx.globalCompositeOperation = "screen"; ctx.fillStyle = "#ffffff"; ctx.beginPath();
+            ctx.arc(f.x + Math.cos(seed)*f.radius*0.4, f.y + Math.sin(seed)*f.radius*0.4, 1.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
+          }
+        } 
+        else { ctx.beginPath(); ctx.arc(f.x, f.y, f.radius * pulse, 0, Math.PI * 2); ctx.fillStyle = "#ccc"; ctx.fill(); }
       }
     }
 
@@ -352,25 +355,18 @@ export const Renderer = {
       const p = interpPlayers[id];
       if (p.isDead) continue;
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
-        
-        // Smooth Scale (Nội suy bán kính to lên từ từ)
         if (!this.visualRadius[id]) this.visualRadius[id] = p.radius;
         this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier;
         const vRadius = this.visualRadius[id];
 
-        // Idle Breathing & Head Bobbing (Nhịp thở & nhấp nhô)
-        let breathScale = 1.0;
-        if (p.isMoving) {
-          breathScale = 1.0 + Math.sin(now / 100) * 0.04; // Chạy thì thở gấp
-        } else {
-          breathScale = 1.0 + Math.sin(now / 400) * 0.02; // Đứng yên thì thở chậm
-        }
-
+        let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
         let angle = p.angle || 0;
-        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         
-        // Vẽ bóng đổ dưới chân
+        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
+
+        // --- NÂNG CẤP: GLOW CHO PLAYER CẤP CAO ---
+        if (p.level >= 15) this.drawRadialGlow(p.x, p.y, vRadius * 2.2, "rgba(255, 80, 0, 0.08)");
 
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
@@ -392,34 +388,26 @@ export const Renderer = {
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
     if (me && !me.isDead) {
-      let targetAngle = GameState.mouseAngle; 
-      let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
-      GameState.prevAngles[GameState.playerId] = angle;
-      
-      // Smooth Scale cho bản thân
+      GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       if (!this.visualRadius[GameState.playerId]) this.visualRadius[GameState.playerId] = GameState.clientRadius;
       this.visualRadius[GameState.playerId] += (GameState.clientRadius - this.visualRadius[GameState.playerId]) * 0.1 * dtMultiplier;
       const vRadius = this.visualRadius[GameState.playerId];
 
-      // Idle Breathing & Head Bobbing cho bản thân
-      let breathScale = 1.0;
-      if (GameState.isMoving) {
-        breathScale = 1.0 + Math.sin(now / 100) * 0.04;
-      } else {
-        breathScale = 1.0 + Math.sin(now / 400) * 0.02; 
-      }
+      let breathScale = GameState.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
 
-      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, angle, GameState.clientLevel, vRadius);
-      
-      // Vẽ bóng đổ dưới chân
+      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, angle, breathScale);
+      // --- NÂNG CẤP: GLOW CHO BẢN THÂN CẤP CAO HOẶC KHI TỐC BIẾN ---
+      if (GameState.clientLevel >= 15) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, "rgba(0, 255, 120, 0.08)");
+      if (me.rightMouseDown) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 1.8, "rgba(255, 200, 0, 0.15)");
+
+      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
       
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
-      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, angle, breathScale);
+      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
       
-      this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
+      this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, vRadius, me.justRespawned);
 
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -436,7 +424,6 @@ export const Renderer = {
       }
     }
 
-    // Nâng cấp: Hiệu ứng Lên cấp Scale đàn hồi (Bounce)
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -444,11 +431,9 @@ export const Renderer = {
         else {
           const t = (now - e.start) / 1500;
           const alpha = 1 - Math.pow(t, 3); 
-          
           ctx.save(); ctx.globalAlpha = alpha;
           ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 150, 0, Math.PI * 2);
           ctx.lineWidth = 5 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff"; ctx.stroke();
-          
           ctx.font = "900 24px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 4;
           const textY = e.y - e.radius - 25 - (t * 50);
