@@ -1,20 +1,21 @@
 // --- src/client/main.js ---
 import { GameState } from './state.js';
-import { Camera, Resources, Renderer } from './renderer.js';
+import { Camera, FX, Resources, Renderer } from './renderer.js'; // ĐÃ IMPORT FX
 
 const CONFIG = window.GAME_CONFIG;
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// ĐÃ FIX 4: HỆ THỐNG ÂM THANH CHUẨN STUDIO (ZERO LAG - KHÔNG CẦN TẢI FILE)
+// Thêm biến Hit Stop (Khựng hình 40ms)
+GameState.freezeUntil = 0;
+
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
   init() {
     if (!this.ctx) { 
       window.AudioContext = window.AudioContext || window.webkitAudioContext; 
       this.ctx = new AudioContext(); 
-      // Tạo Noise (Tiếng xì) để làm tiếng vung kiếm
       this.noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate);
       const output = this.noiseBuffer.getChannelData(0);
       for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
@@ -28,7 +29,6 @@ const Sound = {
     const now = this.ctx.currentTime;
     
     if (type === 'swing') {
-      // Tiếng chém gió (Whoosh)
       const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
       const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass';
       filter.frequency.setValueAtTime(300, now); filter.frequency.linearRampToValueAtTime(1200, now + 0.15); filter.Q.value = 1.0;
@@ -37,7 +37,6 @@ const Sound = {
       noiseSrc.start(now); noiseSrc.stop(now + 0.15);
     } 
     else if (type === 'eat') {
-      // Tiếng nẩy (Pop) khi ăn
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
       gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
@@ -45,7 +44,6 @@ const Sound = {
       osc.start(now); osc.stop(now + 0.1);
     } 
     else if (type === 'kill') {
-      // Tiếng nổ trầm (Bass impact) + Tiếng Crash khi hạ địch
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
       gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
@@ -59,7 +57,6 @@ const Sound = {
       noiseSrc.start(now); noiseSrc.stop(now + 0.2);
     } 
     else if (type === 'levelUp') {
-      // Nhạc chuông chiến thắng (Arpeggio)
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
         osc.type = 'square'; osc.frequency.setValueAtTime(freq, now + startOffset);
@@ -134,14 +131,24 @@ const Network = {
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       for (const p of data.players || []) {
-        if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
+        // ĐÃ FIX: TRIGGER HIỆU ỨNG TẠI ĐÂY (Camera Shake, Freeze, Sparks)
         if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
           Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
           Sound.play('kill');
+          
+          // 1. FREEZE FRAME (Khựng hình 40ms)
+          GameState.freezeUntil = Date.now() + 40; 
+          
+          // 2. CAMERA SHAKE (Rung 15 cường độ)
+          Camera.addShake(15); 
+          
+          // 3. TIA LỬA BẮN TUNG TÓE
+          FX.spawnHitSparks(p.x, p.y); 
         }
-        GameState.prevPlayerDeadState[p.id] = p.isDead;
+        
         if (p.id === GameState.playerId) { const prevLevel = GameState.prevPlayerLevels[p.id]; if (prevLevel && p.level > prevLevel && !p.isDead) Renderer.addLevelUpEffect(p.x, p.y, p.radius); }
         GameState.prevPlayerLevels[p.id] = p.level;
+        GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
     }
   },
@@ -172,10 +179,7 @@ const Input = {
       requestAnimationFrame(() => {
         GameState.lastDx = e.clientX - window.innerWidth / 2; GameState.lastDy = e.clientY - window.innerHeight / 2;
         GameState.isMoving = Math.hypot(GameState.lastDx, GameState.lastDy) > GameState.clientRadius;
-        
-        // ĐÃ FIX 1: Lấy mục tiêu thay vì gán ngay lập tức, để làm mềm quỹ đạo góc xoay
         GameState.targetMouseAngle = Math.atan2(GameState.lastDy, GameState.lastDx);
-        
         Network.sendPositionUpdate(); GameState.mouseMoveThrottled = false;
       });
     });
@@ -245,7 +249,6 @@ const Input = {
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   
-  // ĐÃ FIX 1: LERPS GÓC XOAY ĐỂ DI CHUYỂN MỀM MẠI, CHỐNG GIẬT CỨNG
   let diff = GameState.targetMouseAngle - GameState.mouseAngle;
   while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
   GameState.mouseAngle += diff * 0.15 * dtMultiplier;
@@ -279,6 +282,12 @@ function updatePhysics(dtMultiplier) {
 
 let lastFrameTime = null;
 function loop(currentTime) {
+  // KHÓA FREEZE FRAME TẠI ĐÂY (Chống sụt FPS nhưng vẫn tạo cảm giác Hit Stop)
+  if (Date.now() < GameState.freezeUntil) {
+    requestAnimationFrame(loop);
+    return;
+  }
+
   if (!lastFrameTime) lastFrameTime = currentTime;
   const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.05) * 60; 
   lastFrameTime = currentTime;
