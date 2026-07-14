@@ -5,7 +5,6 @@ const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// --- 1. CAMERA ENGINE VỚI SCREEN FLASH ---
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
   shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0,
@@ -86,10 +85,13 @@ export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
   trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
+  xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
 
   floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
-  killFeeds: Array.from({length: 5}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
+  
+  // ĐÃ FIX 4: CHỈ HIỂN THỊ TỐI ĐA 3 DÒNG KILL FEED
+  killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
 
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
@@ -125,6 +127,11 @@ export const Renderer = {
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
+    }
+  },
+  addKillXpEffect(x, y, amount) {
+    for(let i=0; i<this.xpEffects.length; i++) {
+      if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
   
@@ -393,6 +400,7 @@ export const Renderer = {
       }
     }
 
+    // VÒNG TRÒN LÊN CẤP (KHÔNG TEXT)
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -408,6 +416,7 @@ export const Renderer = {
       }
     }
 
+    // --- ĐÃ FIX 3: LOẠI BỎ HOÀN TOÀN VIỀN ĐEN KHỎI FLOATING TEXT ---
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
@@ -416,9 +425,9 @@ export const Renderer = {
           const t = (now - e.start) / 1000;
           ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
           ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = e.color; ctx.strokeStyle = "#000000"; ctx.lineWidth = Math.max(1.5, e.size / 7); // ĐÃ TỐI ƯU: Viền chữ mảnh hơn, sang hơn
-          const floatY = e.y - (t * 80); 
-          ctx.strokeText(e.text, e.x, floatY); ctx.fillText(e.text, e.x, floatY);
+          ctx.fillStyle = e.color; 
+          const floatY = e.y - (t * 50); // Bay chậm lại để dễ đọc
+          ctx.fillText(e.text, e.x, floatY); // CHỈ TÔ MÀU, KHÔNG VẼ VIỀN (NO STROKE)
           ctx.restore();
         }
       }
@@ -434,12 +443,12 @@ export const Renderer = {
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // --- ĐÃ FIX 3: TỐI ƯU DIỆN TÍCH BẢNG KILL FEED TRÊN MOBILE ---
+    // --- ĐÃ FIX 4: ĐẨY BẢNG KILL FEED XUỐNG DƯỚI LÚC NÀO CŨNG NÉ BẢNG XẾP HẠNG ---
     const isMob = window.innerWidth <= 768;
-    const kfWidth = isMob ? 135 : 220;    // Thu hẹp chiều ngang trên Mobile
-    const kfHeight = isMob ? 18 : 26;     // Hạ thấp chiều cao trên Mobile
-    const kfFontSize = isMob ? 9 : 13;    // Font chữ nhỏ gọn tinh tế
-    const killFeedStartY = isMob ? 105 : 160; // Đẩy sát lên gầm Leaderboard
+    const kfWidth = isMob ? 135 : 220;    
+    const kfHeight = isMob ? 18 : 26;     
+    const kfFontSize = isMob ? 9 : 13;    
+    const killFeedStartY = isMob ? 170 : 250; // Cực kỳ an toàn, không bao giờ chạm Top Players
     
     let activeKillFeeds = 0;
     for (let i = 0; i < this.killFeeds.length; i++) {
@@ -468,6 +477,21 @@ export const Renderer = {
       }
     }
     
+    // --- ĐÃ FIX 2: CHỮ +XP LỚN GIỮA MÀN HÌNH NAY ĐÃ NHỎ HƠN VÀ KHÔNG VIỀN ---
+    const nowKillXp = Date.now();
+    for (let i = 0; i < this.xpEffects.length; i++) {
+      const e = this.xpEffects[i];
+      if (e.active) {
+        if (nowKillXp - e.start >= 1000) { e.active = false; } 
+        else {
+          const t = (nowKillXp - e.start) / 1000;
+          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+          ctx.globalAlpha = 1 - t; ctx.font = "bold 20px Arial"; ctx.fillStyle = "#00ff66"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.fillText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.restore(); // Không vẽ viền
+        }
+      }
+    }
+
     ctx.restore();
 
     if (GameState.isTouch) this.drawMobileUI();
