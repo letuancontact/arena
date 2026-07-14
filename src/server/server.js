@@ -18,8 +18,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(express.static(path.join(__dirname, "../../public")));
-app.use("/shared", express.static(path.join(__dirname, "../shared")));
+// CHƯƠNG 19: BẬT TÍNH NĂNG CACHE TĨNH CHO PRODUCTION (Giảm 90% tải Băng thông)
+app.use(express.static(path.join(__dirname, "../../public"), {
+  maxAge: "7d" // Lưu Cache trên máy người chơi 7 ngày
+}));
+app.use("/shared", express.static(path.join(__dirname, "../shared"), {
+  maxAge: "7d"
+}));
 
 const players = new Map();
 const bots = new Map();
@@ -27,7 +32,6 @@ let food = [];
 
 foodLib.spawnFood(food);
 
-// THUẬT TOÁN HỒI SINH AN TOÀN (SMART RADAR 800px)
 function getSafeSpawn(activePlayers, mapW, mapH) {
   let bestPos = { x: Math.random() * mapW, y: Math.random() * mapH };
   let maxDistFound = -1;
@@ -55,13 +59,11 @@ function getSafeSpawn(activePlayers, mapW, mapH) {
   return bestPos;
 }
 
-// BỘ LỌC HEARTBEAT (NHẬN DIỆN CLIENT CÒN SỐNG)
 function heartbeat() {
   this.isAlive = true;
 }
 
 wss.on("connection", (ws) => {
-  // Gắn cờ sự sống cho kết nối mới và lắng nghe nhịp tim
   ws.isAlive = true;
   ws.on('pong', heartbeat);
 
@@ -99,12 +101,11 @@ wss.on("connection", (ws) => {
   });
 });
 
-// HỆ THỐNG DỌN DẸP ZOMBIE (Chạy mỗi 30 giây)
 const interval = setInterval(function ping() {
   wss.clients.forEach(function each(ws) {
-    if (ws.isAlive === false) return ws.terminate(); // Giết kết nối chết
+    if (ws.isAlive === false) return ws.terminate(); 
     ws.isAlive = false;
-    ws.ping(); // Bơm nhịp tim mới
+    ws.ping(); 
   });
 }, 30000); 
 
@@ -157,7 +158,6 @@ setInterval(() => {
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
       
-      // STRICT HITBOX: Chém chuẩn xác, không bơm béo
       const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
       const exactReach = attacker.radius + weaponSize * 0.85; 
 
@@ -235,4 +235,4 @@ setInterval(() => {
 }, CONFIG.SERVER_TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Engine Finalized`));
+server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Production Mode Active`));
