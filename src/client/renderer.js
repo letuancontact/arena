@@ -24,14 +24,13 @@ export const Camera = {
     const dist = Math.hypot(targetX - this.x, targetY - this.y);
     if (dist > 200) { this.x = targetX; this.y = targetY; } 
     else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
+    
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     else this.currentZoom = this.targetZoom;
 
-    if (this.shakePower > 0.1) {
-      this.shakeX = (Math.random() - 0.5) * this.shakePower;
-      this.shakeY = (Math.random() - 0.5) * this.shakePower;
-      this.shakePower *= 0.85; 
-    } else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
+    if (this.shakePower > 0.1) { this.shakeX = (Math.random() - 0.5) * this.shakePower; this.shakeY = (Math.random() - 0.5) * this.shakePower; this.shakePower *= 0.85; } 
+    else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
+    
     if (this.screenFlash > 0) { this.screenFlash -= 0.03 * dtMultiplier; if (this.screenFlash < 0) this.screenFlash = 0; }
   },
 };
@@ -50,44 +49,49 @@ export const Resources = {
 };
 
 export const FX = {
-  particles: Array.from({length: 250}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
+  // ĐÃ TỐI ƯU 1: Ép mảng Particle xuống còn 300 hạt để duyệt siêu nhẹ
+  particles: Array.from({length: 300}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   spawn(x, y, vx, vy, life, size, color, type = 0) {
+    let activeCount = 0;
     for (let i = 0; i < this.particles.length; i++) {
       if (!this.particles[i].active) {
         const p = this.particles[i];
         p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true;
         break;
+      } else {
+        activeCount++;
+        // Khóa van nếu có quá 150 hạt đang chạy trên Mobile
+        if (activeCount > 150) break; 
       }
     }
   },
   spawnHitSparks(x, y) {
-    const num = window.innerWidth <= 768 ? 4 : 8; 
+    const isMob = window.innerWidth <= 768;
+    const num = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 4); 
     for(let i=0; i<num; i++) {
       const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 12 + 5;
-      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.1, 2, "#ffcc00", 1);
+      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.2, Math.random()*3 + 2, "#ffcc00", 1);
     }
   },
 
-  updateAndDraw(ctx, dtMultiplier, vL, vR, vT, vB) {
+  updateAndDraw(ctx, dtMultiplier, vLeft, vRight, vTop, vBottom) {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       if (p.active) {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
-        if (p.life <= 0) { p.active = false; continue; } 
-        if (p.x < vL || p.x > vR || p.y < vT || p.y > vB) continue;
-
-        const ratio = p.life / p.maxLife;
-        ctx.save();
-        ctx.globalAlpha = ratio;
-        ctx.fillStyle = p.color;
-        if (p.type === 1) { 
-          const angle = Math.atan2(p.vy, p.vx);
-          ctx.translate(p.x, p.y); ctx.rotate(angle);
-          ctx.fillRect(-p.size, -p.size/2, p.size * 4, p.size); // Dùng fillRect thay roundRect
-        } else {
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.size * ratio, 0, 6.28); ctx.fill();
+        if (p.life <= 0) { p.active = false; } 
+        else {
+          if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
+          
+          const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
+          
+          // ĐÃ TỐI ƯU 2: Gỡ bỏ hoàn toàn `screen` blend mode. Vẽ bình thường.
+          if (p.type === 1) { 
+            const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
+            ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
+          } else { ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); }
+          ctx.restore();
         }
-        ctx.restore();
       }
     }
   }
@@ -95,49 +99,77 @@ export const FX = {
 
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  trails: Array.from({length: 150}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
-  levelUpEffects: Array.from({length: 5}, () => ({active: false, x:0, y:0, radius:0, start:0})),
-  xpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, amount:0, start:0})),
+  // ĐÃ TỐI ƯU 3: Giảm độ dài mảng trails xuống 200 (Thoải mái vẽ mà không sợ kẹt CPU)
+  trails: Array.from({length: 200}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
+  levelUpEffects: Array.from({length: 10}, () => ({active: false, x:0, y:0, radius:0, start:0})),
+  xpEffects: Array.from({length: 30}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
-  floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 18, start: 0})),
+  floatingTexts: Array.from({length: 30}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
-  lastHeight: 0, lastCheck: 0,
+
+  lastLeaderboardHeight: 0,
+  lastHeightCheck: 0,
 
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
       if(!this.floatingTexts[i].active) {
-        const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
+        const e = this.floatingTexts[i];
+        e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
       }
     }
   },
 
-  addKillFeed(k, v, isMe) {
-    for(let i = 2; i > 0; i--) { Object.assign(this.killFeeds[i], this.killFeeds[i-1]); }
-    Object.assign(this.killFeeds[0], { killer: String(k).substring(0, 12), victim: String(v).substring(0, 12), isMe, start: Date.now(), active: true });
+  addKillFeed(killer, victim, isMe) {
+    for(let i = this.killFeeds.length - 1; i > 0; i--) {
+      this.killFeeds[i].killer = this.killFeeds[i-1].killer;
+      this.killFeeds[i].victim = this.killFeeds[i-1].victim;
+      this.killFeeds[i].isMe = this.killFeeds[i-1].isMe;
+      this.killFeeds[i].start = this.killFeeds[i-1].start;
+      this.killFeeds[i].active = this.killFeeds[i-1].active;
+    }
+    this.killFeeds[0].killer = String(killer).substring(0, 15);
+    this.killFeeds[0].victim = String(victim).substring(0, 15);
+    this.killFeeds[0].isMe = isMe;
+    this.killFeeds[0].start = Date.now();
+    this.killFeeds[0].active = true;
   },
 
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
-      if(!this.levelUpEffects[i].active) { Object.assign(this.levelUpEffects[i], {x, y, radius, start: Date.now(), active: true}); break; }
+      if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
+    }
+  },
+  addKillXpEffect(x, y, amount) {
+    for(let i=0; i<this.xpEffects.length; i++) {
+      if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
+    }
+  },
+  
+  addDeathParticles(x, y, radius) {
+    const numParticles = 6 + Math.random() * 4; 
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 3; const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
+      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.2) + 2, color, 0);
     }
   },
   
   addTrail(x, y, angle, level, radius) {
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
-      if (!t.active) { Object.assign(t, {x, y, angle, level, radius, time: Date.now(), active: true}); break; }
+      if (!t.active) { t.x = x; t.y = y; t.angle = angle; t.level = level; t.radius = radius; t.time = Date.now(); t.active = true; break; }
     }
   },
 
   setupUI() {
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
-    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
+    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;transition:box-shadow 0.3s ease;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
-    this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; document.body.appendChild(this.levelCircle);
-    this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
+    this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
+    this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
+    
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;`; 
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   
@@ -148,146 +180,359 @@ export const Renderer = {
   },
   
   renderBackground() {
-    if (!Resources.offscreenCanvas) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d", {alpha: false}); }
-    if (Resources.mapPatternReady) { Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
+    if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d"); }
+    if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
+    else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
+  },
+  
+  updateUI() {
+    this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
+    const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
+    this.minimapCtx.clearRect(0, 0, 180, 120); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; this.minimapCtx.strokeRect(2, 2, 176, 116);
+    const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
+    let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
+    if (top1) { const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
+    const me = allPlayersArr.find((p) => p.id === GameState.playerId);
+    if (me && !me.isDead) { const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); }
+  },
+  
+  updateLeaderboard(playersArr) {
+    if (!playersArr || playersArr.length === 0) return;
+    const sorted = [...playersArr].sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); });
+    const isMob = window.innerWidth <= 768; const titleSize = isMob ? '12px' : '16px';
+    let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
+    sorted.slice(0, 5).forEach((p, i) => { html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; });
+    const myIndex = sorted.findIndex(p => p.id === GameState.playerId);
+    if (myIndex >= 5) { const me = sorted[myIndex]; html += `<div style="margin:2px 0;color:#888;">...</div><div style="margin:2px 0;"><span style="color:#aaa;">${myIndex + 1}. </span><span style="color:#ff0;font-weight:bold;">${me.name || "Bạn"}</span><span style="color:#0ff;margin-left:4px;">Lv${me.level}</span></div>`; }
+    this.leaderboardDiv.innerHTML = html;
+  },
+  
+  getScaledImageSize(img, targetSize) {
+    if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return { width: targetSize, height: targetSize };
+    const aspectRatio = img.naturalWidth / img.naturalHeight; return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
+  },
+  drawImageWithAspectRatio(img, x, y, targetSize, angle = 0, scaleY = 1.0) {
+    const { width, height } = this.getScaledImageSize(img, targetSize);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(1.0, scaleY); ctx.drawImage(img, -width / 2, -height / 2, width, height); ctx.restore(); 
+  },
+  drawShadow(x, y, radius, scaleY = 1.0) {
+    ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * scaleY); ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
 
-  drawShadow(x, y, radius, sY = 1.0) {
-    ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * sY);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.25)"; ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, 6.28); ctx.fill(); ctx.restore();
-  },
-
-  drawWeapons(x, y, radius, level, angle, isAtk, atkTime, isMov) {
-    const img = Resources.getWeaponImage(level || 1);
-    if (img && img.complete) {
-      const size = radius * (2.75 + 0.04 * (level - 1)), offset = size * 0.4;
-      let swing = 0, t = 0, sway = (isMov && !isAtk) ? Math.sin(Date.now() / 150) * 0.12 : 0;
-      if (isAtk) {
-        t = Math.min(1, (Date.now() - atkTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
-        swing = Math.sin(t * Math.PI) * CONFIG.ATTACK_SWING_ANGLE;
+  lerp(a, b, t) { return a + (b - a) * t; },
+  lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
+  lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
+  
+  getInterpolatedState() {
+    const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
+    for (let i = GameState.stateBuffer.length - 1; i >= 0; i--) { if (GameState.stateBuffer[i].time <= renderTime) { older = GameState.stateBuffer[i]; newer = GameState.stateBuffer[i + 1] || GameState.stateBuffer[i]; break; } }
+    if (!older) older = newer = GameState.stateBuffer[0] || { players: [] };
+    let t = 0; if (older !== newer && newer.time !== older.time) t = Math.max(0, Math.min(1, (renderTime - older.time) / (newer.time - older.time)));
+    const interpPlayers = {};
+    for (const p of newer.players) {
+      if (p.id === GameState.playerId) continue;
+      const prev = older.players.find((o) => o.id === p.id) || p;
+      let interp = this.lerpObj(prev, p, t);
+      if (t >= 1 && newer !== older) {
+        const dt = newer.time - older.time;
+        if (dt > 0) { const vx = (p.x - prev.x) / dt, vy = (p.y - prev.y) / dt; const extrapTime = Date.now() - newer.time; interp.x = p.x + vx * extrapTime; interp.y = p.y + vy * extrapTime; }
       }
-      let wAngle = angle - 2.2 + swing + sway;
-      const wx = x + Math.cos(wAngle) * (radius + offset), wy = y + Math.sin(wAngle) * (radius + offset);
-      ctx.save(); ctx.translate(wx, wy); ctx.rotate(wAngle - 0.4); 
-      const {width, height} = this.getScaledImageSize(img, size);
-      ctx.drawImage(img, -width/2, -height/2, width, height); ctx.restore();
+      interpPlayers[p.id] = interp;
+    }
+    return { interpPlayers }; 
+  },
+
+  drawWeapons(x, y, radius, level, angle, isAttacking = false, attackTime = 0, isMoving = false) {
+    const weaponImg = Resources.getWeaponImage(level || 1);
+    if (weaponImg && weaponImg.complete && weaponImg.naturalHeight !== 0) {
+      const weaponSize = radius * (2.75 + 0.04 * (level - 1)), weaponHeadOffset = weaponSize * 0.4;
+      let swing = 0; let t = 0;
+      let sway = 0; if (isMoving && !isAttacking) sway = Math.sin(Date.now() / 150) * 0.15;
+      
+      if (isAttacking && attackTime > 0) {
+        t = Math.min(1, (Date.now() - attackTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
+        swing = Math.sin(t * Math.PI) * (level < 37 ? CONFIG.ATTACK_SWING_ANGLE : CONFIG.ATTACK_SWING_ANGLE * 0.68);
+        
+        if (t > 0.1 && t < 0.9) {
+          ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
+          ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
+          const grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + weaponHeadOffset * 2);
+          grad.addColorStop(0, "rgba(255, 255, 255, 0)"); grad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * (1-t)})`); grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.strokeStyle = grad; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+        }
+      }
+      
+      let leftWeaponAngle = angle - Math.PI * 0.7 + swing + sway;
+      const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
+      const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
+      
+      this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
 
-  getScaledImageSize(img, target) {
-    const ratio = img.naturalWidth / img.naturalHeight;
-    return ratio > 1 ? {width: target, height: target / ratio} : {width: target * ratio, height: target};
+  drawShield(x, y, radius, justRespawned) {
+    const shieldTimeLeft = CONFIG.HIT_COOLDOWN - (Date.now() - justRespawned);
+    if (shieldTimeLeft > 0) { ctx.save(); ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 150) * 0.2; ctx.beginPath(); ctx.arc(x, y, radius + 15, 0, Math.PI * 2); ctx.fillStyle = "rgba(0, 255, 255, 0.3)"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.stroke(); ctx.restore(); }
   },
 
-  draw(dt = 1) {
-    if (GameState.clientX === null) return;
-    const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dt);
+  drawMobileUI() {
+    if(GameState.isDead) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const wW = window.innerWidth, wH = window.innerHeight;
-    
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(dpr * Camera.currentZoom, 0, 0, dpr * Camera.currentZoom, (wW/2 - Camera.x * Camera.currentZoom) * dpr, (wH/2 - Camera.y * Camera.currentZoom) * dpr);
-    
-    if (Resources.offscreenCanvas) ctx.drawImage(Resources.offscreenCanvas, 0, 0);
-    
-    const vL = Camera.x - wW/(2*Camera.currentZoom) - 50, vR = Camera.x + wW/(2*Camera.currentZoom) + 50;
-    const vT = Camera.y - wH/(2*Camera.currentZoom) - 50, vB = Camera.y + wH/(2*Camera.currentZoom) + 50;
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = window.innerWidth, h = window.innerHeight;
+    if (GameState.joystick.active) {
+      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2); ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
+      ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 25, 0, Math.PI * 2); ctx.fillStyle = "white"; ctx.fill();
+    }
+    const attackX = w - 75, attackY = h - 75, attackR = 40;
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(attackX, attackY, attackR, 0, Math.PI * 2); ctx.fillStyle = "#ff3333"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke(); ctx.beginPath(); ctx.arc(attackX, attackY, attackR * 0.5, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
+    const sprintX = w - 160, sprintY = h - 75, sprintR = 30;
+    ctx.globalAlpha = GameState.rightMouseDown ? 0.8 : 0.5; ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR, 0, Math.PI * 2); ctx.fillStyle = "#ffcc00"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke(); ctx.beginPath(); ctx.arc(sprintX, sprintY, sprintR * 0.5, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fill();
+    ctx.restore();
+  },
 
-    // --- ĐÃ TỐI ƯU 1: BATCH RENDERING THỨC ĂN (GOM THEO LOẠI ẢNH) ---
-    const foodByType = {};
+  draw(dtMultiplier = 1) {
+    if (GameState.clientX === null || GameState.clientY === null) return;
+    const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
+    
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const winW = window.innerWidth; const winH = window.innerHeight;
+    const centerX = winW / 2; const centerY = winH / 2;
+    const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; 
+    const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
+    
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.scale(Camera.currentZoom, Camera.currentZoom); ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
+    
+    if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } 
+    else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
+    ctx.strokeStyle = "#222"; ctx.lineWidth = 8 / Camera.currentZoom; ctx.strokeRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+    
+    const { interpPlayers } = this.getInterpolatedState();
+    const margin = 100 / Camera.currentZoom;
+    const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
+    const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
+    
     for (const f of GameState.food) {
-      if (f.x > vL && f.x < vR && f.y > vT && f.y < vB) {
-        const type = f.type || 0;
-        if (!foodByType[type]) foodByType[type] = [];
-        foodByType[type].push(f);
+      if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
+        const type = f.type ?? 0; const img = Resources.foodImages[type];
+        const seed = (f.x + f.y) % 10; const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
+        
+        if (img && img.complete && img.naturalHeight !== 0) { 
+          this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
+          if (Math.sin(now / 40 + seed * 5) > 0.82) {
+            ctx.save(); ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.beginPath();
+            ctx.arc(f.x + Math.cos(seed)*f.radius*0.4, f.y + Math.sin(seed)*f.radius*0.4, 1.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
+          }
+        } 
+        else { ctx.beginPath(); ctx.arc(f.x, f.y, f.radius * pulse, 0, Math.PI * 2); ctx.fillStyle = "#ccc"; ctx.fill(); }
       }
     }
-    for (const type in foodByType) {
-      const img = Resources.foodImages[type];
-      if (img && img.complete) {
-        for (const f of foodByType[type]) {
-          const pulse = 1.0 + Math.sin(now / 200 + (f.x+f.y)%10) * 0.05;
-          const size = f.radius * 2 * pulse;
-          ctx.drawImage(img, f.x - size/2, f.y - size/2, size, size);
+
+    for (let i = 0; i < this.trails.length; i++) {
+      const t = this.trails[i];
+      if (t.active) {
+        if (now - t.time >= 200) { t.active = false; } 
+        else {
+          const img = Resources.getPlayerImage(t.level || 1);
+          if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
+        }
+      }
+    }
+    
+    FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
+
+    for (const id in interpPlayers) {
+      const p = interpPlayers[id];
+      if (p.isDead) continue;
+      if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
+        if (!this.visualRadius[id]) this.visualRadius[id] = p.radius;
+        this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier;
+        const vRadius = this.visualRadius[id];
+
+        let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
+        let angle = p.angle || 0;
+        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
+        this.drawShadow(p.x, p.y, vRadius, breathScale);
+
+        if (p.level >= 15) {
+            ctx.save(); ctx.fillStyle = "rgba(255, 80, 0, 0.08)";
+            ctx.beginPath(); ctx.arc(p.x, p.y, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
+        if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
+        
+        const img = Resources.getPlayerImage(p.level || 1);
+        if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, vRadius * 2, angle, breathScale);
+        
+        this.drawWeapons(p.x, p.y, vRadius, p.level, p.angle, p.isAttacking, p.attackTime, p.isMoving);
+        if (p.justRespawned) this.drawShield(p.x, p.y, vRadius, p.justRespawned);
+        
+        if (p.name) {
+          ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
+          ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
+          ctx.strokeText(p.name, p.x, p.y - vRadius - 8); ctx.fillText(p.name, p.x, p.y - vRadius - 8); ctx.restore();
+        }
+      }
+    }
+    
+    const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
+    const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
+    
+    if (me && !me.isDead) {
+      GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
+      if (!this.visualRadius[GameState.playerId]) this.visualRadius[GameState.playerId] = GameState.clientRadius;
+      this.visualRadius[GameState.playerId] += (GameState.clientRadius - this.visualRadius[GameState.playerId]) * 0.1 * dtMultiplier;
+      const vRadius = this.visualRadius[GameState.playerId];
+
+      let breathScale = GameState.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
+      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
+      this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
+
+      if (GameState.clientLevel >= 15) {
+          ctx.save(); ctx.fillStyle = "rgba(0, 255, 120, 0.08)";
+          ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      }
+
+      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
+      const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
+      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
+      
+      this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
+      if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, vRadius, me.justRespawned);
+
+      const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
+      if (cdElapsed < cooldown) {
+        const barW = vRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + vRadius + 12;
+        ctx.save(); ctx.beginPath(); ctx.strokeStyle = "#bfa600"; ctx.lineWidth = 2; ctx.rect(barX, barY, barW, barH); ctx.stroke();
+        ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
+      }
+      
+      if (me.name) {
+        ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
+        ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
+        ctx.strokeText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.restore();
+      }
+    }
+
+    // ĐÃ TỐI ƯU 4: Xóa shadowBlur khi lên cấp, dùng độ dày viền mờ dần cực nhanh
+    for (let i = 0; i < this.levelUpEffects.length; i++) {
+      const e = this.levelUpEffects[i];
+      if (e.active) {
+        if (now - e.start >= 1500) { e.active = false; }
+        else {
+          const t = (now - e.start) / 1500;
+          const alpha = 1 - Math.pow(t, 3); 
+          ctx.save();
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
+          ctx.lineWidth = 8 * (1 - t); 
+          ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; 
+          ctx.stroke();
+          ctx.restore();
         }
       }
     }
 
-    FX.updateAndDraw(ctx, dt, vL, vR, vT, vB);
-
-    // VẼ NGƯỜI CHƠI KHÁC
-    const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY;
-    let older = GameState.stateBuffer.find(s => s.time <= renderTime) || GameState.stateBuffer[0];
-    let newer = GameState.stateBuffer[GameState.stateBuffer.indexOf(older) + 1] || older;
-    let interpT = (older === newer) ? 0 : (renderTime - older.time) / (newer.time - older.time);
-
-    for (const p of newer.players) {
-      if (p.id === GameState.playerId || p.isDead) continue;
-      const prev = older.players.find(o => o.id === p.id) || p;
-      const x = prev.x + (p.x - prev.x) * interpT, y = prev.y + (p.y - prev.y) * interpT;
-      if (x < vL || x > vR || y < vT || y > vB) continue;
-
-      const vRad = p.radius; // Đã đơn giản hóa visualRadius để giảm lag
-      const breath = 1.0 + Math.sin(now / 400) * 0.02;
-      this.drawShadow(x, y, vRad, breath);
-      const img = Resources.getPlayerImage(p.level || 1);
-      if (img && img.complete) {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(p.angle || 0); ctx.scale(1, breath);
-        ctx.drawImage(img, -vRad, -vRad, vRad * 2, vRad * 2); ctx.restore();
-      }
-      this.drawWeapons(x, y, vRad, p.level, p.angle, p.isAttacking, p.attackTime, true);
-    }
-    
-    // VẼ BẢN THÂN
-    const me = (GameState.stateBuffer[GameState.stateBuffer.length-1]?.players || []).find(p => p.id === GameState.playerId);
-    if (me && !me.isDead) {
-      const breath = 1.0 + Math.sin(now / 400) * 0.02;
-      this.drawShadow(GameState.clientX, GameState.clientY, GameState.clientRadius, breath);
-      const img = Resources.getPlayerImage(GameState.clientLevel || 1);
-      if (img && img.complete) {
-        ctx.save(); ctx.translate(GameState.clientX, GameState.clientY); ctx.rotate(GameState.mouseAngle); ctx.scale(1, breath);
-        ctx.drawImage(img, -GameState.clientRadius, -GameState.clientRadius, GameState.clientRadius * 2, GameState.clientRadius * 2); ctx.restore();
-      }
-      this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
-    }
-
-    // VẼ FLOATING TEXT (CHỈ VẼ TRONG MÀN HÌNH)
-    for (const e of this.floatingTexts) {
+    for (let i = 0; i < this.floatingTexts.length; i++) {
+      const e = this.floatingTexts[i];
       if (e.active) {
-        const t = (now - e.start) / 1000; if (t > 1) { e.active = false; continue; }
-        const fY = e.y - t * 50; if (e.x < vL || e.x > vR || fY < vT || fY > vB) continue;
-        ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center";
-        ctx.lineWidth = 2; ctx.strokeStyle = (e.text === "KILL!") ? "#900" : "#0088ff";
-        ctx.strokeText(e.text, e.x, fY); ctx.fillStyle = e.color; ctx.fillText(e.text, e.x, fY); ctx.restore();
+        if (now - e.start >= 1000) { e.active = false; }
+        else {
+          const t = (now - e.start) / 1000;
+          const floatY = e.y - (t * 50); 
+          
+          if (e.x < viewportLeft || e.x > viewportRight || floatY < viewportTop || floatY > viewportBottom) continue;
+
+          ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
+          ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          
+          ctx.lineWidth = 3; 
+          if (e.text === "LEVEL UP!") { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; } 
+          else if (e.text === "KILL!") { ctx.fillStyle = e.color; ctx.strokeStyle = "#990000"; } 
+          else { ctx.fillStyle = e.color; ctx.strokeStyle = "#009944"; }
+
+          ctx.strokeText(e.text, e.x, floatY); 
+          ctx.fillText(e.text, e.x, floatY); 
+          ctx.restore();
+        }
       }
     }
-
-    // --- VẼ UI GIAO DIỆN (DPR SCALE) ---
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     
-    // ĐÃ TỐI ƯU 2: KILL FEED DÙNG fillRect (KHÔNG BO GÓC) ĐỂ GIẢM TẢI CPU
+    ctx.restore(); 
+
+    if (Camera.screenFlash > 0) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+    }
+
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const isMob = window.innerWidth <= 768;
+    const kfWidth = isMob ? 135 : 220;    
+    const kfHeight = isMob ? 18 : 26;     
+    const kfFontSize = isMob ? 9 : 13;    
+    
+    let killFeedStartY = isMob ? 120 : 190; 
     if (this.leaderboardDiv) {
-      if (now - this.lastCheck > 1000) { this.lastHeight = this.leaderboardDiv.offsetHeight; this.lastCheck = now; }
-      const kfY = this.leaderboardDiv.offsetTop + this.lastHeight + 10;
-      let active = 0;
-      for (const kf of this.killFeeds) {
-        if (!kf.active) continue;
-        const elap = now - kf.start; if (elap > 3000) { kf.active = false; continue; }
-        ctx.save(); ctx.globalAlpha = elap > 2500 ? (3000 - elap)/500 : 1;
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.fillRect(20, kfY + active * 28, 200, 24); // Đã thay roundRect bằng fillRect
-        ctx.font = "bold 12px Arial"; ctx.fillStyle = kf.isMe ? "#ff0" : "#fff";
-        ctx.textAlign = "left"; ctx.fillText(kf.killer, 28, kfY + active * 28 + 17);
-        ctx.textAlign = "right"; ctx.fillStyle = "#aaa"; ctx.fillText(kf.victim, 212, kfY + active * 28 + 17);
-        ctx.restore(); active++;
+      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) {
+        this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight;
+        this.lastHeightCheck = now;
+      }
+      killFeedStartY = this.leaderboardDiv.offsetTop + this.lastLeaderboardHeight + 10;
+    }
+    
+    let activeKillFeeds = 0;
+    for (let i = 0; i < this.killFeeds.length; i++) {
+      const kf = this.killFeeds[i];
+      if (kf.active) {
+        const elapsed = now - kf.start;
+        if (elapsed > 3000) { kf.active = false; continue; }
+        
+        let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500);
+        let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3);
+        
+        const yPos = killFeedStartY + (activeKillFeeds * (kfHeight + 5));
+        
+        ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
+        
+        ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
+        ctx.beginPath(); ctx.roundRect(0, 0, kfWidth, kfHeight, 4); ctx.fill();
+        
+        ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
+        ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
+        ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", kfWidth / 2, kfHeight / 2);
+        ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, kfWidth - 6, kfHeight / 2);
+        
+        ctx.restore();
+        activeKillFeeds++;
+      }
+    }
+    
+    const nowKillXp = Date.now();
+    for (let i = 0; i < this.xpEffects.length; i++) {
+      const e = this.xpEffects[i];
+      if (e.active) {
+        if (nowKillXp - e.start >= 1000) { e.active = false; } 
+        else {
+          const t = (nowKillXp - e.start) / 1000;
+          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+          ctx.globalAlpha = 1 - t; 
+          ctx.font = "bold 20px Arial"; 
+          ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3;
+          ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          const floatY = 100 - t * 40;
+          ctx.strokeText(`+${e.amount} XP`, winW / 2, floatY); 
+          ctx.fillText(`+${e.amount} XP`, winW / 2, floatY); 
+          ctx.restore(); 
+        }
       }
     }
 
-    const meState = (GameState.stateBuffer[GameState.stateBuffer.length-1]?.players || []).find(p => p.id === GameState.playerId);
-    if (!GameState.isDead) {
-        const pct = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
-        this.fillImage.style.left = -215 + pct * 215 + "px";
-        this.levelCircle.textContent = GameState.clientLevel;
-    }
+    ctx.restore();
+
+    if (GameState.isTouch) this.drawMobileUI();
+    const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
+    this.updateLeaderboard(allPlayersArr);
   }
 };
