@@ -45,23 +45,16 @@ export const Renderer = {
 
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
-      if(!this.levelUpEffects[i].active) {
-        const e = this.levelUpEffects[i];
-        e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break;
-      }
+      if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
-      if(!this.xpEffects[i].active) {
-        const e = this.xpEffects[i];
-        e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break;
-      }
+      if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
   addDeathParticles(x, y, radius) {
-    const numParticles = 6 + Math.random() * 4; 
-    let added = 0;
+    const numParticles = 6 + Math.random() * 4; let added = 0;
     for (let i = 0; i < this.particles.length && added < numParticles; i++) {
       const p = this.particles[i];
       if (!p.active) {
@@ -80,7 +73,7 @@ export const Renderer = {
   },
 
   setupUI() {
-    const isMob = window.innerWidth <= 768; const dpr = window.devicePixelRatio || 1; 
+    const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
@@ -91,12 +84,22 @@ export const Renderer = {
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
-  resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; },
+  
+  // ĐÃ FIX 2: ÉP GAME CHẠY TRÊN CÔNG NGHỆ RETINA ĐỂ NÉT CĂNG TRÊN MOBILE 
+  resizeCanvas() { 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Khóa x2 để vừa siêu nét vừa chống lag
+    canvas.width = window.innerWidth * dpr; 
+    canvas.height = window.innerHeight * dpr; 
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+  },
+  
   renderBackground() {
     if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d"); }
     if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
     else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
+  
   updateUI() {
     this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
@@ -107,14 +110,30 @@ export const Renderer = {
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) { const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); }
   },
+  
+  // ĐÃ FIX 3: BẢNG XẾP HẠNG TOP 5 VÀ VỊ TRÍ HIỆN TẠI CỦA BẠN
   updateLeaderboard(playersArr) {
     if (!playersArr || playersArr.length === 0) return;
     const sorted = [...playersArr].sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); });
     const isMob = window.innerWidth <= 768; const titleSize = isMob ? '12px' : '16px';
     let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
-    sorted.slice(0, 8).forEach((p, i) => { html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; });
+    
+    // Chỉ hiển thị Top 5
+    sorted.slice(0, 5).forEach((p, i) => { 
+      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; 
+    });
+
+    // Tìm và hiển thị Hạng của bạn nếu bạn đang bị rớt khỏi Top 5
+    const myIndex = sorted.findIndex(p => p.id === GameState.playerId);
+    if (myIndex >= 5) {
+      const me = sorted[myIndex];
+      html += `<div style="margin:2px 0;color:#888;">...</div>`;
+      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${myIndex + 1}. </span><span style="color:#ff0;font-weight:bold;">${me.name || "Bạn"}</span><span style="color:#0ff;margin-left:4px;">Lv${me.level}</span></div>`;
+    }
+
     this.leaderboardDiv.innerHTML = html;
   },
+  
   getScaledImageSize(img, targetSize) {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return { width: targetSize, height: targetSize };
     const aspectRatio = img.naturalWidth / img.naturalHeight; return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
@@ -173,7 +192,12 @@ export const Renderer = {
 
   drawMobileUI() {
     if(GameState.isDead) return;
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); const w = canvas.width, h = canvas.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.save(); 
+    // Chuyển không gian vẽ về không gian thật của màn hình điện thoại
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+    const w = window.innerWidth, h = window.innerHeight;
+    
     if (GameState.joystick.active) {
       ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2); ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
       ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 25, 0, Math.PI * 2); ctx.fillStyle = "white"; ctx.fill();
@@ -188,11 +212,23 @@ export const Renderer = {
   draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
     const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
-    const centerX = canvas.width / 2, centerY = canvas.height / 2;
-    const offsetX = centerX - Camera.x * Camera.currentZoom, offsetY = centerY - Camera.y * Camera.currentZoom;
     
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const centerX = winW / 2; 
+    const centerY = winH / 2;
+    const offsetX = centerX - Camera.x * Camera.currentZoom; 
+    const offsetY = centerY - Camera.y * Camera.currentZoom;
+    
+    // ĐÃ FIX 2: CHỐNG NHÒE TẦM QUAN SÁT (ÁP DỤNG DPR CHO TOÀN CẢNH)
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.save(); ctx.scale(Camera.currentZoom, Camera.currentZoom); ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
+    
+    // Áp dụng độ phóng đại Retina và Zoom Camera
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+    ctx.scale(Camera.currentZoom, Camera.currentZoom); 
+    ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
     
     if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } 
     else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
@@ -200,8 +236,8 @@ export const Renderer = {
     
     const { interpPlayers } = this.getInterpolatedState();
     const margin = 100 / Camera.currentZoom;
-    const viewportLeft = Camera.x - canvas.width / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + canvas.width / (2 * Camera.currentZoom) + margin;
-    const viewportTop = Camera.y - canvas.height / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + canvas.height / (2 * Camera.currentZoom) + margin;
+    const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
+    const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
@@ -261,20 +297,18 @@ export const Renderer = {
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
     if (me && !me.isDead) {
-      let targetAngle = GameState.mouseAngle; 
-      let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
-      GameState.prevAngles[GameState.playerId] = angle; GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
+      GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
       if (me.rightMouseDown) {
-        this.addTrail(GameState.clientX, GameState.clientY, angle, GameState.clientLevel, GameState.clientRadius);
+        this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, GameState.clientRadius);
       }
 
-      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
+      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, GameState.mouseAngle);
       
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
-      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, GameState.clientRadius * 2, angle);
+      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, GameState.clientRadius * 2, GameState.mouseAngle);
       
-      this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
+      this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -325,8 +359,12 @@ export const Renderer = {
         if (nowKillXp - e.start >= 1000) { e.active = false; } 
         else {
           const t = (nowKillXp - e.start) / 1000;
-          ctx.save(); ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.strokeText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, canvas.width / 2, 100 - t * 40); ctx.restore();
+          
+          // Chữ hiển thị cũng được Scale chuẩn theo màn hình
+          ctx.save(); 
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+          ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.strokeText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.restore();
         }
       }
     }
