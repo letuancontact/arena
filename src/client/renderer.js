@@ -87,10 +87,7 @@ export const Renderer = {
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
-
   floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
-  
-  // ĐÃ FIX 4: CHỈ HIỂN THỊ TỐI ĐA 3 DÒNG KILL FEED
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
 
   addFloatingText(x, y, text, color, size) {
@@ -257,7 +254,6 @@ export const Renderer = {
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
       
-      if (isAttacking) { this.drawRadialGlow(wx, wy, weaponSize * 0.8, "rgba(0, 200, 255, 0.25)"); }
       this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
@@ -400,7 +396,6 @@ export const Renderer = {
       }
     }
 
-    // VÒNG TRÒN LÊN CẤP (KHÔNG TEXT)
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -416,7 +411,7 @@ export const Renderer = {
       }
     }
 
-    // --- ĐÃ FIX 3: LOẠI BỎ HOÀN TOÀN VIỀN ĐEN KHỎI FLOATING TEXT ---
+    // --- ĐÃ FIX 2: VẼ LẠI VIỀN CHỮ CHUẨN MÀU THEO YÊU CẦU ---
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
@@ -425,9 +420,22 @@ export const Renderer = {
           const t = (now - e.start) / 1000;
           ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
           ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = e.color; 
-          const floatY = e.y - (t * 50); // Bay chậm lại để dễ đọc
-          ctx.fillText(e.text, e.x, floatY); // CHỈ TÔ MÀU, KHÔNG VẼ VIỀN (NO STROKE)
+          
+          ctx.lineWidth = 3; // Viền nét đậm như ban đầu
+          if (e.text === "LEVEL UP!") {
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#0088ff"; // Viền xanh dương
+          } else if (e.text === "KILL!") {
+            ctx.fillStyle = e.color;
+            ctx.strokeStyle = "#990000"; // Viền đỏ sẫm
+          } else {
+            ctx.fillStyle = e.color;
+            ctx.strokeStyle = "#009944"; // Viền xanh lá sẫm
+          }
+
+          const floatY = e.y - (t * 50); 
+          ctx.strokeText(e.text, e.x, floatY); 
+          ctx.fillText(e.text, e.x, floatY); 
           ctx.restore();
         }
       }
@@ -435,20 +443,15 @@ export const Renderer = {
     
     ctx.restore(); 
 
-    if (Camera.screenFlash > 0) {
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
-    }
-
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // --- ĐÃ FIX 4: ĐẨY BẢNG KILL FEED XUỐNG DƯỚI LÚC NÀO CŨNG NÉ BẢNG XẾP HẠNG ---
+    // --- ĐÃ FIX 3: ĐẨY BẢNG KILL FEED LÊN VỊ TRÍ SÁT DƯỚI TOP PLAYERS ---
     const isMob = window.innerWidth <= 768;
     const kfWidth = isMob ? 135 : 220;    
     const kfHeight = isMob ? 18 : 26;     
     const kfFontSize = isMob ? 9 : 13;    
-    const killFeedStartY = isMob ? 170 : 250; // Cực kỳ an toàn, không bao giờ chạm Top Players
+    // Tọa độ hoàn hảo: Đặt khít ngay dưới bảng xếp hạng (Mobile: 120, PC: 195)
+    const killFeedStartY = isMob ? 120 : 195; 
     
     let activeKillFeeds = 0;
     for (let i = 0; i < this.killFeeds.length; i++) {
@@ -477,7 +480,6 @@ export const Renderer = {
       }
     }
     
-    // --- ĐÃ FIX 2: CHỮ +XP LỚN GIỮA MÀN HÌNH NAY ĐÃ NHỎ HƠN VÀ KHÔNG VIỀN ---
     const nowKillXp = Date.now();
     for (let i = 0; i < this.xpEffects.length; i++) {
       const e = this.xpEffects[i];
@@ -486,8 +488,14 @@ export const Renderer = {
         else {
           const t = (nowKillXp - e.start) / 1000;
           ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
-          ctx.globalAlpha = 1 - t; ctx.font = "bold 20px Arial"; ctx.fillStyle = "#00ff66"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.fillText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.restore(); // Không vẽ viền
+          ctx.globalAlpha = 1 - t; 
+          ctx.font = "bold 20px Arial"; 
+          ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3;
+          ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          const floatY = 100 - t * 40;
+          ctx.strokeText(`+${e.amount} XP`, winW / 2, floatY); 
+          ctx.fillText(`+${e.amount} XP`, winW / 2, floatY); 
+          ctx.restore(); 
         }
       }
     }
