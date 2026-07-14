@@ -5,10 +5,10 @@ const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// --- 1. CAMERA ENGINE ---
+// --- 1. CAMERA ENGINE VỚI SCREEN FLASH ---
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
-  shakeX: 0, shakeY: 0, shakePower: 0,
+  shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0,
   
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
@@ -18,9 +18,7 @@ export const Camera = {
     return zoom;
   },
   
-  addShake(power) {
-    this.shakePower = Math.max(this.shakePower, power);
-  },
+  addShake(power) { this.shakePower = Math.max(this.shakePower, power); },
 
   update(targetX, targetY, dtMultiplier) {
     if (this.x === null) { this.x = targetX; this.y = targetY; }
@@ -31,13 +29,11 @@ export const Camera = {
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     else this.currentZoom = this.targetZoom;
 
-    if (this.shakePower > 0.1) {
-      this.shakeX = (Math.random() - 0.5) * this.shakePower;
-      this.shakeY = (Math.random() - 0.5) * this.shakePower;
-      this.shakePower *= 0.85; 
-    } else {
-      this.shakeX = 0; this.shakeY = 0; this.shakePower = 0;
-    }
+    if (this.shakePower > 0.1) { this.shakeX = (Math.random() - 0.5) * this.shakePower; this.shakeY = (Math.random() - 0.5) * this.shakePower; this.shakePower *= 0.85; } 
+    else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
+    
+    // Tắt dần màn hình chớp sáng
+    if (this.screenFlash > 0) { this.screenFlash -= 0.03 * dtMultiplier; if (this.screenFlash < 0) this.screenFlash = 0; }
   },
 };
 
@@ -53,52 +49,33 @@ export const Resources = {
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
-// --- 2. ADVANCED PARTICLE SYSTEM (CHỐNG BLUR VÀ ZERO GC) ---
 export const FX = {
   particles: Array.from({length: 1000}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
-  
   spawn(x, y, vx, vy, life, size, color, type = 0) {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
-      if (!p.active) {
-        p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true;
-        break;
-      }
+      if (!p.active) { p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true; break; }
     }
   },
-  
   spawnHitSparks(x, y) {
     const num = 12 + Math.random() * 8;
     for(let i=0; i<num; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 15 + 5;
+      const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 15 + 5;
       this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.4 + Math.random()*0.2, Math.random()*4 + 2, "#ffcc00", 1);
     }
   },
-
   updateAndDraw(ctx, dtMultiplier) {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       if (p.active) {
-        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; 
-        p.life -= 0.016 * dtMultiplier; 
-        p.vx *= 0.92; p.vy *= 0.92; 
-
+        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
         if (p.life <= 0) { p.active = false; } 
         else {
-          const ratio = p.life / p.maxLife;
-          ctx.save();
-          ctx.globalAlpha = Math.max(0, Math.min(1, ratio));
-          ctx.fillStyle = p.color;
-          
+          const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
           if (p.type === 1) { 
-            const angle = Math.atan2(p.vy, p.vx);
-            const speed = Math.hypot(p.vx, p.vy);
-            ctx.translate(p.x, p.y); ctx.rotate(angle);
-            ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
-          } else { 
-            ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill();
-          }
+            const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
+            ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
+          } else { ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); }
           ctx.restore();
         }
       }
@@ -109,19 +86,44 @@ export const FX = {
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
   trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
-  xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   visualRadius: {},
 
+  // --- HỆ THỐNG FLOATING TEXT (ZERO GC) ---
+  floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
+  
+  // --- HỆ THỐNG KILL FEED (BÁO MẠNG) ---
+  killFeeds: Array.from({length: 5}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
+
+  addFloatingText(x, y, text, color, size) {
+    for(let i=0; i<this.floatingTexts.length; i++) {
+      if(!this.floatingTexts[i].active) {
+        const e = this.floatingTexts[i];
+        e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
+      }
+    }
+  },
+
+  addKillFeed(killer, victim, isMe) {
+    for(let i = this.killFeeds.length - 1; i > 0; i--) {
+      this.killFeeds[i].killer = this.killFeeds[i-1].killer;
+      this.killFeeds[i].victim = this.killFeeds[i-1].victim;
+      this.killFeeds[i].isMe = this.killFeeds[i-1].isMe;
+      this.killFeeds[i].start = this.killFeeds[i-1].start;
+      this.killFeeds[i].active = this.killFeeds[i-1].active;
+    }
+    this.killFeeds[0].killer = String(killer).substring(0, 15);
+    this.killFeeds[0].victim = String(victim).substring(0, 15);
+    this.killFeeds[0].isMe = isMe;
+    this.killFeeds[0].start = Date.now();
+    this.killFeeds[0].active = true;
+  },
+
   drawRadialGlow(x, y, radius, color) {
-    ctx.save();
-    ctx.globalCompositeOperation = "screen"; 
+    ctx.save(); ctx.globalCompositeOperation = "screen"; 
     const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    grad.addColorStop(0, color);
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    grad.addColorStop(0, color); grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   },
 
   addLevelUpEffect(x, y, radius) {
@@ -129,18 +131,11 @@ export const Renderer = {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
-  addKillXpEffect(x, y, amount) {
-    for(let i=0; i<this.xpEffects.length; i++) {
-      if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
-    }
-  },
   
   addDeathParticles(x, y, radius) {
     const numParticles = 8 + Math.random() * 6; 
     for (let i = 0; i < numParticles; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 5 + 3;
-      const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
+      const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 3; const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
       FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
@@ -154,7 +149,7 @@ export const Renderer = {
 
   setupUI() {
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
-    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
+    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;transition:box-shadow 0.3s ease;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
@@ -259,10 +254,7 @@ export const Renderer = {
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
       
-      if (isAttacking) {
-        this.drawRadialGlow(wx, wy, weaponSize * 0.8, "rgba(0, 200, 255, 0.25)");
-      }
-
+      if (isAttacking) { this.drawRadialGlow(wx, wy, weaponSize * 0.8, "rgba(0, 200, 255, 0.25)"); }
       this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
@@ -309,15 +301,10 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
-    // --- ĐÃ FIX LỖI NaN BẰNG TỌA ĐỘ VẬT LÝ ---
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
-        
-        // Sử dụng f.x + f.y làm seed để tránh lỗi NaN từ chuỗi UUID
-        const seed = (f.x + f.y) % 10;
-        const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
-        
+        const seed = (f.x + f.y) % 10; const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
         this.drawRadialGlow(f.x, f.y, f.radius * 3.5 * pulse, "rgba(255, 235, 180, 0.12)");
         if (img && img.complete && img.naturalHeight !== 0) { 
           this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
@@ -410,6 +397,7 @@ export const Renderer = {
       }
     }
 
+    // VẼ HIỆU ỨNG VÒNG SÁNG LÊN CẤP (Tách riêng khỏi phần Text)
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -418,35 +406,77 @@ export const Renderer = {
           const t = (now - e.start) / 1500;
           const alpha = 1 - Math.pow(t, 3); 
           ctx.save(); ctx.globalAlpha = alpha;
-          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 150, 0, Math.PI * 2);
-          ctx.lineWidth = 5 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff"; ctx.stroke();
-          ctx.font = "900 24px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 4;
-          const textY = e.y - e.radius - 25 - (t * 50);
-          ctx.strokeText("LEVEL UP!", e.x, textY); ctx.fillText("LEVEL UP!", e.x, textY);
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
+          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff"; ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    // VẼ FLOATING TEXT (CHỮ NỔI 3D CHẠY THEO HỆ TỌA ĐỘ VẬT LÝ)
+    for (let i = 0; i < this.floatingTexts.length; i++) {
+      const e = this.floatingTexts[i];
+      if (e.active) {
+        if (now - e.start >= 1000) { e.active = false; }
+        else {
+          const t = (now - e.start) / 1000;
+          ctx.save(); 
+          ctx.globalAlpha = 1 - Math.pow(t, 2); // Mờ dần dạng Parabol
+          ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillStyle = e.color; ctx.strokeStyle = "#000000"; ctx.lineWidth = e.size / 6;
+          const floatY = e.y - (t * 80); // Chữ nổi bay bổng dần lên
+          ctx.strokeText(e.text, e.x, floatY); ctx.fillText(e.text, e.x, floatY);
           ctx.restore();
         }
       }
     }
     
-    ctx.restore();
-    if (GameState.isTouch) this.drawMobileUI();
+    ctx.restore(); // KẾT THÚC VÙNG CAMERA THẾ GIỚI
 
-    const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
-    this.updateLeaderboard(allPlayersArr);
-    
-    const nowKillXp = Date.now();
-    for (let i = 0; i < this.xpEffects.length; i++) {
-      const e = this.xpEffects[i];
-      if (e.active) {
-        if (nowKillXp - e.start >= 1000) { e.active = false; } 
-        else {
-          const t = (nowKillXp - e.start) / 1000;
-          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
-          ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          ctx.strokeText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.restore();
-        }
+    // --- VẼ LÊN MÀN HÌNH ĐIỆN THOẠI / PC (Giao diện phẳng 2D) ---
+    if (Camera.screenFlash > 0) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; // Màn hình lóe sáng
+      ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+    }
+
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // VẼ HỆ THỐNG KILL FEED BÊN DƯỚI BẢNG XẾP HẠNG (Slide In mượt mà)
+    const killFeedStartY = 160; 
+    let activeKillFeeds = 0;
+    for (let i = 0; i < this.killFeeds.length; i++) {
+      const kf = this.killFeeds[i];
+      if (kf.active) {
+        const elapsed = now - kf.start;
+        if (elapsed > 3000) { kf.active = false; continue; }
+        
+        let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500); // Tự động mờ
+        let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3); // Trượt từ trái qua phải
+        
+        const yPos = killFeedStartY + (activeKillFeeds * 32);
+        
+        ctx.save(); ctx.globalAlpha = alpha; ctx.translate(20 + slideX, yPos);
+        
+        // Hộp thoại Nền trong suốt
+        ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
+        ctx.beginPath(); ctx.roundRect(0, 0, 220, 26, 6); ctx.fill();
+        
+        // Chữ
+        ctx.font = "bold 13px Arial"; ctx.textBaseline = "middle";
+        ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 8, 13);
+        ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", 110, 13); // Biểu tượng Kiếm
+        ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, 212, 13);
+        
+        ctx.restore();
+        activeKillFeeds++;
       }
     }
+    
+    ctx.restore();
+
+    if (GameState.isTouch) this.drawMobileUI();
+    const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
+    this.updateLeaderboard(allPlayersArr);
   }
 };
