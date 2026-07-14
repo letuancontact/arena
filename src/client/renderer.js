@@ -5,8 +5,11 @@ const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// --- 1. CAMERA VỚI CHỨC NĂNG SHAKE ---
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
+  shakeX: 0, shakeY: 0, shakePower: 0,
+  
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
@@ -14,13 +17,28 @@ export const Camera = {
     if (window.innerWidth <= 768) zoom *= 0.55; 
     return zoom;
   },
+  
+  addShake(power) {
+    this.shakePower = Math.max(this.shakePower, power);
+  },
+
   update(targetX, targetY, dtMultiplier) {
     if (this.x === null) { this.x = targetX; this.y = targetY; }
     const dist = Math.hypot(targetX - this.x, targetY - this.y);
     if (dist > 200) { this.x = targetX; this.y = targetY; } 
     else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
+    
     if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
     else this.currentZoom = this.targetZoom;
+
+    // Tính toán Shake (Giảm chấn dần)
+    if (this.shakePower > 0.1) {
+      this.shakeX = (Math.random() - 0.5) * this.shakePower;
+      this.shakeY = (Math.random() - 0.5) * this.shakePower;
+      this.shakePower *= 0.85; // Damping
+    } else {
+      this.shakeX = 0; this.shakeY = 0; this.shakePower = 0;
+    }
   },
 };
 
@@ -36,9 +54,62 @@ export const Resources = {
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
+// --- 2. ADVANCED PARTICLE SYSTEM (ZERO ALLOCATION) ---
+export const FX = {
+  particles: Array.from({length: 1000}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
+  
+  // Các type: 0 = Default/Dust, 1 = Spark (Hình vệt sáng)
+  spawn(x, y, vx, vy, life, size, color, type = 0) {
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (!p.active) {
+        p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true;
+        break;
+      }
+    }
+  },
+  
+  spawnHitSparks(x, y) {
+    const num = 12 + Math.random() * 8;
+    for(let i=0; i<num; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 15 + 5;
+      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.4 + Math.random()*0.2, Math.random()*4 + 2, "#ffcc00", 1);
+    }
+  },
+
+  updateAndDraw(ctx, dtMultiplier) {
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (p.active) {
+        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; 
+        p.life -= 0.016 * dtMultiplier; // Giả lập giảm theo giây
+        p.vx *= 0.92; p.vy *= 0.92; // Ma sát không khí (Friction)
+
+        if (p.life <= 0) { p.active = false; } 
+        else {
+          const ratio = p.life / p.maxLife;
+          ctx.save();
+          ctx.globalAlpha = ratio;
+          ctx.fillStyle = p.color;
+          
+          if (p.type === 1) { // Spark (Kéo dài theo hướng di chuyển tạo Motion Blur)
+            const angle = Math.atan2(p.vy, p.vx);
+            const speed = Math.hypot(p.vx, p.vy);
+            ctx.translate(p.x, p.y); ctx.rotate(angle);
+            ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
+          } else { // Cổ điển
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * ratio, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+    }
+  }
+};
+
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  particles: Array.from({length: 1000}, () => ({active: false, x:0, y:0, vx:0, vy:0, life:0, decay:0, size:0, color:""})),
   trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
   xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
@@ -51,18 +122,6 @@ export const Renderer = {
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
-    }
-  },
-  addDeathParticles(x, y, radius) {
-    const numParticles = 6 + Math.random() * 4; let added = 0;
-    for (let i = 0; i < this.particles.length && added < numParticles; i++) {
-      const p = this.particles[i];
-      if (!p.active) {
-        const angle = Math.random() * Math.PI * 2, speed = Math.random() * 4 + 2;
-        p.x = x; p.y = y; p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed;
-        p.life = 1.0; p.decay = Math.random() * 0.05 + 0.05; p.size = Math.random() * (radius * 0.2) + 2;
-        p.color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00"; p.active = true; added++;
-      }
     }
   },
   addTrail(x, y, angle, level, radius) {
@@ -85,9 +144,8 @@ export const Renderer = {
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   
-  // ĐÃ FIX 2: ÉP GAME CHẠY TRÊN CÔNG NGHỆ RETINA ĐỂ NÉT CĂNG TRÊN MOBILE 
   resizeCanvas() { 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Khóa x2 để vừa siêu nét vừa chống lag
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     canvas.width = window.innerWidth * dpr; 
     canvas.height = window.innerHeight * dpr; 
     canvas.style.width = window.innerWidth + "px";
@@ -111,26 +169,14 @@ export const Renderer = {
     if (me && !me.isDead) { const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); }
   },
   
-  // ĐÃ FIX 3: BẢNG XẾP HẠNG TOP 5 VÀ VỊ TRÍ HIỆN TẠI CỦA BẠN
   updateLeaderboard(playersArr) {
     if (!playersArr || playersArr.length === 0) return;
     const sorted = [...playersArr].sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); });
     const isMob = window.innerWidth <= 768; const titleSize = isMob ? '12px' : '16px';
     let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
-    
-    // Chỉ hiển thị Top 5
-    sorted.slice(0, 5).forEach((p, i) => { 
-      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; 
-    });
-
-    // Tìm và hiển thị Hạng của bạn nếu bạn đang bị rớt khỏi Top 5
+    sorted.slice(0, 5).forEach((p, i) => { html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; });
     const myIndex = sorted.findIndex(p => p.id === GameState.playerId);
-    if (myIndex >= 5) {
-      const me = sorted[myIndex];
-      html += `<div style="margin:2px 0;color:#888;">...</div>`;
-      html += `<div style="margin:2px 0;"><span style="color:#aaa;">${myIndex + 1}. </span><span style="color:#ff0;font-weight:bold;">${me.name || "Bạn"}</span><span style="color:#0ff;margin-left:4px;">Lv${me.level}</span></div>`;
-    }
-
+    if (myIndex >= 5) { const me = sorted[myIndex]; html += `<div style="margin:2px 0;color:#888;">...</div><div style="margin:2px 0;"><span style="color:#aaa;">${myIndex + 1}. </span><span style="color:#ff0;font-weight:bold;">${me.name || "Bạn"}</span><span style="color:#0ff;margin-left:4px;">Lv${me.level}</span></div>`; }
     this.leaderboardDiv.innerHTML = html;
   },
   
@@ -146,7 +192,7 @@ export const Renderer = {
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
-  getMoveAngle(id, curr, prev) { if (!prev) return 0; const dx = curr.x - prev.x, dy = curr.y - prev.y; if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return GameState.prevAngles[id] ?? 0; return Math.atan2(dy, dx); },
+  
   getInterpolatedState() {
     const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
     for (let i = GameState.stateBuffer.length - 1; i >= 0; i--) { if (GameState.stateBuffer[i].time <= renderTime) { older = GameState.stateBuffer[i]; newer = GameState.stateBuffer[i + 1] || GameState.stateBuffer[i]; break; } }
@@ -165,26 +211,48 @@ export const Renderer = {
     }
     return { interpPlayers }; 
   },
+
+  // --- 3. SLASH ARC (VỆT KIẾM CHUẨN COMBAT) ---
   drawWeapons(x, y, radius, level, angle, isAttacking = false, attackTime = 0) {
     const weaponImg = Resources.getWeaponImage(level || 1);
     if (weaponImg && weaponImg.complete && weaponImg.naturalHeight !== 0) {
       const weaponSize = radius * (2.75 + 0.04 * (level - 1)), weaponHeadOffset = weaponSize * 0.4;
       let swing = 0;
+      let t = 0;
+      
       if (isAttacking && attackTime > 0) {
-        const t = Math.min(1, (Date.now() - attackTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
+        t = Math.min(1, (Date.now() - attackTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
         swing = Math.sin(t * Math.PI) * (level < 37 ? CONFIG.ATTACK_SWING_ANGLE : CONFIG.ATTACK_SWING_ANGLE * 0.68);
+        
+        // Vẽ Vệt Chém (Slash Arc)
+        if (t > 0.1 && t < 0.9) {
+          ctx.save();
+          ctx.translate(x, y);
+          const startArc = angle - Math.PI * 0.7;
+          const currentArc = startArc + swing;
+          
+          ctx.beginPath();
+          ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false);
+          ctx.lineWidth = radius * 0.5;
+          
+          // Motion blur gradient
+          const grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + weaponHeadOffset * 2);
+          grad.addColorStop(0, "rgba(255, 255, 255, 0)");
+          grad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * (1-t)})`); // Mờ dần khi vung xong
+          grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+          
+          ctx.strokeStyle = grad;
+          ctx.lineCap = "round";
+          ctx.stroke();
+          ctx.restore();
+        }
       }
+      
       let leftWeaponAngle = angle - Math.PI * 0.7 + swing;
       this.drawImageWithAspectRatio(weaponImg, x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset, y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
-      if (level >= 37) {
-        let rightWeaponAngle = angle + Math.PI * 0.7 - swing;
-        const drawX = x + Math.cos(rightWeaponAngle) * radius + Math.cos(rightWeaponAngle) * weaponHeadOffset, drawY = y + Math.sin(rightWeaponAngle) * radius + Math.sin(rightWeaponAngle) * weaponHeadOffset;
-        const aspect = weaponImg.naturalWidth / weaponImg.naturalHeight;
-        ctx.save(); ctx.translate(drawX, drawY); ctx.rotate(rightWeaponAngle + Math.PI + Math.PI / 7.5); ctx.scale(-1, 1);
-        ctx.drawImage(weaponImg, -weaponSize / 2, -(weaponSize / aspect) / 2, weaponSize, weaponSize / aspect); ctx.restore();
-      }
     }
   },
+
   drawShield(x, y, radius, justRespawned) {
     const shieldTimeLeft = CONFIG.HIT_COOLDOWN - (Date.now() - justRespawned);
     if (shieldTimeLeft > 0) { ctx.save(); ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 150) * 0.2; ctx.beginPath(); ctx.arc(x, y, radius + 15, 0, Math.PI * 2); ctx.fillStyle = "rgba(0, 255, 255, 0.3)"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.stroke(); ctx.restore(); }
@@ -193,11 +261,7 @@ export const Renderer = {
   drawMobileUI() {
     if(GameState.isDead) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    ctx.save(); 
-    // Chuyển không gian vẽ về không gian thật của màn hình điện thoại
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
-    const w = window.innerWidth, h = window.innerHeight;
-    
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = window.innerWidth, h = window.innerHeight;
     if (GameState.joystick.active) {
       ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2); ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
       ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 25, 0, Math.PI * 2); ctx.fillStyle = "white"; ctx.fill();
@@ -218,17 +282,13 @@ export const Renderer = {
     const winH = window.innerHeight;
     const centerX = winW / 2; 
     const centerY = winH / 2;
-    const offsetX = centerX - Camera.x * Camera.currentZoom; 
-    const offsetY = centerY - Camera.y * Camera.currentZoom;
     
-    // ĐÃ FIX 2: CHỐNG NHÒE TẦM QUAN SÁT (ÁP DỤNG DPR CHO TOÀN CẢNH)
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale
-    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // ÁP DỤNG CAMERA SHAKE VÀO OFFSET TOÀN MÀN HÌNH
+    const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; 
+    const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
     
-    // Áp dụng độ phóng đại Retina và Zoom Camera
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
-    ctx.scale(Camera.currentZoom, Camera.currentZoom); 
-    ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.scale(Camera.currentZoom, Camera.currentZoom); ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
     
     if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } 
     else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
@@ -258,24 +318,14 @@ export const Renderer = {
       }
     }
     
-    for (let i = 0; i < this.particles.length; i++) {
-      const p = this.particles[i]; 
-      if (p.active) {
-        p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= p.decay * dtMultiplier;
-        if (p.life <= 0) { p.active = false; } 
-        else { ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-      }
-    }
+    // Gọi Hệ thống Particle vẽ ở layer nằm dưới nhân vật
+    FX.updateAndDraw(ctx, dtMultiplier);
 
     for (const id in interpPlayers) {
       const p = interpPlayers[id];
       if (p.isDead) continue;
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
-        const prev = GameState.prevPositions[id];
-        let targetAngle = typeof p.angle === "number" ? p.angle : this.getMoveAngle(id, p, prev);
-        let angle = this.lerpAngle(GameState.prevAngles[id] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
-        GameState.prevAngles[id] = angle; GameState.prevPositions[id] = { x: p.x, y: p.y };
-
+        let angle = p.angle || 0;
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, p.radius);
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (p.radius + 22) * 2, angle);
         
@@ -297,18 +347,17 @@ export const Renderer = {
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
     if (me && !me.isDead) {
-      GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
+      let targetAngle = GameState.mouseAngle; 
+      let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
+      GameState.prevAngles[GameState.playerId] = angle;
       
-      if (me.rightMouseDown) {
-        this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, GameState.clientRadius);
-      }
-
-      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, GameState.mouseAngle);
+      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, angle, GameState.clientLevel, GameState.clientRadius);
+      if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (GameState.clientRadius + 22) * 2, angle);
       
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
-      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, GameState.clientRadius * 2, GameState.mouseAngle);
+      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, GameState.clientRadius * 2, angle);
       
-      this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime);
+      this.drawWeapons(GameState.clientX, GameState.clientY, GameState.clientRadius, GameState.clientLevel, angle, GameState.isAttacking, GameState.attackTime);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, GameState.clientRadius, me.justRespawned);
 
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
@@ -359,10 +408,7 @@ export const Renderer = {
         if (nowKillXp - e.start >= 1000) { e.active = false; } 
         else {
           const t = (nowKillXp - e.start) / 1000;
-          
-          // Chữ hiển thị cũng được Scale chuẩn theo màn hình
-          ctx.save(); 
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
+          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
           ctx.globalAlpha = 1 - t; ctx.font = "bold 32px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
           ctx.strokeText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.fillText(`+${e.amount} XP`, winW / 2, 100 - t * 40); ctx.restore();
         }
