@@ -11,10 +11,7 @@ export const Camera = {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
     for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) { zoom = minZoom; break; } }
-    
-    if (window.innerWidth <= 768) {
-      zoom *= 0.55; 
-    }
+    if (window.innerWidth <= 768) zoom *= 0.55; 
     return zoom;
   },
   update(targetX, targetY, dtMultiplier) {
@@ -50,8 +47,7 @@ export const Renderer = {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) {
         const e = this.levelUpEffects[i];
-        e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true;
-        break;
+        e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break;
       }
     }
   },
@@ -84,67 +80,32 @@ export const Renderer = {
   },
 
   setupUI() {
-    const isMob = window.innerWidth <= 768; 
-    
-    // TỐI ƯU SẮC NÉT (RETINA DISPLAY): Lấy mật độ điểm ảnh của máy
-    const dpr = window.devicePixelRatio || 1; 
-
+    const isMob = window.innerWidth <= 768; const dpr = window.devicePixelRatio || 1; 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
-    // ÁP DỤNG ĐỘ NÉT RETINA VÀO MINIMAP
-    this.minimap = document.createElement("canvas"); 
-    
-    // Kích thước LÕI (Nội bộ) được nhân lên theo chuẩn màn hình HD
-    this.minimap.width = 180 * dpr; 
-    this.minimap.height = 120 * dpr; 
-    
-    // Kích thước VỎ (Hiển thị) dùng CSS để ép nhỏ lại cho Mobile (80x53) hoặc PC (180x120)
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '80px' : '180px'} !important;height:${isMob ? '53px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
-    
-    document.body.appendChild(this.minimap); 
-    this.minimapCtx = this.minimap.getContext("2d");
-    
-    // Tự động scale thuật toán vẽ để ta không cần đổi mã vẽ bên dưới
-    this.minimapCtx.scale(dpr, dpr);
+    this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
+    document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; },
   renderBackground() {
-    if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) {
-      Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d");
-    }
-    if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) {
-      Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore();
-    } else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
+    if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d"); }
+    if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
+    else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
   updateUI() {
-    this.xpBar.style.display = GameState.isDead ? "none" : "block";
-    this.levelCircle.style.display = GameState.isDead ? "none" : "flex";
-    if (GameState.isDead) return;
-
-    const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext);
-    this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
-    
-    // Mã vẽ Minimap giờ đây dựa vào tọa độ chuẩn 180x120 (Tự sắc nét nhờ lệnh scale)
-    this.minimapCtx.clearRect(0, 0, 180, 120); 
-    this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; 
-    this.minimapCtx.strokeRect(2, 2, 176, 116);
-    
+    this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
+    const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
+    this.minimapCtx.clearRect(0, 0, 180, 120); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; this.minimapCtx.strokeRect(2, 2, 176, 116);
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
-    let top1 = null;
-    if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
-    if (top1) { 
-      const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * 116; 
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); 
-    }
+    let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
+    if (top1) { const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
-    if (me && !me.isDead) {
-      const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; 
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke();
-    }
+    if (me && !me.isDead) { const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); }
   },
   updateLeaderboard(playersArr) {
     if (!playersArr || playersArr.length === 0) return;
@@ -168,14 +129,10 @@ export const Renderer = {
   lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
   getMoveAngle(id, curr, prev) { if (!prev) return 0; const dx = curr.x - prev.x, dy = curr.y - prev.y; if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return GameState.prevAngles[id] ?? 0; return Math.atan2(dy, dx); },
   getInterpolatedState() {
-    const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY;
-    let older, newer;
-    for (let i = GameState.stateBuffer.length - 1; i >= 0; i--) {
-      if (GameState.stateBuffer[i].time <= renderTime) { older = GameState.stateBuffer[i]; newer = GameState.stateBuffer[i + 1] || GameState.stateBuffer[i]; break; }
-    }
+    const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
+    for (let i = GameState.stateBuffer.length - 1; i >= 0; i--) { if (GameState.stateBuffer[i].time <= renderTime) { older = GameState.stateBuffer[i]; newer = GameState.stateBuffer[i + 1] || GameState.stateBuffer[i]; break; } }
     if (!older) older = newer = GameState.stateBuffer[0] || { players: [] };
     let t = 0; if (older !== newer && newer.time !== older.time) t = Math.max(0, Math.min(1, (renderTime - older.time) / (newer.time - older.time)));
-    
     const interpPlayers = {};
     for (const p of newer.players) {
       if (p.id === GameState.playerId) continue;
@@ -230,9 +187,7 @@ export const Renderer = {
 
   draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
-    const now = Date.now();
-    Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
-    
+    const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
     const centerX = canvas.width / 2, centerY = canvas.height / 2;
     const offsetX = centerX - Camera.x * Camera.currentZoom, offsetY = centerY - Camera.y * Camera.currentZoom;
     
@@ -285,11 +240,9 @@ export const Renderer = {
         let angle = this.lerpAngle(GameState.prevAngles[id] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
         GameState.prevAngles[id] = angle; GameState.prevPositions[id] = { x: p.x, y: p.y };
 
-        if (p.rightMouseDown) {
-          this.addTrail(p.x, p.y, angle, p.level, p.radius);
-        }
-        
+        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, p.radius);
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (p.radius + 22) * 2, angle);
+        
         const img = Resources.getPlayerImage(p.level || 1);
         if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, p.radius * 2, angle);
         
@@ -308,7 +261,7 @@ export const Renderer = {
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
     if (me && !me.isDead) {
-      let targetAngle = GameState.isAttacking ? (GameState.prevAngles[GameState.playerId] ?? 0) : GameState.mouseAngle;
+      let targetAngle = GameState.mouseAngle; 
       let angle = this.lerpAngle(GameState.prevAngles[GameState.playerId] ?? targetAngle, targetAngle, CONFIG.ANGLE_LERP);
       GameState.prevAngles[GameState.playerId] = angle; GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
       
@@ -347,12 +300,12 @@ export const Renderer = {
           const alpha = 1 - Math.pow(t, 3); 
           
           ctx.save(); ctx.globalAlpha = alpha;
-          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
-          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 20; ctx.shadowColor = "#00ffff"; ctx.stroke();
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 150, 0, Math.PI * 2);
+          ctx.lineWidth = 5 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff"; ctx.stroke();
           
-          ctx.font = "900 36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 5;
-          const textY = e.y - e.radius - 40 - (t * 100);
+          ctx.font = "900 24px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; ctx.lineWidth = 4;
+          const textY = e.y - e.radius - 25 - (t * 50);
           ctx.strokeText("LEVEL UP!", e.x, textY); ctx.fillText("LEVEL UP!", e.x, textY);
           ctx.restore();
         }
