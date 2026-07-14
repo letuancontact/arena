@@ -113,12 +113,8 @@ const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        // --- 4. HIỆU ỨNG LÊN CẤP & GLOW THANH XP ---
         if (GameState.clientLevel > oldLevel) {
-          Sound.play('levelUp');
-          Camera.screenFlash = 1.0; // Màn hình nháy sáng
-          
-          // Phát sáng Neon cho Thanh XP Bar
+          Sound.play('levelUp'); Camera.screenFlash = 1.0; 
           if (Renderer.xpBar) {
             Renderer.xpBar.style.boxShadow = "0 0 30px #00ffff, 0 0 10px #ffffff";
             setTimeout(() => { if(Renderer.xpBar) Renderer.xpBar.style.boxShadow = "none"; }, 500);
@@ -145,20 +141,18 @@ const Network = {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
           
-          // --- 1. TÌM KIẾM SÁT THỦ ĐỂ ĐĂNG BÁO LÊN KILL FEED ---
           const killer = (data.players || []).find(k => k.id === p.killerId);
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
             Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
 
-          // --- 2. FLOATING TEXT KHI CHÍNH BẠN HẠ GỤC ĐỊCH ---
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             
-            // Chữ nảy lên từ xác của địch
-            Renderer.addFloatingText(p.x, p.y - 20, `+${xpGained} XP`, "#00ff66", 32);
-            Renderer.addFloatingText(p.x, p.y + 20, "KILL!", "#ff3333", 40);
+            // --- ĐÃ FIX 2: THU NHỎ CHỮ FLOATING TEXT KHI DIỆT ĐỊCH ---
+            Renderer.addFloatingText(p.x, p.y - 15, `+${xpGained} XP`, "#00ff66", 18); // Từ 32px xuống 18px
+            Renderer.addFloatingText(p.x, p.y + 15, "KILL!", "#ff3333", 22);        // Từ 40px xuống 22px
             
             Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
           }
@@ -169,13 +163,12 @@ const Network = {
           if (prevLevel && p.level > prevLevel && !p.isDead) {
             Renderer.addLevelUpEffect(p.x, p.y, p.radius);
             
-            // --- 3. FLOATING TEXT KHI BẠN LÊN CẤP ---
-            Renderer.addFloatingText(p.x, p.y - p.radius - 30, "LEVEL UP!", "#00ffff", 40);
+            // --- ĐÃ FIX 1: THU NHỎ CHỮ FLOATING LEVEL UP CO GIÃN ---
+            Renderer.addFloatingText(p.x, p.y - p.radius - 25, "LEVEL UP!", "#00ffff", 22); // Từ 40px xuống 22px
           }
         }
         
-        GameState.prevPlayerLevels[p.id] = p.level;
-        GameState.prevPlayerDeadState[p.id] = p.isDead;
+        GameState.prevPlayerLevels[p.id] = p.level; GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
     }
   },
@@ -309,24 +302,16 @@ function updatePhysics(dtMultiplier) {
 
 let lastFrameTime = null;
 function loop(currentTime) {
-  if (Date.now() < GameState.freezeUntil) {
-    requestAnimationFrame(loop);
-    return;
-  }
-
+  if (Date.now() < GameState.freezeUntil) { requestAnimationFrame(loop); return; }
   if (!lastFrameTime) lastFrameTime = currentTime;
   const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.05) * 60; 
   lastFrameTime = currentTime;
-
-  updatePhysics(dtMultiplier);
-  Renderer.draw(dtMultiplier);
-  requestAnimationFrame(loop);
+  updatePhysics(dtMultiplier); Renderer.draw(dtMultiplier); requestAnimationFrame(loop);
 }
 
 function main() {
   Renderer.resizeCanvas(); Resources.load(); Renderer.setupUI(); Network.connect(); Input.setup();
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
-  
   requestAnimationFrame(loop);
   setInterval(() => {
     if (!GameState.isDead) Renderer.updateUI();
