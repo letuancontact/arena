@@ -150,9 +150,9 @@ const Network = {
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             
-            // --- ĐÃ FIX 2: THU NHỎ CHỮ FLOATING TEXT KHI DIỆT ĐỊCH ---
-            Renderer.addFloatingText(p.x, p.y - 15, `+${xpGained} XP`, "#00ff66", 18); // Từ 32px xuống 18px
-            Renderer.addFloatingText(p.x, p.y + 15, "KILL!", "#ff3333", 22);        // Từ 40px xuống 22px
+            // --- ĐÃ FIX 2: CHỮ KILL VÀ +XP ĐƯỢC THU NHỎ THÊM (CHỈ CÒN 14PX VÀ 16PX) ---
+            Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); 
+            Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
             
             Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
           }
@@ -163,8 +163,8 @@ const Network = {
           if (prevLevel && p.level > prevLevel && !p.isDead) {
             Renderer.addLevelUpEffect(p.x, p.y, p.radius);
             
-            // --- ĐÃ FIX 1: THU NHỎ CHỮ FLOATING LEVEL UP CO GIÃN ---
-            Renderer.addFloatingText(p.x, p.y - p.radius - 25, "LEVEL UP!", "#00ffff", 22); // Từ 40px xuống 22px
+            // --- ĐÃ FIX 1: CHỮ LEVEL UP THU NHỎ XUỐNG 18PX ---
+            Renderer.addFloatingText(p.x, p.y - p.radius - 20, "LEVEL UP!", "#00ffff", 18); 
           }
         }
         
