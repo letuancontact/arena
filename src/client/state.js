@@ -26,6 +26,7 @@ export const GameState = {
   lastSentTime: 0,
   lastSentAngle: 0,
   mouseAngle: 0,
+  targetMouseAngle: 0, // ĐÃ THÊM: Điểm neo để xoay nhân vật mềm mại
   stateBuffer: [],
   prevPositions: {},
   prevAngles: {},
@@ -50,7 +51,6 @@ export const GameState = {
   },
 
   getXpToNext(level) {
-    // ĐÃ FIX: Tăng độ khó lên cấp theo cấp số nhân x1.35 thay vì x1.2
     return Math.floor(100 * Math.pow(1.35, level - 1));
   },
   getRadiusByLevel(level) {
