@@ -27,6 +27,7 @@ let food = [];
 
 foodLib.spawnFood(food);
 
+// THUẬT TOÁN HỒI SINH AN TOÀN (SMART RADAR 800px)
 function getSafeSpawn(activePlayers, mapW, mapH) {
   let bestPos = { x: Math.random() * mapW, y: Math.random() * mapH };
   let maxDistFound = -1;
@@ -54,11 +55,13 @@ function getSafeSpawn(activePlayers, mapW, mapH) {
   return bestPos;
 }
 
+// BỘ LỌC HEARTBEAT (NHẬN DIỆN CLIENT CÒN SỐNG)
 function heartbeat() {
   this.isAlive = true;
 }
 
 wss.on("connection", (ws) => {
+  // Gắn cờ sự sống cho kết nối mới và lắng nghe nhịp tim
   ws.isAlive = true;
   ws.on('pong', heartbeat);
 
@@ -96,11 +99,12 @@ wss.on("connection", (ws) => {
   });
 });
 
+// HỆ THỐNG DỌN DẸP ZOMBIE (Chạy mỗi 30 giây)
 const interval = setInterval(function ping() {
   wss.clients.forEach(function each(ws) {
-    if (ws.isAlive === false) return ws.terminate(); 
+    if (ws.isAlive === false) return ws.terminate(); // Giết kết nối chết
     ws.isAlive = false;
-    ws.ping(); 
+    ws.ping(); // Bơm nhịp tim mới
   });
 }, 30000); 
 
@@ -153,8 +157,9 @@ setInterval(() => {
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
       
+      // STRICT HITBOX: Chém chuẩn xác, không bơm béo
       const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
-      const exactReach = attacker.radius + weaponSize * 0.85;
+      const exactReach = attacker.radius + weaponSize * 0.85; 
 
       const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, exactReach + 50);
       for (const victim of nearbyVictims) {
@@ -230,4 +235,4 @@ setInterval(() => {
 }, CONFIG.SERVER_TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Strict Hitbox Active`));
+server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Engine Finalized`));
