@@ -8,43 +8,21 @@ const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
 const Sound = {
-  ctx: null,
-  lastPlay: {},
+  ctx: null, lastPlay: {},
   init() {
-    if (!this.ctx) {
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioContext();
-    }
+    if (!this.ctx) { window.AudioContext = window.AudioContext || window.webkitAudioContext; this.ctx = new AudioContext(); }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   },
   play(type) {
     if (!this.ctx) return;
     const nowMs = Date.now();
-    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; 
-    this.lastPlay[type] = nowMs;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    
-    const now = this.ctx.currentTime;
-    if (type === 'swing') {
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-      osc.start(now); osc.stop(now + 0.1);
-    } else if (type === 'eat') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
-      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-      osc.start(now); osc.stop(now + 0.05);
-    } else if (type === 'kill') {
-      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
-      gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-      osc.start(now); osc.stop(now + 0.2);
-    } else if (type === 'levelUp') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1);
-      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.start(now); osc.stop(now + 0.3);
-    }
+    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; this.lastPlay[type] = nowMs;
+    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+    osc.connect(gain); gain.connect(this.ctx.destination); const now = this.ctx.currentTime;
+    if (type === 'swing') { osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); } 
+    else if (type === 'eat') { osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05); osc.start(now); osc.stop(now + 0.05); } 
+    else if (type === 'kill') { osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.start(now); osc.stop(now + 0.2); } 
+    else if (type === 'levelUp') { osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
   }
 };
 
@@ -54,33 +32,20 @@ const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
 nameInput.value = localStorage.getItem("evowar_name") || "";
-
 playBtn.addEventListener("click", () => {
   Sound.init(); 
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
-  const name = nameInput.value.trim() || "Khách";
-  localStorage.setItem("evowar_name", name);
-  
+  const name = nameInput.value.trim() || "Khách"; localStorage.setItem("evowar_name", name);
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
-  playBtn.innerText = "ĐANG VÀO...";
-  playBtn.disabled = true;
+  playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
 });
 
 const Network = {
   ws: null,
   connect() { 
     this.ws = new WebSocket(wsUrl); 
-    this.ws.onopen = () => {
-      statusText.innerText = "";
-      playBtn.innerText = "VÀO TRẬN";
-      playBtn.disabled = false;
-    };
-    this.ws.onclose = () => {
-      statusText.innerText = "Mất kết nối với Server!";
-      playBtn.disabled = true;
-      uiLayer.style.display = "flex";
-      uiLayer.style.opacity = "1";
-    };
+    this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "VÀO TRẬN"; playBtn.disabled = false; };
+    this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; };
     this.ws.onmessage = this.onMessage; 
   },
   onMessage(msg) {
@@ -97,61 +62,30 @@ const Network = {
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
-      if (data.foodRemoved && data.foodRemoved.length > 0) {
-        const removedSet = new Set(data.foodRemoved);
-        GameState.food = GameState.food.filter(f => !removedSet.has(f.id));
-      }
+      if (data.foodRemoved && data.foodRemoved.length > 0) { const removedSet = new Set(data.foodRemoved); GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); }
       
-      const prevDead = GameState.isDead ?? true; 
-      const me = (data.players || []).find((p) => p.id === GameState.playerId);
-      
+      const prevDead = GameState.isDead ?? true; const me = (data.players || []).find((p) => p.id === GameState.playerId);
       if (me) {
-        const oldLevel = GameState.clientLevel;
-        const oldXp = GameState.clientXp;
-
-        GameState.clientLevel = me.level || 1;
-        GameState.clientXp = me.xp || 0; 
+        const oldLevel = GameState.clientLevel; const oldXp = GameState.clientXp;
+        GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        if (GameState.clientLevel > oldLevel) Sound.play('levelUp');
-        else if (GameState.clientXp > oldXp) Sound.play('eat');
-
+        if (GameState.clientLevel > oldLevel) Sound.play('levelUp'); else if (GameState.clientXp > oldXp) Sound.play('eat');
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
-        if (prevDead && !me.isDead) { 
-          GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0";
-          setTimeout(() => uiLayer.style.display = "none", 300);
-        } else { 
-          GameState.serverX = me.x; GameState.serverY = me.y; 
-        }
+        if (prevDead && !me.isDead) { GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; uiLayer.style.opacity = "0"; setTimeout(() => uiLayer.style.display = "none", 300); } 
+        else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
-          uiLayer.style.display = "flex";
-          setTimeout(() => uiLayer.style.opacity = "1", 10);
-          statusText.innerText = "Bạn đã bị hạ gục!";
-          playBtn.disabled = true;
-
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000);
-          playBtn.innerText = `HỒI SINH SAU (${left}s)`;
-          
-          const interval = setInterval(() => {
-            left--;
-            if (left <= 0) {
-              clearInterval(interval);
-              playBtn.innerText = "VÀO TRẬN LẠI";
-              playBtn.disabled = false;
-              statusText.innerText = "";
-            } else {
-              playBtn.innerText = `HỒI SINH SAU (${left}s)`;
-            }
-          }, 1000);
+          uiLayer.style.display = "flex"; setTimeout(() => uiLayer.style.opacity = "1", 10);
+          statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
+          const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; } }, 1000);
         }
       }
       
-      GameState.isDead = me?.isDead ?? true; 
-      GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
+      GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) Renderer.addDeathParticles(p.x, p.y, p.radius);
@@ -160,13 +94,7 @@ const Network = {
           Sound.play('kill');
         }
         GameState.prevPlayerDeadState[p.id] = p.isDead;
-
-        if (p.id === GameState.playerId) {
-          const prevLevel = GameState.prevPlayerLevels[p.id];
-          if (prevLevel && p.level > prevLevel && !p.isDead) {
-            Renderer.addLevelUpEffect(p.x, p.y, p.radius);
-          }
-        }
+        if (p.id === GameState.playerId) { const prevLevel = GameState.prevPlayerLevels[p.id]; if (prevLevel && p.level > prevLevel && !p.isDead) Renderer.addLevelUpEffect(p.x, p.y, p.radius); }
         GameState.prevPlayerLevels[p.id] = p.level;
       }
     }
@@ -192,7 +120,6 @@ const Network = {
 const Input = {
   setup() {
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-    
     canvas.addEventListener("mousemove", (e) => {
       if (GameState.mouseMoveThrottled || GameState.isTouch) return;
       GameState.mouseMoveThrottled = true;
@@ -203,20 +130,16 @@ const Input = {
         Network.sendPositionUpdate(); GameState.mouseMoveThrottled = false;
       });
     });
-    
     canvas.addEventListener("mousedown", (e) => {
-      if (GameState.isTouch || GameState.isDead) return;
-      Sound.init(); 
+      if (GameState.isTouch || GameState.isDead) return; Sound.init(); 
       if (e.button === 2 && GameState.clientXp > 0 && GameState.clientLevel >= 1) { GameState.rightMouseDown = true; Network.sendPositionUpdate(true); }
       if (e.button === 0) {
         const cooldown = 500 + (GameState.clientLevel - 1) * 60;
         if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
-          GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-          Sound.play('swing');
+          GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" })); Sound.play('swing');
         }
       }
     });
-    
     canvas.addEventListener("mouseup", (e) => {
       if (GameState.isTouch) return;
       if (e.button === 2) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
@@ -225,71 +148,47 @@ const Input = {
     const isPointInCircle = (px, py, cx, cy, radius) => Math.hypot(px - cx, py - cy) < radius;
 
     canvas.addEventListener("touchstart", (e) => {
-      if(GameState.isDead) return;
-      GameState.isTouch = true;
-      e.preventDefault(); 
-      Sound.init(); 
+      if(GameState.isDead) return; GameState.isTouch = true; e.preventDefault(); Sound.init(); 
       for(let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        const tx = t.clientX, ty = t.clientY;
-        const w = canvas.width, h = canvas.height;
-        
+        const t = e.changedTouches[i]; const tx = t.clientX, ty = t.clientY; const w = canvas.width, h = canvas.height;
         if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
-            GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" }));
-            Sound.play('swing');
+            GameState.isAttacking = true; GameState.attackTime = Date.now(); Network.ws.send(JSON.stringify({ type: "attack" })); Sound.play('swing');
           }
         }
-        else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) {
-          GameState.rightMouseDown = true; GameState.sprintTouchId = t.identifier; Network.sendPositionUpdate(true);
-        }
+        else if (isPointInCircle(tx, ty, w - 160, h - 75, 50)) { GameState.rightMouseDown = true; GameState.sprintTouchId = t.identifier; Network.sendPositionUpdate(true); }
         else if (tx < w / 2) {
           GameState.joystick.active = true; GameState.joystick.id = t.identifier;
           GameState.joystick.baseX = tx; GameState.joystick.baseY = ty;
-          GameState.joystick.stickX = tx; GameState.joystick.stickY = ty;
-          GameState.isMoving = true;
+          GameState.joystick.stickX = tx; GameState.joystick.stickY = ty; GameState.isMoving = true;
         }
       }
     }, {passive: false});
 
     canvas.addEventListener("touchmove", (e) => {
-      if(GameState.isDead) return;
-      e.preventDefault();
+      if(GameState.isDead) return; e.preventDefault();
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
           const dx = t.clientX - GameState.joystick.baseX, dy = t.clientY - GameState.joystick.baseY;
           const dist = Math.hypot(dx, dy), maxDist = 50; 
-          
-          if (dist > 5) { GameState.mouseAngle = Math.atan2(dy, dx); GameState.isMoving = true; } 
-          else { GameState.isMoving = false; }
-
-          if (dist > maxDist) {
-            GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist;
-            GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist;
-          } else {
-            GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY;
-          }
+          if (dist > 5) { GameState.mouseAngle = Math.atan2(dy, dx); GameState.isMoving = true; } else { GameState.isMoving = false; }
+          if (dist > maxDist) { GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist; GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist; } 
+          else { GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY; }
           Network.sendPositionUpdate();
         }
       }
     }, {passive: false});
 
     canvas.addEventListener("touchend", (e) => {
-      if(GameState.isDead) return;
-      e.preventDefault();
+      if(GameState.isDead) return; e.preventDefault();
       for(let i=0; i<e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
-          GameState.joystick.active = false; GameState.isMoving = false; Network.sendPositionUpdate(true);
-        }
-        if (GameState.sprintTouchId === t.identifier) {
-          GameState.rightMouseDown = false; GameState.sprintTouchId = null; Network.sendPositionUpdate(true);
-        }
+        if (GameState.joystick.active && t.identifier === GameState.joystick.id) { GameState.joystick.active = false; GameState.isMoving = false; Network.sendPositionUpdate(true); }
+        if (GameState.sprintTouchId === t.identifier) { GameState.rightMouseDown = false; GameState.sprintTouchId = null; Network.sendPositionUpdate(true); }
       }
     }, {passive: false});
-
     window.addEventListener("resize", Renderer.resizeCanvas);
   }
 };
@@ -299,6 +198,9 @@ function updatePhysics(dtMultiplier) {
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
+      const speed = GameState.getSpeedByLevel(GameState.clientLevel) * 0.3;
+      GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
+      GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
   } else if (GameState.isMoving) {
     const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
     GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
@@ -308,14 +210,11 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
-  // FIX LỖI GIẬT MOBILE: Nội suy Exponential Decay chống giật khi FPS điện thoại tụt
   if (GameState.serverX != null && GameState.serverY != null) {
     const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
-    if (dist > 150) { 
-      GameState.clientX = GameState.serverX; 
-      GameState.clientY = GameState.serverY; 
-    } else if (dist > 1) { 
-      const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); // Khử giật frame-independent
+    if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
+    else if (dist > 1) { 
+      const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); 
       GameState.clientX += (GameState.serverX - GameState.clientX) * lerpFactor; 
       GameState.clientY += (GameState.serverY - GameState.clientY) * lerpFactor; 
     }
@@ -327,7 +226,6 @@ function updatePhysics(dtMultiplier) {
 let lastFrameTime = null;
 function loop(currentTime) {
   if (!lastFrameTime) lastFrameTime = currentTime;
-  // Capping dtMultiplier to max ~3 frames to prevent huge physics jumps on severe lag
   const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.05) * 60; 
   lastFrameTime = currentTime;
 
@@ -337,20 +235,13 @@ function loop(currentTime) {
 }
 
 function main() {
-  Renderer.resizeCanvas();
-  Resources.load();
-  Renderer.setupUI();
-  Network.connect();
-  Input.setup();
+  Renderer.resizeCanvas(); Resources.load(); Renderer.setupUI(); Network.connect(); Input.setup();
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   
   requestAnimationFrame(loop);
   setInterval(() => {
     if (!GameState.isDead) Renderer.updateUI();
-    if (GameState.clientXp <= 0 && GameState.rightMouseDown) {
-      GameState.rightMouseDown = false;
-      Network.sendPositionUpdate(true);
-    }
+    if (GameState.clientXp <= 0 && GameState.rightMouseDown) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
   }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
 
