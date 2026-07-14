@@ -113,12 +113,9 @@ const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
+        // ĐÃ FIX 1: LOẠI BỎ HOÀN TOÀN NHÁY SÁNG MÀN HÌNH & GLOW THANH XP
         if (GameState.clientLevel > oldLevel) {
-          Sound.play('levelUp'); Camera.screenFlash = 1.0; 
-          if (Renderer.xpBar) {
-            Renderer.xpBar.style.boxShadow = "0 0 30px #00ffff, 0 0 10px #ffffff";
-            setTimeout(() => { if(Renderer.xpBar) Renderer.xpBar.style.boxShadow = "none"; }, 500);
-          }
+          Sound.play('levelUp'); 
         } 
         else if (GameState.clientXp > oldXp) Sound.play('eat');
         
@@ -150,7 +147,6 @@ const Network = {
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             
-            // --- ĐÃ FIX 2: CHỮ KILL VÀ +XP ĐƯỢC THU NHỎ THÊM (CHỈ CÒN 14PX VÀ 16PX) ---
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); 
             Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
             
@@ -162,8 +158,6 @@ const Network = {
           const prevLevel = GameState.prevPlayerLevels[p.id]; 
           if (prevLevel && p.level > prevLevel && !p.isDead) {
             Renderer.addLevelUpEffect(p.x, p.y, p.radius);
-            
-            // --- ĐÃ FIX 1: CHỮ LEVEL UP THU NHỎ XUỐNG 18PX ---
             Renderer.addFloatingText(p.x, p.y - p.radius - 20, "LEVEL UP!", "#00ffff", 18); 
           }
         }
