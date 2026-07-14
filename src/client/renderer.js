@@ -53,7 +53,7 @@ export const Resources = {
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
-// --- 2. ADVANCED PARTICLE SYSTEM ---
+// --- 2. ADVANCED PARTICLE SYSTEM (CHỐNG BLUR VÀ ZERO GC) ---
 export const FX = {
   particles: Array.from({length: 1000}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   
@@ -88,7 +88,7 @@ export const FX = {
         else {
           const ratio = p.life / p.maxLife;
           ctx.save();
-          ctx.globalAlpha = ratio;
+          ctx.globalAlpha = Math.max(0, Math.min(1, ratio));
           ctx.fillStyle = p.color;
           
           if (p.type === 1) { 
@@ -97,7 +97,7 @@ export const FX = {
             ctx.translate(p.x, p.y); ctx.rotate(angle);
             ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
           } else { 
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * ratio, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill();
           }
           ctx.restore();
         }
@@ -113,11 +113,9 @@ export const Renderer = {
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   visualRadius: {},
 
-  // --- 3. GIẢ LẬP LIGHTING & BLOOM (TỐI ƯU SIÊU NHẸ) ---
-  // Thay vì dùng shadowBlur nặng nề, ta dùng cấp số Radial Gradient hoặc hòa trộn màu để tạo ánh sáng Neon cực nhanh
   drawRadialGlow(x, y, radius, color) {
     ctx.save();
-    ctx.globalCompositeOperation = "screen"; // Chế độ cộng sáng hòa trộn cao cấp
+    ctx.globalCompositeOperation = "screen"; 
     const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
     grad.addColorStop(0, color);
     grad.addColorStop(1, "rgba(0,0,0,0)");
@@ -136,18 +134,18 @@ export const Renderer = {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
+  
+  // ĐÃ SỬA VÀ VÁ LỖI: Hàm nổ khi chết nay gọi trực tiếp thông qua Pool FX.spawn cực kỳ an toàn
   addDeathParticles(x, y, radius) {
-    const numParticles = 6 + Math.random() * 4; let added = 0;
-    for (let i = 0; i < this.particles.length && added < numParticles; i++) {
-      const p = this.particles[i];
-      if (!p.active) {
-        const angle = Math.random() * Math.PI * 2, speed = Math.random() * 4 + 2;
-        p.x = x; p.y = y; p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed;
-        p.life = 1.0; p.decay = Math.random() * 0.05 + 0.05; p.size = Math.random() * (radius * 0.2) + 2;
-        p.color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00"; p.active = true; added++;
-      }
+    const numParticles = 8 + Math.random() * 6; 
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 5 + 3;
+      const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
+      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
+  
   addTrail(x, y, angle, level, radius) {
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
@@ -262,7 +260,6 @@ export const Renderer = {
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
       
-      // --- NÂNG CẤP: WEAPON GLOW KHI CHÉM (BLOOM GIẢ LẬP) ---
       if (isAttacking) {
         this.drawRadialGlow(wx, wy, weaponSize * 0.8, "rgba(0, 200, 255, 0.25)");
       }
@@ -313,22 +310,15 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
-    // --- 4. NÂNG CẤP LUỒNG FOOD: PULSE, GLOW & TWINKLE SPARKLE ---
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
-        
-        // Sinh mầm hạt (Seed) từ ID của food để tạo kích thước lệch pha ngẫu nhiên cố định
         const seed = f.id ? (f.id % 10) : 0;
-        const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; // Pulse co giãn 8%
+        const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
         
-        // Vẽ vòng hào quang Neon dưới chân thức ăn (Glow)
         this.drawRadialGlow(f.x, f.y, f.radius * 3.5 * pulse, "rgba(255, 235, 180, 0.12)");
-
         if (img && img.complete && img.naturalHeight !== 0) { 
           this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
-          
-          // Thêm hiệu ứng lấp lánh (Sparkle Overlays) ngẫu nhiên theo thời gian
           if (Math.sin(now / 40 + seed * 5) > 0.82) {
             ctx.save(); ctx.globalCompositeOperation = "screen"; ctx.fillStyle = "#ffffff"; ctx.beginPath();
             ctx.arc(f.x + Math.cos(seed)*f.radius*0.4, f.y + Math.sin(seed)*f.radius*0.4, 1.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
@@ -361,13 +351,10 @@ export const Renderer = {
 
         let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
         let angle = p.angle || 0;
-        
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
 
-        // --- NÂNG CẤP: GLOW CHO PLAYER CẤP CAO ---
         if (p.level >= 15) this.drawRadialGlow(p.x, p.y, vRadius * 2.2, "rgba(255, 80, 0, 0.08)");
-
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
         const img = Resources.getPlayerImage(p.level || 1);
@@ -394,16 +381,13 @@ export const Renderer = {
       const vRadius = this.visualRadius[GameState.playerId];
 
       let breathScale = GameState.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
-
       if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      // --- NÂNG CẤP: GLOW CHO BẢN THÂN CẤP CAO HOẶC KHI TỐC BIẾN ---
       if (GameState.clientLevel >= 15) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, "rgba(0, 255, 120, 0.08)");
       if (me.rightMouseDown) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 1.8, "rgba(255, 200, 0, 0.15)");
 
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
-      
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
       
