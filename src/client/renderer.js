@@ -32,7 +32,6 @@ export const Camera = {
     if (this.shakePower > 0.1) { this.shakeX = (Math.random() - 0.5) * this.shakePower; this.shakeY = (Math.random() - 0.5) * this.shakePower; this.shakePower *= 0.85; } 
     else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
     
-    // Tắt dần màn hình chớp sáng
     if (this.screenFlash > 0) { this.screenFlash -= 0.03 * dtMultiplier; if (this.screenFlash < 0) this.screenFlash = 0; }
   },
 };
@@ -89,10 +88,7 @@ export const Renderer = {
   levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   visualRadius: {},
 
-  // --- HỆ THỐNG FLOATING TEXT (ZERO GC) ---
   floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
-  
-  // --- HỆ THỐNG KILL FEED (BÁO MẠNG) ---
   killFeeds: Array.from({length: 5}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
 
   addFloatingText(x, y, text, color, size) {
@@ -397,7 +393,6 @@ export const Renderer = {
       }
     }
 
-    // VẼ HIỆU ỨNG VÒNG SÁNG LÊN CẤP (Tách riêng khỏi phần Text)
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -413,37 +408,39 @@ export const Renderer = {
       }
     }
 
-    // VẼ FLOATING TEXT (CHỮ NỔI 3D CHẠY THEO HỆ TỌA ĐỘ VẬT LÝ)
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
         if (now - e.start >= 1000) { e.active = false; }
         else {
           const t = (now - e.start) / 1000;
-          ctx.save(); 
-          ctx.globalAlpha = 1 - Math.pow(t, 2); // Mờ dần dạng Parabol
+          ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
           ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillStyle = e.color; ctx.strokeStyle = "#000000"; ctx.lineWidth = e.size / 6;
-          const floatY = e.y - (t * 80); // Chữ nổi bay bổng dần lên
+          ctx.fillStyle = e.color; ctx.strokeStyle = "#000000"; ctx.lineWidth = Math.max(1.5, e.size / 7); // ĐÃ TỐI ƯU: Viền chữ mảnh hơn, sang hơn
+          const floatY = e.y - (t * 80); 
           ctx.strokeText(e.text, e.x, floatY); ctx.fillText(e.text, e.x, floatY);
           ctx.restore();
         }
       }
     }
     
-    ctx.restore(); // KẾT THÚC VÙNG CAMERA THẾ GIỚI
+    ctx.restore(); 
 
-    // --- VẼ LÊN MÀN HÌNH ĐIỆN THOẠI / PC (Giao diện phẳng 2D) ---
     if (Camera.screenFlash > 0) {
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; // Màn hình lóe sáng
+      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; 
       ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
     }
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // VẼ HỆ THỐNG KILL FEED BÊN DƯỚI BẢNG XẾP HẠNG (Slide In mượt mà)
-    const killFeedStartY = 160; 
+    // --- ĐÃ FIX 3: TỐI ƯU DIỆN TÍCH BẢNG KILL FEED TRÊN MOBILE ---
+    const isMob = window.innerWidth <= 768;
+    const kfWidth = isMob ? 135 : 220;    // Thu hẹp chiều ngang trên Mobile
+    const kfHeight = isMob ? 18 : 26;     // Hạ thấp chiều cao trên Mobile
+    const kfFontSize = isMob ? 9 : 13;    // Font chữ nhỏ gọn tinh tế
+    const killFeedStartY = isMob ? 105 : 160; // Đẩy sát lên gầm Leaderboard
+    
     let activeKillFeeds = 0;
     for (let i = 0; i < this.killFeeds.length; i++) {
       const kf = this.killFeeds[i];
@@ -451,22 +448,20 @@ export const Renderer = {
         const elapsed = now - kf.start;
         if (elapsed > 3000) { kf.active = false; continue; }
         
-        let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500); // Tự động mờ
-        let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3); // Trượt từ trái qua phải
+        let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500);
+        let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3);
         
-        const yPos = killFeedStartY + (activeKillFeeds * 32);
+        const yPos = killFeedStartY + (activeKillFeeds * (kfHeight + 5));
         
-        ctx.save(); ctx.globalAlpha = alpha; ctx.translate(20 + slideX, yPos);
+        ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
         
-        // Hộp thoại Nền trong suốt
         ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
-        ctx.beginPath(); ctx.roundRect(0, 0, 220, 26, 6); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(0, 0, kfWidth, kfHeight, 4); ctx.fill();
         
-        // Chữ
-        ctx.font = "bold 13px Arial"; ctx.textBaseline = "middle";
-        ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 8, 13);
-        ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", 110, 13); // Biểu tượng Kiếm
-        ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, 212, 13);
+        ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
+        ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
+        ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", kfWidth / 2, kfHeight / 2);
+        ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, kfWidth - 6, kfHeight / 2);
         
         ctx.restore();
         activeKillFeeds++;
