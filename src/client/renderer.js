@@ -90,6 +90,10 @@ export const Renderer = {
   floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
 
+  // CÁC BIẾN CACHE ĐỂ CHỐNG LAYOUT THRASHING
+  lastLeaderboardHeight: 0,
+  lastHeightCheck: 0,
+
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
       if(!this.floatingTexts[i].active) {
@@ -342,7 +346,6 @@ export const Renderer = {
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
 
-        if (p.level >= 15) this.drawRadialGlow(p.x, p.y, vRadius * 2.2, "rgba(255, 80, 0, 0.08)");
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
         const img = Resources.getPlayerImage(p.level || 1);
@@ -372,9 +375,6 @@ export const Renderer = {
       if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      if (GameState.clientLevel >= 15) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, "rgba(0, 255, 120, 0.08)");
-      if (me.rightMouseDown) this.drawRadialGlow(GameState.clientX, GameState.clientY, vRadius * 1.8, "rgba(255, 200, 0, 0.15)");
-
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
@@ -396,6 +396,7 @@ export const Renderer = {
       }
     }
 
+    // VÒNG TRÒN LÊN CẤP 
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -443,16 +444,20 @@ export const Renderer = {
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // --- ĐÃ FIX 3: TỰ ĐỘNG TÍNH TỌA ĐỘ Y CỦA KILL FEED THEO BẢNG XẾP HẠNG ---
+    // --- KỸ THUẬT CACHE ĐỂ CHỐNG LAYOUT THRASHING TUYỆT ĐỐI ---
     const isMob = window.innerWidth <= 768;
     const kfWidth = isMob ? 135 : 220;    
     const kfHeight = isMob ? 18 : 26;     
     const kfFontSize = isMob ? 9 : 13;    
     
-    // Tự động tính toán: Bám sát mép dưới bảng Xếp hạng cộng thêm 10px khoảng hở
     let killFeedStartY = isMob ? 120 : 190; 
     if (this.leaderboardDiv) {
-      killFeedStartY = this.leaderboardDiv.offsetTop + this.leaderboardDiv.offsetHeight + 10;
+      // Chỉ đọc lại chiều cao DOM 1 lần mỗi giây để chống giật FPS
+      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) {
+        this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight;
+        this.lastHeightCheck = now;
+      }
+      killFeedStartY = this.leaderboardDiv.offsetTop + this.lastLeaderboardHeight + 10;
     }
     
     let activeKillFeeds = 0;
