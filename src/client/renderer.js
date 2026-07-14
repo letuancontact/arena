@@ -411,7 +411,6 @@ export const Renderer = {
       }
     }
 
-    // --- ĐÃ FIX 2: VẼ LẠI VIỀN CHỮ CHUẨN MÀU THEO YÊU CẦU ---
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
@@ -421,17 +420,10 @@ export const Renderer = {
           ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
           ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           
-          ctx.lineWidth = 3; // Viền nét đậm như ban đầu
-          if (e.text === "LEVEL UP!") {
-            ctx.fillStyle = "#ffffff";
-            ctx.strokeStyle = "#0088ff"; // Viền xanh dương
-          } else if (e.text === "KILL!") {
-            ctx.fillStyle = e.color;
-            ctx.strokeStyle = "#990000"; // Viền đỏ sẫm
-          } else {
-            ctx.fillStyle = e.color;
-            ctx.strokeStyle = "#009944"; // Viền xanh lá sẫm
-          }
+          ctx.lineWidth = 3; 
+          if (e.text === "LEVEL UP!") { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; } 
+          else if (e.text === "KILL!") { ctx.fillStyle = e.color; ctx.strokeStyle = "#990000"; } 
+          else { ctx.fillStyle = e.color; ctx.strokeStyle = "#009944"; }
 
           const floatY = e.y - (t * 50); 
           ctx.strokeText(e.text, e.x, floatY); 
@@ -443,15 +435,25 @@ export const Renderer = {
     
     ctx.restore(); 
 
+    if (Camera.screenFlash > 0) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+    }
+
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // --- ĐÃ FIX 3: ĐẨY BẢNG KILL FEED LÊN VỊ TRÍ SÁT DƯỚI TOP PLAYERS ---
+    // --- ĐÃ FIX 3: TỰ ĐỘNG TÍNH TỌA ĐỘ Y CỦA KILL FEED THEO BẢNG XẾP HẠNG ---
     const isMob = window.innerWidth <= 768;
     const kfWidth = isMob ? 135 : 220;    
     const kfHeight = isMob ? 18 : 26;     
     const kfFontSize = isMob ? 9 : 13;    
-    // Tọa độ hoàn hảo: Đặt khít ngay dưới bảng xếp hạng (Mobile: 120, PC: 195)
-    const killFeedStartY = isMob ? 120 : 195; 
+    
+    // Tự động tính toán: Bám sát mép dưới bảng Xếp hạng cộng thêm 10px khoảng hở
+    let killFeedStartY = isMob ? 120 : 190; 
+    if (this.leaderboardDiv) {
+      killFeedStartY = this.leaderboardDiv.offsetTop + this.leaderboardDiv.offsetHeight + 10;
+    }
     
     let activeKillFeeds = 0;
     for (let i = 0; i < this.killFeeds.length; i++) {
