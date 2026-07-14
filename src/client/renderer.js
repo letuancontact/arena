@@ -37,40 +37,48 @@ export const Camera = {
 
 export const Resources = {
   foodImages: {}, playerImages: {}, weaponImages: {}, mountImg: new Image(), kingImg: new Image(), mapBgImg: new Image(), mapPattern: null, mapPatternReady: false, offscreenCanvas: null, offscreenCtx: null,
+  foodGlowCanvas: null, playerGlowCanvas: null,
   
   load() {
     for (let i = 0; i < 12; i++) { const img = new Image(); img.src = `img/food${i}.png`; this.foodImages[i] = img; }
     this.mountImg.src = "img/mountsright.png"; this.kingImg.src = "img/king.png";
     this.mapBgImg.onload = () => { this.mapPattern = ctx.createPattern(this.mapBgImg, "repeat"); this.mapPatternReady = true; Renderer.renderBackground(); };
     this.mapBgImg.src = "img/mapbg.png";
+
+    // Tối ưu hóa: Tạo sẵn ảnh Glow để tránh giật lag GPU
+    this.foodGlowCanvas = document.createElement('canvas'); this.foodGlowCanvas.width = 128; this.foodGlowCanvas.height = 128;
+    const fgCtx = this.foodGlowCanvas.getContext('2d', { alpha: true });
+    const fGrad = fgCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    fGrad.addColorStop(0, "rgba(255, 235, 180, 0.12)"); fGrad.addColorStop(1, "rgba(0,0,0,0)");
+    fgCtx.fillStyle = fGrad; fgCtx.beginPath(); fgCtx.arc(64, 64, 64, 0, Math.PI*2); fgCtx.fill();
+
+    this.playerGlowCanvas = document.createElement('canvas'); this.playerGlowCanvas.width = 256; this.playerGlowCanvas.height = 256;
+    const pgCtx = this.playerGlowCanvas.getContext('2d', { alpha: true });
+    const pGrad = pgCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    pGrad.addColorStop(0, "rgba(0, 255, 120, 0.08)"); pGrad.addColorStop(1, "rgba(0,0,0,0)");
+    pgCtx.fillStyle = pGrad; pgCtx.beginPath(); pgCtx.arc(128, 128, 128, 0, Math.PI*2); pgCtx.fill();
   },
   getPlayerImage(level) { if (!this.playerImages[level]) { const img = new Image(); img.src = `img/lv${level}.png`; this.playerImages[level] = img; } return this.playerImages[level]; },
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
 export const FX = {
-  // ĐÃ TỐI ƯU 1: Ép mảng Particle xuống còn 300 hạt để duyệt siêu nhẹ
-  particles: Array.from({length: 300}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
+  particles: Array.from({length: 400}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   spawn(x, y, vx, vy, life, size, color, type = 0) {
     let activeCount = 0;
     for (let i = 0; i < this.particles.length; i++) {
       if (!this.particles[i].active) {
-        const p = this.particles[i];
-        p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true;
-        break;
+        const p = this.particles[i]; p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true; break;
       } else {
-        activeCount++;
-        // Khóa van nếu có quá 150 hạt đang chạy trên Mobile
-        if (activeCount > 150) break; 
+        activeCount++; if (activeCount > 250) break; // Khóa chặn lag
       }
     }
   },
   spawnHitSparks(x, y) {
-    const isMob = window.innerWidth <= 768;
-    const num = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 4); 
+    const isMob = window.innerWidth <= 768; const num = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 4); 
     for(let i=0; i<num; i++) {
       const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 12 + 5;
-      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.2, Math.random()*3 + 2, "#ffcc00", 1);
+      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.1, 2.5, "#ffcc00", 1);
     }
   },
 
@@ -79,19 +87,17 @@ export const FX = {
       const p = this.particles[i];
       if (p.active) {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
-        if (p.life <= 0) { p.active = false; } 
-        else {
-          if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
-          
-          const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
-          
-          // ĐÃ TỐI ƯU 2: Gỡ bỏ hoàn toàn `screen` blend mode. Vẽ bình thường.
-          if (p.type === 1) { 
-            const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
-            ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
-          } else { ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); }
-          ctx.restore();
+        if (p.life <= 0) { p.active = false; continue; } 
+        if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
+
+        const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
+        if (p.type === 1) { 
+          const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
+          ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.fillRect(-p.size, -p.size/2, p.size + speed * 2, p.size); // Tối ưu: fillRect
+        } else { 
+          ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); 
         }
+        ctx.restore();
       }
     }
   }
@@ -99,14 +105,13 @@ export const FX = {
 
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  // ĐÃ TỐI ƯU 3: Giảm độ dài mảng trails xuống 200 (Thoải mái vẽ mà không sợ kẹt CPU)
   trails: Array.from({length: 200}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
   levelUpEffects: Array.from({length: 10}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   xpEffects: Array.from({length: 30}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
   floatingTexts: Array.from({length: 30}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
-
+  
   lastLeaderboardHeight: 0,
   lastHeightCheck: 0,
 
@@ -134,6 +139,13 @@ export const Renderer = {
     this.killFeeds[0].active = true;
   },
 
+  drawFastGlow(x, y, radius, isFood = true) {
+    ctx.save(); ctx.globalCompositeOperation = "screen"; 
+    const img = isFood ? Resources.foodGlowCanvas : Resources.playerGlowCanvas;
+    if (img) ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+    ctx.restore();
+  },
+
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
@@ -146,10 +158,10 @@ export const Renderer = {
   },
   
   addDeathParticles(x, y, radius) {
-    const numParticles = 6 + Math.random() * 4; 
+    const isMob = window.innerWidth <= 768; const numParticles = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
     for (let i = 0; i < numParticles; i++) {
       const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 3; const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
-      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.2) + 2, color, 0);
+      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
   
@@ -166,7 +178,7 @@ export const Renderer = {
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
-    this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};box-shadow:0 4px 12px rgba(0,0,0,0.6);pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
+    this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
@@ -184,7 +196,7 @@ export const Renderer = {
     if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
     else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
-  
+
   updateUI() {
     this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
@@ -318,6 +330,8 @@ export const Renderer = {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
         const seed = (f.x + f.y) % 10; const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
         
+        this.drawFastGlow(f.x, f.y, f.radius * 3.5 * pulse, true);
+
         if (img && img.complete && img.naturalHeight !== 0) { 
           this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
           if (Math.sin(now / 40 + seed * 5) > 0.82) {
@@ -355,11 +369,7 @@ export const Renderer = {
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
 
-        if (p.level >= 15) {
-            ctx.save(); ctx.fillStyle = "rgba(255, 80, 0, 0.08)";
-            ctx.beginPath(); ctx.arc(p.x, p.y, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
-        }
-
+        if (p.level >= 15) this.drawFastGlow(p.x, p.y, vRadius * 2.2, false);
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
         const img = Resources.getPlayerImage(p.level || 1);
@@ -389,10 +399,7 @@ export const Renderer = {
       if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      if (GameState.clientLevel >= 15) {
-          ctx.save(); ctx.fillStyle = "rgba(0, 255, 120, 0.08)";
-          ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
-      }
+      if (GameState.clientLevel >= 15) this.drawFastGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, false);
 
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
@@ -415,7 +422,7 @@ export const Renderer = {
       }
     }
 
-    // ĐÃ TỐI ƯU 4: Xóa shadowBlur khi lên cấp, dùng độ dày viền mờ dần cực nhanh
+    // VÒNG TRÒN LÊN CẤP 
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -496,8 +503,9 @@ export const Renderer = {
         
         ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
         
+        // Tối ưu: Dùng fillRect thay vì roundRect cho nhẹ máy
         ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
-        ctx.beginPath(); ctx.roundRect(0, 0, kfWidth, kfHeight, 4); ctx.fill();
+        ctx.fillRect(0, 0, kfWidth, kfHeight);
         
         ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
         ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
