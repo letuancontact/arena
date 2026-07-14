@@ -35,41 +35,23 @@ export const Camera = {
   },
 };
 
-// --- ĐÃ TỐI ƯU 1: PRE-RENDER HÀO QUANG (GLOW CACHE) ĐỂ TĂNG 10X TỐC ĐỘ ---
 export const Resources = {
   foodImages: {}, playerImages: {}, weaponImages: {}, mountImg: new Image(), kingImg: new Image(), mapBgImg: new Image(), mapPattern: null, mapPatternReady: false, offscreenCanvas: null, offscreenCtx: null,
-  foodGlowCanvas: null, playerGlowCanvas: null,
   
   load() {
     for (let i = 0; i < 12; i++) { const img = new Image(); img.src = `img/food${i}.png`; this.foodImages[i] = img; }
     this.mountImg.src = "img/mountsright.png"; this.kingImg.src = "img/king.png";
     this.mapBgImg.onload = () => { this.mapPattern = ctx.createPattern(this.mapBgImg, "repeat"); this.mapPatternReady = true; Renderer.renderBackground(); };
     this.mapBgImg.src = "img/mapbg.png";
-
-    // 1A. Vẽ sẵn hình ảnh hào quang Thức ăn (Màu vàng nhạt)
-    this.foodGlowCanvas = document.createElement('canvas');
-    this.foodGlowCanvas.width = 128; this.foodGlowCanvas.height = 128;
-    const fgCtx = this.foodGlowCanvas.getContext('2d', { alpha: true });
-    const fGrad = fgCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    fGrad.addColorStop(0, "rgba(255, 235, 180, 0.15)"); fGrad.addColorStop(1, "rgba(0,0,0,0)");
-    fgCtx.fillStyle = fGrad; fgCtx.beginPath(); fgCtx.arc(64, 64, 64, 0, Math.PI*2); fgCtx.fill();
-
-    // 1B. Vẽ sẵn hình ảnh hào quang Người chơi (Màu xanh neon / Cam neon sẽ được tint sau nếu cần, mặc định trắng)
-    this.playerGlowCanvas = document.createElement('canvas');
-    this.playerGlowCanvas.width = 256; this.playerGlowCanvas.height = 256;
-    const pgCtx = this.playerGlowCanvas.getContext('2d', { alpha: true });
-    const pGrad = pgCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    pGrad.addColorStop(0, "rgba(0, 255, 120, 0.08)"); pGrad.addColorStop(1, "rgba(0,0,0,0)");
-    pgCtx.fillStyle = pGrad; pgCtx.beginPath(); pgCtx.arc(128, 128, 128, 0, Math.PI*2); pgCtx.fill();
   },
   getPlayerImage(level) { if (!this.playerImages[level]) { const img = new Image(); img.src = `img/lv${level}.png`; this.playerImages[level] = img; } return this.playerImages[level]; },
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
 };
 
 export const FX = {
-  particles: Array.from({length: 1000}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
+  // ĐÃ TỐI ƯU 1: Ép mảng Particle xuống còn 300 hạt để duyệt siêu nhẹ
+  particles: Array.from({length: 300}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   spawn(x, y, vx, vy, life, size, color, type = 0) {
-    // Chỉ spawn nếu số hạt đang không quá nhiều (Tối ưu cho Mobile)
     let activeCount = 0;
     for (let i = 0; i < this.particles.length; i++) {
       if (!this.particles[i].active) {
@@ -78,21 +60,20 @@ export const FX = {
         break;
       } else {
         activeCount++;
-        // Ngắt spawn nếu máy đã vượt ngưỡng chịu đựng (Giảm tải đột biến)
-        if (activeCount > (window.innerWidth <= 768 ? 300 : 800)) break; 
+        // Khóa van nếu có quá 150 hạt đang chạy trên Mobile
+        if (activeCount > 150) break; 
       }
     }
   },
   spawnHitSparks(x, y) {
     const isMob = window.innerWidth <= 768;
-    const num = isMob ? (6 + Math.random() * 4) : (12 + Math.random() * 8); // Giảm một nửa tia lửa trên Mobile
+    const num = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 4); 
     for(let i=0; i<num; i++) {
-      const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 15 + 5;
-      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.4 + Math.random()*0.2, Math.random()*4 + 2, "#ffcc00", 1);
+      const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 12 + 5;
+      this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.2, Math.random()*3 + 2, "#ffcc00", 1);
     }
   },
 
-  // --- ĐÃ TỐI ƯU 2: FRUSTUM CULLING (Không vẽ Particle ngoài tầm nhìn) ---
   updateAndDraw(ctx, dtMultiplier, vLeft, vRight, vTop, vBottom) {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
@@ -100,10 +81,11 @@ export const FX = {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
         if (p.life <= 0) { p.active = false; } 
         else {
-          // Bỏ qua bước Vẽ (Draw) nếu Particle rơi ra ngoài màn hình
           if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
-
+          
           const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
+          
+          // ĐÃ TỐI ƯU 2: Gỡ bỏ hoàn toàn `screen` blend mode. Vẽ bình thường.
           if (p.type === 1) { 
             const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
             ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.beginPath(); ctx.roundRect(-p.size, -p.size/2, p.size + speed * 2, p.size, p.size); ctx.fill();
@@ -117,11 +99,12 @@ export const FX = {
 
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  trails: Array.from({length: 2000}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
-  levelUpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, radius:0, start:0})),
-  xpEffects: Array.from({length: 50}, () => ({active: false, x:0, y:0, amount:0, start:0})),
+  // ĐÃ TỐI ƯU 3: Giảm độ dài mảng trails xuống 200 (Thoải mái vẽ mà không sợ kẹt CPU)
+  trails: Array.from({length: 200}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
+  levelUpEffects: Array.from({length: 10}, () => ({active: false, x:0, y:0, radius:0, start:0})),
+  xpEffects: Array.from({length: 30}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
-  floatingTexts: Array.from({length: 50}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
+  floatingTexts: Array.from({length: 30}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
 
   lastLeaderboardHeight: 0,
@@ -151,14 +134,6 @@ export const Renderer = {
     this.killFeeds[0].active = true;
   },
 
-  // Hàm Glow nay được thay bằng hàm dán ảnh Pre-render siêu mượt
-  drawFastGlow(x, y, radius, isFood = true) {
-    ctx.save(); ctx.globalCompositeOperation = "screen"; 
-    const img = isFood ? Resources.foodGlowCanvas : Resources.playerGlowCanvas;
-    if (img) ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
-    ctx.restore();
-  },
-
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
@@ -171,11 +146,10 @@ export const Renderer = {
   },
   
   addDeathParticles(x, y, radius) {
-    const isMob = window.innerWidth <= 768;
-    const numParticles = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
+    const numParticles = 6 + Math.random() * 4; 
     for (let i = 0; i < numParticles; i++) {
       const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 3; const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
-      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
+      FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.2) + 2, color, 0);
     }
   },
   
@@ -339,18 +313,15 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
-    // VẼ FOOD VỚI PRE-RENDER GLOW (Tuyệt chiêu Tối ưu 1)
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
         const seed = (f.x + f.y) % 10; const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
         
-        this.drawFastGlow(f.x, f.y, f.radius * 3.5 * pulse, true); // Gọi ảnh Cache thay vì tạo Gradient
-
         if (img && img.complete && img.naturalHeight !== 0) { 
           this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
           if (Math.sin(now / 40 + seed * 5) > 0.82) {
-            ctx.save(); ctx.globalCompositeOperation = "screen"; ctx.fillStyle = "#ffffff"; ctx.beginPath();
+            ctx.save(); ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.beginPath();
             ctx.arc(f.x + Math.cos(seed)*f.radius*0.4, f.y + Math.sin(seed)*f.radius*0.4, 1.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
           }
         } 
@@ -369,7 +340,6 @@ export const Renderer = {
       }
     }
     
-    // Gọi Hệ thống Particle kèm Viewport Bounding (Tuyệt chiêu Tối ưu 2)
     FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
 
     for (const id in interpPlayers) {
@@ -385,7 +355,11 @@ export const Renderer = {
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
 
-        if (p.level >= 15) this.drawFastGlow(p.x, p.y, vRadius * 2.2, false);
+        if (p.level >= 15) {
+            ctx.save(); ctx.fillStyle = "rgba(255, 80, 0, 0.08)";
+            ctx.beginPath(); ctx.arc(p.x, p.y, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
         const img = Resources.getPlayerImage(p.level || 1);
@@ -415,7 +389,11 @@ export const Renderer = {
       if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      if (GameState.clientLevel >= 15) this.drawFastGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, false);
+      if (GameState.clientLevel >= 15) {
+          ctx.save(); ctx.fillStyle = "rgba(0, 255, 120, 0.08)";
+          ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius * 2.2, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      }
+
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
@@ -437,7 +415,7 @@ export const Renderer = {
       }
     }
 
-    // VÒNG TRÒN LÊN CẤP 
+    // ĐÃ TỐI ƯU 4: Xóa shadowBlur khi lên cấp, dùng độ dày viền mờ dần cực nhanh
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -445,15 +423,16 @@ export const Renderer = {
         else {
           const t = (now - e.start) / 1500;
           const alpha = 1 - Math.pow(t, 3); 
-          ctx.save(); ctx.globalAlpha = alpha;
+          ctx.save();
           ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
-          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = "#00ffff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffff"; ctx.stroke();
+          ctx.lineWidth = 8 * (1 - t); 
+          ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; 
+          ctx.stroke();
           ctx.restore();
         }
       }
     }
 
-    // VẼ LẠI VIỀN CHỮ CHUẨN MÀU THEO YÊU CẦU & THÊM TỐI ƯU CULLING (Chỉ vẽ chữ nằm trong màn hình)
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
