@@ -135,7 +135,6 @@ export const Renderer = {
     }
   },
   
-  // ĐÃ SỬA VÀ VÁ LỖI: Hàm nổ khi chết nay gọi trực tiếp thông qua Pool FX.spawn cực kỳ an toàn
   addDeathParticles(x, y, radius) {
     const numParticles = 8 + Math.random() * 6; 
     for (let i = 0; i < numParticles; i++) {
@@ -310,10 +309,13 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
+    // --- ĐÃ FIX LỖI NaN BẰNG TỌA ĐỘ VẬT LÝ ---
     for (const f of GameState.food) {
       if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
         const type = f.type ?? 0; const img = Resources.foodImages[type];
-        const seed = f.id ? (f.id % 10) : 0;
+        
+        // Sử dụng f.x + f.y làm seed để tránh lỗi NaN từ chuỗi UUID
+        const seed = (f.x + f.y) % 10;
         const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
         
         this.drawRadialGlow(f.x, f.y, f.radius * 3.5 * pulse, "rgba(255, 235, 180, 0.12)");
