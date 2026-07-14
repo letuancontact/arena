@@ -1,13 +1,12 @@
 // --- src/client/main.js ---
 import { GameState } from './state.js';
-import { Camera, FX, Resources, Renderer } from './renderer.js'; // ĐÃ IMPORT FX
+import { Camera, FX, Resources, Renderer } from './renderer.js';
 
 const CONFIG = window.GAME_CONFIG;
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
-// Thêm biến Hit Stop (Khựng hình 40ms)
 GameState.freezeUntil = 0;
 
 const Sound = {
@@ -114,7 +113,19 @@ const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        if (GameState.clientLevel > oldLevel) Sound.play('levelUp'); else if (GameState.clientXp > oldXp) Sound.play('eat');
+        // --- 4. HIỆU ỨNG LÊN CẤP & GLOW THANH XP ---
+        if (GameState.clientLevel > oldLevel) {
+          Sound.play('levelUp');
+          Camera.screenFlash = 1.0; // Màn hình nháy sáng
+          
+          // Phát sáng Neon cho Thanh XP Bar
+          if (Renderer.xpBar) {
+            Renderer.xpBar.style.boxShadow = "0 0 30px #00ffff, 0 0 10px #ffffff";
+            setTimeout(() => { if(Renderer.xpBar) Renderer.xpBar.style.boxShadow = "none"; }, 500);
+          }
+        } 
+        else if (GameState.clientXp > oldXp) Sound.play('eat');
+        
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; uiLayer.style.opacity = "0"; setTimeout(() => uiLayer.style.display = "none", 300); } 
@@ -131,22 +142,38 @@ const Network = {
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       for (const p of data.players || []) {
-        // ĐÃ FIX: TRIGGER HIỆU ỨNG TẠI ĐÂY (Camera Shake, Freeze, Sparks)
-        if (p.id !== GameState.playerId && p.isDead && !GameState.prevPlayerDeadState[p.id] && p.killerId === GameState.playerId) {
-          Renderer.addKillXpEffect(me?.x || 0, (me?.y || 0) - (me?.radius || 30) - 30, Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD));
-          Sound.play('kill');
+        if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
+          Renderer.addDeathParticles(p.x, p.y, p.radius);
           
-          // 1. FREEZE FRAME (Khựng hình 40ms)
-          GameState.freezeUntil = Date.now() + 40; 
-          
-          // 2. CAMERA SHAKE (Rung 15 cường độ)
-          Camera.addShake(15); 
-          
-          // 3. TIA LỬA BẮN TUNG TÓE
-          FX.spawnHitSparks(p.x, p.y); 
+          // --- 1. TÌM KIẾM SÁT THỦ ĐỂ ĐĂNG BÁO LÊN KILL FEED ---
+          const killer = (data.players || []).find(k => k.id === p.killerId);
+          if (killer) {
+            const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
+            Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
+          }
+
+          // --- 2. FLOATING TEXT KHI CHÍNH BẠN HẠ GỤC ĐỊCH ---
+          if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
+            const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
+            
+            // Chữ nảy lên từ xác của địch
+            Renderer.addFloatingText(p.x, p.y - 20, `+${xpGained} XP`, "#00ff66", 32);
+            Renderer.addFloatingText(p.x, p.y + 20, "KILL!", "#ff3333", 40);
+            
+            Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
+          }
         }
         
-        if (p.id === GameState.playerId) { const prevLevel = GameState.prevPlayerLevels[p.id]; if (prevLevel && p.level > prevLevel && !p.isDead) Renderer.addLevelUpEffect(p.x, p.y, p.radius); }
+        if (p.id === GameState.playerId) { 
+          const prevLevel = GameState.prevPlayerLevels[p.id]; 
+          if (prevLevel && p.level > prevLevel && !p.isDead) {
+            Renderer.addLevelUpEffect(p.x, p.y, p.radius);
+            
+            // --- 3. FLOATING TEXT KHI BẠN LÊN CẤP ---
+            Renderer.addFloatingText(p.x, p.y - p.radius - 30, "LEVEL UP!", "#00ffff", 40);
+          }
+        }
+        
         GameState.prevPlayerLevels[p.id] = p.level;
         GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
@@ -282,7 +309,6 @@ function updatePhysics(dtMultiplier) {
 
 let lastFrameTime = null;
 function loop(currentTime) {
-  // KHÓA FREEZE FRAME TẠI ĐÂY (Chống sụt FPS nhưng vẫn tạo cảm giác Hit Stop)
   if (Date.now() < GameState.freezeUntil) {
     requestAnimationFrame(loop);
     return;
