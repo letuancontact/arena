@@ -1,3 +1,4 @@
+// --- src/server/server.js ---
 "use strict";
 
 const express = require("express");
@@ -26,19 +27,15 @@ let food = [];
 
 foodLib.spawnFood(food);
 
-// ===== ĐÃ FIX: THUẬT TOÁN HỒI SINH AN TOÀN THÔNG MINH (SMART SAFE SPAWN) =====
 function getSafeSpawn(activePlayers, mapW, mapH) {
   let bestPos = { x: Math.random() * mapW, y: Math.random() * mapH };
   let maxDistFound = -1;
 
-  // Thử 30 lần để quét radar toàn bản đồ
   for (let i = 0; i < 30; i++) { 
     const tx = Math.random() * mapW;
     const ty = Math.random() * mapH;
-    
     let minDistToPlayer = Infinity;
     
-    // Đo khoảng cách tới người chơi gần nhất tại tọa độ này
     for (const p of activePlayers) {
       if (!p.isDead) {
         const d = Math.hypot(p.x - tx, p.y - ty);
@@ -46,26 +43,25 @@ function getSafeSpawn(activePlayers, mapW, mapH) {
       }
     }
 
-    // Nếu server chưa có ai, chọn luôn điểm này
     if (minDistToPlayer === Infinity) return { x: tx, y: ty };
+    if (minDistToPlayer > 800) return { x: tx, y: ty }; 
 
-    // 800 pixel là đủ an toàn, nằm ngoài rìa camera của người chơi
-    if (minDistToPlayer > 800) {
-      return { x: tx, y: ty }; // Đạt chuẩn, xuất hiện ngay!
-    }
-
-    // GHI NHỚ: Nếu không đạt chuẩn tuyệt đối, cứ lưu lại điểm "vắng nhất" đã từng quét qua
     if (minDistToPlayer > maxDistFound) {
       maxDistFound = minDistToPlayer;
       bestPos = { x: tx, y: ty };
     }
   }
-  
-  // Trả về nơi vắng vẻ nhất tìm được (chống việc rớt ngẫu nhiên trúng đầu người khác)
   return bestPos;
 }
 
+function heartbeat() {
+  this.isAlive = true;
+}
+
 wss.on("connection", (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', heartbeat);
+
   const p = playerLib.createPlayer(ws);
   const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   p.x = safePos.x;
@@ -85,8 +81,6 @@ wss.on("connection", (ws) => {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          
-          // Người chơi cũng được hưởng ké thuật toán Hồi sinh an toàn mới
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           player.x = safePos.x; player.y = safePos.y; 
         }
@@ -94,14 +88,24 @@ wss.on("connection", (ws) => {
 
       if (data.type === "move") playerLib.handlePlayerMove(player, data);
       if (data.type === "attack") playerLib.handlePlayerAttack(player);
-    } catch (err) {
-      console.error("Invalid message:", msg);
-    }
+    } catch (err) {}
   });
 
   ws.on("close", () => {
     players.delete(p.id);
   });
+});
+
+const interval = setInterval(function ping() {
+  wss.clients.forEach(function each(ws) {
+    if (ws.isAlive === false) return ws.terminate(); 
+    ws.isAlive = false;
+    ws.ping(); 
+  });
+}, 30000); 
+
+wss.on('close', function close() {
+  clearInterval(interval);
 });
 
 let lastBroadcast = Date.now();
@@ -148,10 +152,11 @@ setInterval(() => {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (attacker.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
     if (attacker.isAttacking && now - attacker.attackTime < attackDuration) {
       if (!attacker.hitVictims) attacker.hitVictims = new Set();
+      
       const weaponSize = attacker.radius * (2.75 + 0.04 * ((attacker.level || 1) - 1));
       const exactReach = attacker.radius + weaponSize * 0.85;
 
-      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, exactReach + 100);
+      const nearbyVictims = spatialIndex.searchNearbyPlayers(playerTree, attacker.x, attacker.y, exactReach + 50);
       for (const victim of nearbyVictims) {
         if (victim.id === attacker.id || (victim.justRespawned && now - victim.justRespawned < CONFIG.HIT_COOLDOWN) || attacker.hitVictims.has(victim.id)) continue; 
         
@@ -200,8 +205,6 @@ setInterval(() => {
       if (entity.isDead && now - entity.deadTime >= CONFIG.RESPAWN_TIME) {
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          
-          // Bắt buộc Bot phải áp dụng vị trí an toàn tuyệt đối khi hồi sinh
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           entity.x = safePos.x; entity.y = safePos.y; 
           entity.angle = Math.random() * Math.PI * 2;
@@ -216,11 +219,8 @@ setInterval(() => {
     if (botCount < botTarget) { 
       for (let i = botCount; i < botTarget; i++) {
         const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-        
-        // Bắt buộc Bot mới tạo cũng phải áp dụng vị trí an toàn tuyệt đối
         const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
         bot.x = safePos.x; bot.y = safePos.y;
-        
         bots.set(bot.id, bot); 
       }
     } 
@@ -230,4 +230,4 @@ setInterval(() => {
 }, CONFIG.SERVER_TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Strict Hitbox Active`));
