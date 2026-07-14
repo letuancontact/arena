@@ -7,22 +7,68 @@ const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
+// ĐÃ FIX 4: HỆ THỐNG ÂM THANH CHUẨN STUDIO (ZERO LAG - KHÔNG CẦN TẢI FILE)
 const Sound = {
-  ctx: null, lastPlay: {},
+  ctx: null, lastPlay: {}, noiseBuffer: null,
   init() {
-    if (!this.ctx) { window.AudioContext = window.AudioContext || window.webkitAudioContext; this.ctx = new AudioContext(); }
+    if (!this.ctx) { 
+      window.AudioContext = window.AudioContext || window.webkitAudioContext; 
+      this.ctx = new AudioContext(); 
+      // Tạo Noise (Tiếng xì) để làm tiếng vung kiếm
+      this.noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate);
+      const output = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+    }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   },
   play(type) {
     if (!this.ctx) return;
     const nowMs = Date.now();
-    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; this.lastPlay[type] = nowMs;
-    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-    osc.connect(gain); gain.connect(this.ctx.destination); const now = this.ctx.currentTime;
-    if (type === 'swing') { osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); } 
-    else if (type === 'eat') { osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05); osc.start(now); osc.stop(now + 0.05); } 
-    else if (type === 'kill') { osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.start(now); osc.stop(now + 0.2); } 
-    else if (type === 'levelUp') { osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+    if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
+    const now = this.ctx.currentTime;
+    
+    if (type === 'swing') {
+      // Tiếng chém gió (Whoosh)
+      const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
+      const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(300, now); filter.frequency.linearRampToValueAtTime(1200, now + 0.15); filter.Q.value = 1.0;
+      const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      noiseSrc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+      noiseSrc.start(now); noiseSrc.stop(now + 0.15);
+    } 
+    else if (type === 'eat') {
+      // Tiếng nẩy (Pop) khi ăn
+      const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+      osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
+      gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(now); osc.stop(now + 0.1);
+    } 
+    else if (type === 'kill') {
+      // Tiếng nổ trầm (Bass impact) + Tiếng Crash khi hạ địch
+      const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+      osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
+      gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(now); osc.stop(now + 0.3);
+      
+      const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
+      const nFilter = this.ctx.createBiquadFilter(); nFilter.type = 'lowpass'; nFilter.frequency.setValueAtTime(800, now);
+      const nGain = this.ctx.createGain(); nGain.gain.setValueAtTime(0.4, now); nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      noiseSrc.connect(nFilter); nFilter.connect(nGain); nGain.connect(this.ctx.destination);
+      noiseSrc.start(now); noiseSrc.stop(now + 0.2);
+    } 
+    else if (type === 'levelUp') {
+      // Nhạc chuông chiến thắng (Arpeggio)
+      const playNote = (freq, startOffset, duration) => {
+        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.type = 'square'; osc.frequency.setValueAtTime(freq, now + startOffset);
+        gain.gain.setValueAtTime(0.1, now + startOffset); gain.gain.exponentialRampToValueAtTime(0.01, now + startOffset + duration);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(now + startOffset); osc.stop(now + startOffset + duration);
+      };
+      playNote(440, 0, 0.2); playNote(554.37, 0.1, 0.2); playNote(659.25, 0.2, 0.4); playNote(880, 0.3, 0.6); 
+    }
   }
 };
 
@@ -124,9 +170,12 @@ const Input = {
       if (GameState.mouseMoveThrottled || GameState.isTouch) return;
       GameState.mouseMoveThrottled = true;
       requestAnimationFrame(() => {
-        GameState.lastDx = e.clientX - canvas.width / 2; GameState.lastDy = e.clientY - canvas.height / 2;
+        GameState.lastDx = e.clientX - window.innerWidth / 2; GameState.lastDy = e.clientY - window.innerHeight / 2;
         GameState.isMoving = Math.hypot(GameState.lastDx, GameState.lastDy) > GameState.clientRadius;
-        GameState.mouseAngle = Math.atan2(GameState.lastDy, GameState.lastDx);
+        
+        // ĐÃ FIX 1: Lấy mục tiêu thay vì gán ngay lập tức, để làm mềm quỹ đạo góc xoay
+        GameState.targetMouseAngle = Math.atan2(GameState.lastDy, GameState.lastDx);
+        
         Network.sendPositionUpdate(); GameState.mouseMoveThrottled = false;
       });
     });
@@ -150,7 +199,7 @@ const Input = {
     canvas.addEventListener("touchstart", (e) => {
       if(GameState.isDead) return; GameState.isTouch = true; e.preventDefault(); Sound.init(); 
       for(let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i]; const tx = t.clientX, ty = t.clientY; const w = canvas.width, h = canvas.height;
+        const t = e.changedTouches[i]; const tx = t.clientX, ty = t.clientY; const w = window.innerWidth, h = window.innerHeight;
         if (isPointInCircle(tx, ty, w - 75, h - 75, 60)) {
           const cooldown = 500 + (GameState.clientLevel - 1) * 60;
           if (!GameState.isAttacking && Date.now() - (GameState.lastAttackTime || 0) >= cooldown) {
@@ -173,8 +222,8 @@ const Input = {
         if (GameState.joystick.active && t.identifier === GameState.joystick.id) {
           const dx = t.clientX - GameState.joystick.baseX, dy = t.clientY - GameState.joystick.baseY;
           const dist = Math.hypot(dx, dy), maxDist = 50; 
-          if (dist > 5) { GameState.mouseAngle = Math.atan2(dy, dx); GameState.isMoving = true; } else { GameState.isMoving = false; }
-          if (dist > maxDist) { GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.mouseAngle) * maxDist; GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.mouseAngle) * maxDist; } 
+          if (dist > 5) { GameState.targetMouseAngle = Math.atan2(dy, dx); GameState.isMoving = true; } else { GameState.isMoving = false; }
+          if (dist > maxDist) { GameState.joystick.stickX = GameState.joystick.baseX + Math.cos(GameState.targetMouseAngle) * maxDist; GameState.joystick.stickY = GameState.joystick.baseY + Math.sin(GameState.targetMouseAngle) * maxDist; } 
           else { GameState.joystick.stickX = t.clientX; GameState.joystick.stickY = t.clientY; }
           Network.sendPositionUpdate();
         }
@@ -195,8 +244,13 @@ const Input = {
 
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
-  const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
+  // ĐÃ FIX 1: LERPS GÓC XOAY ĐỂ DI CHUYỂN MỀM MẠI, CHỐNG GIẬT CỨNG
+  let diff = GameState.targetMouseAngle - GameState.mouseAngle;
+  while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+  GameState.mouseAngle += diff * 0.15 * dtMultiplier;
+  
+  const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
       const speed = GameState.getSpeedByLevel(GameState.clientLevel) * 0.3;
       GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
@@ -211,12 +265,12 @@ function updatePhysics(dtMultiplier) {
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
   if (GameState.serverX != null && GameState.serverY != null) {
-    const dist = Math.hypot(GameState.clientX - GameState.serverX, GameState.clientY - GameState.serverY);
+    const dx = GameState.clientX - GameState.serverX, dy = GameState.clientY - GameState.serverY;
+    const dist = Math.hypot(dx, dy);
     if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
     else if (dist > 1) { 
       const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); 
-      GameState.clientX += (GameState.serverX - GameState.clientX) * lerpFactor; 
-      GameState.clientY += (GameState.serverY - GameState.clientY) * lerpFactor; 
+      GameState.clientX -= dx * lerpFactor; GameState.clientY -= dy * lerpFactor; 
     }
   }
 
