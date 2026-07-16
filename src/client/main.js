@@ -10,11 +10,17 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 
 // =========================================================================
-// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN (ĐÃ VÁ LỖI CHUỖI SVG)
+// BẢN VÁ: TỰ ĐỘNG KHỞI TẠO ĐỐI TƯỢNG ĐỆM NẾU FILE STATE.JS CHƯA CÓ
+// =========================================================================
+if (!GameState.prevPlayerLevels) GameState.prevPlayerLevels = {};
+if (!GameState.prevPlayerDeadState) GameState.prevPlayerDeadState = {};
+if (!GameState.prevPositions) GameState.prevPositions = {};
+
+// =========================================================================
+// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN 100% CHỐNG LAG
 // =========================================================================
 const uiStyle = document.createElement('style');
 uiStyle.innerHTML = `
-  /* Nền Tổ Ong (Honeycomb Pattern) bằng CSS thuần, siêu nhẹ không tốn băng thông */
   #ui-layer {
     background-color: #1a1e24;
     background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E%3C/svg%3E");
@@ -24,29 +30,23 @@ uiStyle.innerHTML = `
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
     transition: opacity 0.4s ease, transform 0.4s ease;
     padding: 20px 0; box-sizing: border-box;
+    user-select: none;
   }
 
-  /* Khối văn bản hộp thoại mờ góc bo tròn */
   .menu-panel {
     background: rgba(30, 38, 46, 0.88);
     border: 2px solid rgba(65, 75, 85, 0.7);
-    border-radius: 16px;
-    padding: 25px 40px;
-    text-align: center;
-    max-width: 800px;
-    width: 90%;
-    box-shadow: 0 12px 35px rgba(0,0,0,0.6);
+    border-radius: 16px; padding: 25px 40px; text-align: center;
+    max-width: 800px; width: 90%; box-shadow: 0 12px 35px rgba(0,0,0,0.6);
   }
   
   .small-panel { max-width: 740px; padding: 15px 30px; }
 
-  /* Typography */
   .menu-panel h1 { color: #ffffff; font-size: 30px; margin: 0 0 8px 0; font-weight: 800; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
   .menu-panel h2 { color: #b0b0b0; font-size: 24px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
   .menu-panel p { color: #e0e0e0; font-size: 15px; line-height: 1.5; margin: 5px 0; font-weight: 500; }
   .small-panel p { font-size: 13px; color: #bbbbbb; margin: 4px 0; line-height: 1.4; }
 
-  /* Khu vực hiển thị Logo */
   .logo-container { text-align: center; margin: 10px 0; position: relative; }
   #game-logo { height: 150px; object-fit: contain; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.7)); animation: float 3s ease-in-out infinite; }
   .version-text { color: #777; font-size: 12px; font-weight: bold; margin-top: -5px; }
@@ -57,7 +57,6 @@ uiStyle.innerHTML = `
     100% { transform: translateY(0px); }
   }
 
-  /* Khối Input và Nút Chơi */
   .action-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 10px; }
   
   #name-input {
@@ -68,29 +67,25 @@ uiStyle.innerHTML = `
   }
   #name-input:focus { border-color: #ff6600; background: rgba(25, 30, 35, 1); box-shadow: 0 0 15px rgba(255,102,0,0.4); }
 
-  /* Nút PLAY màu cam 3D dày dặn chuẩn Evowars */
   #play-btn {
     background: linear-gradient(to bottom, #ff8c00 0%, #e63900 100%);
-    border: 3px solid #ffcc00;
-    border-bottom-width: 6px;
+    border: 3px solid #ffcc00; border-bottom-width: 6px;
     color: #ffffff; font-weight: 900; font-size: 32px; padding: 10px 70px;
     border-radius: 12px; cursor: pointer; transition: all 0.05s ease;
     text-transform: uppercase; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.4);
-    text-shadow: 2px 2px 0px #802000;
-    letter-spacing: 2px; font-family: 'Impact', 'Arial Black', sans-serif;
+    text-shadow: 2px 2px 0px #802000; letter-spacing: 2px; font-family: 'Impact', 'Arial Black', sans-serif;
   }
   #play-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); border-bottom-width: 8px; }
   #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; filter: brightness(0.9); }
   
   #play-btn:disabled { 
-    background: linear-gradient(to bottom, #555, #333) !important; border-color: #777 !important; color: #aaa !important;
+    background: linear-gradient(to bottom, #444, #2c2c2c) !important; border-color: #555 !important; color: #888 !important;
     border-bottom-width: 3px !important; cursor: not-allowed; text-shadow: none !important; font-size: 18px !important; padding: 14px 40px !important;
-    font-family: monospace, sans-serif !important;
+    font-family: monospace, sans-serif !important; transform: none !important;
   }
 
   #status-text { color: #ff3333; font-size: 16px; font-weight: bold; margin-top: 10px; text-shadow: 1px 1px 2px black;}
 
-  /* Icon Mute thu nhỏ đặt sát cạnh Minimap */
   #mute-btn {
     position: fixed; top: 12px; right: 212px; 
     background: rgba(15,22,30,0.8); color: white; border: 2px solid #445566; 
@@ -100,13 +95,11 @@ uiStyle.innerHTML = `
   }
   #mute-btn:hover { background: #334455; border-color: #fff; transform: scale(1.1); }
 
-  /* Responsive mượt cho Điện thoại */
   @media (max-width: 768px) {
     .menu-panel { padding: 15px 20px; width: 92%; }
     .menu-panel h1 { font-size: 20px; margin-bottom: 4px; }
     .menu-panel h2 { font-size: 16px; margin-bottom: 8px; }
-    .menu-panel p { font-size: 13px; }
-    .small-panel p { font-size: 11px; }
+    .menu-panel p { font-size: 13px; } .small-panel p { font-size: 11px; }
     #game-logo { height: 100px; }
     #play-btn { font-size: 24px; padding: 8px 50px; }
     #mute-btn { top: 8px; right: 102px; width: 30px; height: 30px; font-size: 13px; border-width: 1px; }
@@ -179,18 +172,14 @@ const Sound = {
     else if (type === 'levelUp') {
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; 
-        osc.frequency.setValueAtTime(freq, now + startOffset);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + startOffset);
         gain.gain.setValueAtTime(0, now + startOffset);
         gain.gain.linearRampToValueAtTime(0.06, now + startOffset + duration * 0.1); 
         gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
         osc.connect(gain); gain.connect(this.ctx.destination);
         osc.start(now + startOffset); osc.stop(now + startOffset + duration);
       };
-      playNote(523.25, 0, 0.35);      
-      playNote(659.25, 0.08, 0.35);    
-      playNote(783.99, 0.16, 0.35);    
-      playNote(1046.50, 0.26, 0.6);  
+      playNote(523.25, 0, 0.35); playNote(659.25, 0.08, 0.35); playNote(783.99, 0.16, 0.35); playNote(1046.50, 0.26, 0.6);  
     }
   }
 };
@@ -205,23 +194,6 @@ if (uiLayer) {
     uiLayer.style.transform = "scale(1)";
 }
 
-playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
-nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
-nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
-
-const muteBtn = document.createElement("button");
-muteBtn.id = "mute-btn";
-muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
-document.body.appendChild(muteBtn);
-
-muteBtn.addEventListener("click", () => {
-    Sound.init();
-    const muted = Sound.toggleMute();
-    muteBtn.innerHTML = muted ? "🔇" : "🔊";
-    if (!muted) Sound.play('click');
-});
-
-nameInput.value = localStorage.getItem("evowar_name") || "";
 playBtn.addEventListener("click", () => {
   Sound.init(); Sound.play('click');
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
@@ -229,6 +201,21 @@ playBtn.addEventListener("click", () => {
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
   playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
 });
+
+playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
+
+const muteBtn = document.createElement("button");
+muteBtn.id = "mute-btn"; muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
+document.body.appendChild(muteBtn);
+
+muteBtn.addEventListener("click", () => {
+    Sound.init(); const muted = Sound.toggleMute(); muteBtn.innerHTML = muted ? "🔇" : "🔊";
+    if (!muted) Sound.play('click');
+});
+
+nameInput.value = localStorage.getItem("evowar_name") || "";
 
 const Network = {
   ws: null,
@@ -258,12 +245,11 @@ const Network = {
       if (me) {
         const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
-        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
-        GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
+        GameState.clientXpToNext = me.xpToNext || (GameState.getXpToNext ? GameState.getXpToNext(GameState.clientLevel) : 100); 
+        GameState.clientRadius = GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20;
         
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
-        
-        if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
+        if (oldLevel !== GameState.clientLevel && Camera.getZoomByLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
@@ -277,14 +263,12 @@ const Network = {
           setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
           statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
           
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU: ${left}S`;
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
           const interval = setInterval(() => { 
             left--; 
             if (left <= 0) { 
               clearInterval(interval); playBtn.innerText = "PLAY"; playBtn.disabled = false; statusText.innerText = ""; 
-            } else { 
-              playBtn.innerText = `HỒI SINH SAU: ${left}S`; 
-            } 
+            } else { playBtn.innerText = `HỒI SINH: ${left}S`; } 
           }, 1000);
         }
       }
@@ -294,13 +278,11 @@ const Network = {
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
-          
           const killer = (data.players || []).find(k => k.id === p.killerId);
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
             Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
-
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); 
@@ -308,7 +290,6 @@ const Network = {
             Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
           }
         }
-        
         if (p.id === GameState.playerId) { 
           const prevLevel = GameState.prevPlayerLevels[p.id]; 
           if (prevLevel && p.level > prevLevel && !p.isDead) {
@@ -316,7 +297,6 @@ const Network = {
             Renderer.addFloatingText(p.x, p.y - p.radius - 20, "LEVEL UP!", "#00ffff", 18); 
           }
         }
-        
         GameState.prevPlayerLevels[p.id] = p.level; GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
     }
@@ -424,11 +404,11 @@ function updatePhysics(dtMultiplier) {
   
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
-      const speed = GameState.getSpeedByLevel(GameState.clientLevel) * 0.3;
+      const speed = (GameState.getSpeedByLevel ? GameState.getSpeedByLevel(GameState.clientLevel) : 4) * 0.3;
       GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
       GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
   } else if (GameState.isMoving) {
-    const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
+    const speed = (GameState.getSpeedByLevel ? GameState.getSpeedByLevel(GameState.clientLevel) : 4) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
     GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
     GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
   }
@@ -460,7 +440,8 @@ function loop(currentTime) {
 
 function main() {
   Renderer.resizeCanvas(); Resources.load(); Renderer.setupUI(); Network.connect(); Input.setup();
-  Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
+  if (Camera.getZoomByLevel) Camera.currentZoom = Camera.getZoomByLevel(1); 
+  Camera.targetZoom = Camera.currentZoom;
   requestAnimationFrame(loop);
   setInterval(() => {
     if (!GameState.isDead) Renderer.updateUI();
