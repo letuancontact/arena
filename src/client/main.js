@@ -10,105 +10,112 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 
 // =========================================================================
-// 1. TIÊM CSS OVERHAUL LỘT XÁC TOÀN DIỆN DIỆN MẠO MENU & HUD (SIÊU NHẸ)
+// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN (NỀN TỔ ONG, NÚT CAM, PANELS)
 // =========================================================================
 const uiStyle = document.createElement('style');
 uiStyle.innerHTML = `
+  /* Nền Tổ Ong (Honeycomb Pattern) bằng CSS thuần, siêu nhẹ không cần ảnh */
   #ui-layer {
-    background: radial-gradient(circle at center, rgba(10, 20, 30, 0.9) 0%, rgba(2, 4, 8, 0.98) 100%) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+    background-color: #1a1e24;
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E");
+    background-size: 80px 138.56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+    font-family: 'Segoe UI', Arial, sans-serif;
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
-  }
-  
-  /* Tiêu đề Game đổ bóng Neon chuyển màu eSports */
-  #ui-layer h1, #ui-layer h2 { 
-    color: #ffffff; font-weight: 900; font-size: 42px; letter-spacing: 4px;
-    margin: 0 0 35px 0; text-transform: uppercase; text-align: center;
-    background: linear-gradient(45deg, #00ffff, #00ff66);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 20px rgba(0,255,255,0.3));
-    animation: text-pulse 2s infinite alternate;
-  }
-  
-  @keyframes text-pulse {
-    0% { filter: drop-shadow(0 0 15px rgba(0,255,255,0.2)); }
-    100% { filter: drop-shadow(0 0 30px rgba(0,255,255,0.5)); }
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    padding: 20px 0; box-sizing: border-box;
   }
 
-  /* Ô nhập tên kính mờ Glassmorphism công nghệ cao */
+  /* Khối văn bản Panel mờ */
+  .menu-panel {
+    background: rgba(35, 42, 50, 0.85);
+    border: 2px solid rgba(60, 70, 80, 0.6);
+    border-radius: 16px;
+    padding: 25px 40px;
+    text-align: center;
+    max-width: 800px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  
+  .small-panel {
+    max-width: 700px; padding: 15px 30px;
+  }
+
+  /* Typography */
+  .menu-panel h1 { color: #f0f0f0; font-size: 32px; margin: 0 0 10px 0; font-weight: 800; text-shadow: 1px 2px 4px rgba(0,0,0,0.8); }
+  .menu-panel h2 { color: #aaaaaa; font-size: 26px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.8); }
+  .menu-panel p { color: #e0e0e0; font-size: 16px; line-height: 1.5; margin: 5px 0; font-weight: 500; }
+  .small-panel p { font-size: 13px; color: #cccccc; margin: 3px 0;}
+
+  /* Khu vực Logo */
+  .logo-container { text-align: center; margin: 15px 0; position: relative; }
+  #game-logo { height: 160px; object-fit: contain; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); animation: float 3s ease-in-out infinite; }
+  .version-text { color: #888; font-size: 12px; font-weight: bold; margin-top: -10px; }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+
+  /* Input và Nút Play */
+  .action-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 15px; }
+  
   #name-input {
-    background: rgba(255, 255, 255, 0.04) !important; 
-    border: 2px solid rgba(0, 255, 255, 0.2) !important;
-    color: #fff !important; padding: 14px 25px !important; border-radius: 12px !important; font-size: 18px !important;
-    text-align: center; outline: none; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; width: 260px; max-width: 80vw;
-    margin-bottom: 20px; font-weight: bold; letter-spacing: 1px;
+    background: rgba(20, 25, 30, 0.9); border: 2px solid #556677; color: #fff; 
+    padding: 12px 20px; border-radius: 8px; font-size: 18px; text-align: center; 
+    outline: none; transition: all 0.3s ease; width: 260px; font-weight: bold;
   }
-  #name-input:focus { 
-    border-color: #00ffff !important; 
-    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 10px rgba(0,255,255,0.1) !important; 
-    background: rgba(255,255,255,0.08) !important; 
-  }
-  #name-input::placeholder { color: rgba(255,255,255,0.35); font-weight: normal; }
+  #name-input:focus { border-color: #ff5500; background: rgba(30, 35, 40, 1); box-shadow: 0 0 15px rgba(255,85,0,0.3); }
 
-  /* Nút Vào Trận / Hồi sinh dạng Năng lượng Neon */
+  /* Nút PLAY màu cam chuẩn Evowars */
   #play-btn {
-    background: linear-gradient(135deg, #00ff66 0%, #00cc55 100%) !important; border: none !important;
-    color: #002205 !important; font-weight: 900 !important; font-size: 20px !important; padding: 14px 45px !important;
-    border-radius: 12px !important; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-    text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 255, 102, 0.25) !important; letter-spacing: 2px;
+    background: linear-gradient(to bottom, #ff8c00, #e63900);
+    border: 3px solid #ffcc00;
+    border-bottom-width: 6px;
+    color: #ffffff; font-weight: 900; font-size: 28px; padding: 12px 60px;
+    border-radius: 12px; cursor: pointer; transition: all 0.1s ease;
+    text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6), inset 0 2px 5px rgba(255,255,255,0.4);
+    text-shadow: 2px 2px 0px #802000, -1px -1px 0px #ffb380;
+    letter-spacing: 2px; font-family: 'Impact', 'Arial Black', sans-serif;
   }
-  #play-btn:hover:not(:disabled) { 
-    transform: translateY(-4px) scale(1.03) !important; 
-    box-shadow: 0 12px 30px rgba(0, 255, 102, 0.5) !important; 
-  }
-  #play-btn:active:not(:disabled) { transform: translateY(1px) scale(0.98) !important; }
+  #play-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); border-bottom-width: 8px; margin-top: -2px; }
+  #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; margin-top: 4px; filter: brightness(0.9); }
   
-  /* FIX 2: Nút Đếm ngược Hồi sinh được lột xác phong cách Digital tinh tế */
   #play-btn:disabled { 
-    background: rgba(255, 68, 68, 0.08) !important; 
-    border: 1px solid rgba(255, 68, 68, 0.3) !important;
-    color: #ff5555 !important; box-shadow: 0 0 15px rgba(255, 68, 68, 0.15) !important; 
-    cursor: not-allowed; transform: scale(1) !important; font-family: monospace, sans-serif !important;
-    font-size: 16px !important; letter-spacing: 1px;
-    animation: pulse-red 1s infinite alternate;
+    background: linear-gradient(to bottom, #555, #333); border-color: #777; color: #aaa;
+    border-bottom-width: 3px; cursor: not-allowed; text-shadow: none; font-size: 20px; padding: 15px 40px;
   }
-  
-  @keyframes pulse-red {
-    0% { box-shadow: 0 0 10px rgba(255,68,68,0.1); border-color: rgba(255,68,68,0.2); }
-    100% { box-shadow: 0 0 20px rgba(255,68,68,0.3); border-color: rgba(255,68,68,0.5); }
-  }
-  
-  #status-text { color: #ff4444 !important; font-size: 18px !important; font-weight: bold !important; margin-top: 20px; letter-spacing: 1px;}
 
-  /* FIX 1: NÚT TẮT TIẾNG ĐƯỢC THU NHỎ VÀ ĐẶT SÁT CẠNH MINIMAP XỊN XÒ */
+  #status-text { color: #ff3333; font-size: 16px; font-weight: bold; margin-top: 10px; text-shadow: 1px 1px 2px black;}
+
+  /* Icon Tắt âm góc bản đồ */
   #mute-btn {
     position: fixed; top: 12px; right: 212px; 
-    background: rgba(15,22,30,0.7); color: white; border: 1px solid rgba(0, 255, 255, 0.2); 
-    width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; 
+    background: rgba(15,22,30,0.8); color: white; border: 2px solid #445566; 
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px; 
     display: flex; align-items: center; justify-content: center; z-index: 9999; 
     transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
   }
-  #mute-btn:hover {
-    background: rgba(0, 255, 255, 0.15); border-color: #00ffff;
-    box-shadow: 0 0 12px rgba(0,255,255,0.4); transform: scale(1.08);
-  }
-  
-  /* Cấu hình Co giãn Responsive mượt mà dành riêng cho Mobile */
+  #mute-btn:hover { background: #334455; border-color: #fff; transform: scale(1.1); }
+
+  /* Responsive Mobile */
   @media (max-width: 768px) {
-    #ui-layer h1, #ui-layer h2 { font-size: 28px; margin-bottom: 20px; }
-    #name-input { padding: 11px 20px !important; font-size: 16px !important; width: 220px; }
-    #play-btn { padding: 11px 35px !important; font-size: 16px !important; }
-    #mute-btn { top: 8px; right: 102px; width: 28px; height: 28px; font-size: 13px; }
+    .menu-panel { padding: 15px 20px; }
+    .menu-panel h1 { font-size: 22px; margin-bottom: 5px; }
+    .menu-panel h2 { font-size: 18px; margin-bottom: 10px; }
+    .menu-panel p { font-size: 13px; }
+    .small-panel p { font-size: 11px; }
+    #game-logo { height: 110px; }
+    #play-btn { font-size: 24px; padding: 10px 40px; }
+    #mute-btn { top: 8px; right: 102px; width: 30px; height: 30px; font-size: 13px; border-width: 1px; }
   }
 `;
 document.head.appendChild(uiStyle);
 
 // =========================================================================
-// 2. QUẢN LÝ THƯ VIỆN SÓNG ÂM (ĐÃ ĐỔI TIẾNG LÊN CẤP SANG SÓNG SIN ÊM ÁI)
+// 2. SOUND MANAGER
 // =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
@@ -169,7 +176,6 @@ const Sound = {
       noiseSrc.connect(nFilter); nFilter.connect(nGain); nGain.connect(this.ctx.destination);
       noiseSrc.start(now); noiseSrc.stop(now + 0.2);
     } 
-    // FIX 2: SÓNG HÌNH SIN (SINE) ÊM ÁI NHƯ CHUÔNG GIÓ CRYSTAL, GIẢM 50% ÂM LƯỢNG CHÓI TAI
     else if (type === 'levelUp') {
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -198,7 +204,6 @@ playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover')
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
 
-// --- TỰ ĐỘNG TẠO ICON MUTE GẮN ID ĐỂ ÁP CSS KHÔNG ĐÈ MINI-MAP ---
 const muteBtn = document.createElement("button");
 muteBtn.id = "mute-btn";
 muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
@@ -224,7 +229,7 @@ const Network = {
   ws: null,
   connect() { 
     this.ws = new WebSocket(wsUrl); 
-    this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "VÀO TRẬN"; playBtn.disabled = false; };
+    this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "PLAY"; playBtn.disabled = false; };
     this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; };
     this.ws.onmessage = this.onMessage; 
   },
@@ -257,7 +262,7 @@ const Network = {
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
+          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.1)"; 
           setTimeout(() => uiLayer.style.display = "none", 400); 
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
@@ -267,12 +272,11 @@ const Network = {
           setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
           statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
           
-          // FIX 2: Câu chữ đếm ngược ngắn gọn, nam tính chuẩn phong cách eSports
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
           const interval = setInterval(() => { 
             left--; 
             if (left <= 0) { 
-              clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; 
+              clearInterval(interval); playBtn.innerText = "PLAY"; playBtn.disabled = false; statusText.innerText = ""; 
             } else { 
               playBtn.innerText = `HỒI SINH: ${left}S`; 
             } 
