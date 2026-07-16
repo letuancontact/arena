@@ -10,42 +10,105 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 
 // =========================================================================
-// 1. TỰ ĐỘNG TIÊM CSS LỘT XÁC GIAO DIỆN CHỜ (KHÔNG CẦN SỬA HTML)
+// 1. TIÊM CSS OVERHAUL LỘT XÁC TOÀN DIỆN DIỆN MẠO MENU & HUD (SIÊU NHẸ)
 // =========================================================================
 const uiStyle = document.createElement('style');
 uiStyle.innerHTML = `
   #ui-layer {
-    background: radial-gradient(circle at center, rgba(15,25,35,0.85) 0%, rgba(5,10,15,0.95) 100%) !important;
-    backdrop-filter: blur(8px);
+    background: radial-gradient(circle at center, rgba(10, 20, 30, 0.9) 0%, rgba(2, 4, 8, 0.98) 100%) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
   }
-  #ui-layer h1, #ui-layer h2 { color: #fff; text-shadow: 0 0 20px #00ffff; font-size: 40px; margin-bottom: 30px; text-transform: uppercase; text-align: center; }
+  
+  /* Tiêu đề Game đổ bóng Neon chuyển màu eSports */
+  #ui-layer h1, #ui-layer h2 { 
+    color: #ffffff; font-weight: 900; font-size: 42px; letter-spacing: 4px;
+    margin: 0 0 35px 0; text-transform: uppercase; text-align: center;
+    background: linear-gradient(45deg, #00ffff, #00ff66);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 20px rgba(0,255,255,0.3));
+    animation: text-pulse 2s infinite alternate;
+  }
+  
+  @keyframes text-pulse {
+    0% { filter: drop-shadow(0 0 15px rgba(0,255,255,0.2)); }
+    100% { filter: drop-shadow(0 0 30px rgba(0,255,255,0.5)); }
+  }
+
+  /* Ô nhập tên kính mờ Glassmorphism công nghệ cao */
   #name-input {
-    background: rgba(255, 255, 255, 0.05) !important; border: 2px solid rgba(0, 255, 255, 0.3) !important;
-    color: #fff !important; padding: 16px 30px !important; border-radius: 40px !important; font-size: 20px !important;
-    text-align: center; outline: none; transition: all 0.3s ease !important;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1) !important; width: 280px; max-width: 80vw;
-    margin-bottom: 25px; font-weight: bold; letter-spacing: 1px;
+    background: rgba(255, 255, 255, 0.04) !important; 
+    border: 2px solid rgba(0, 255, 255, 0.2) !important;
+    color: #fff !important; padding: 14px 25px !important; border-radius: 12px !important; font-size: 18px !important;
+    text-align: center; outline: none; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; width: 260px; max-width: 80vw;
+    margin-bottom: 20px; font-weight: bold; letter-spacing: 1px;
   }
-  #name-input:focus { border-color: #00ffff !important; box-shadow: 0 0 30px rgba(0, 255, 255, 0.5) !important; background: rgba(255,255,255,0.1) !important; }
-  #name-input::placeholder { color: rgba(255,255,255,0.4); font-weight: normal; }
+  #name-input:focus { 
+    border-color: #00ffff !important; 
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 10px rgba(0,255,255,0.1) !important; 
+    background: rgba(255,255,255,0.08) !important; 
+  }
+  #name-input::placeholder { color: rgba(255,255,255,0.35); font-weight: normal; }
+
+  /* Nút Vào Trận / Hồi sinh dạng Năng lượng Neon */
   #play-btn {
-    background: linear-gradient(135deg, #00ff66, #00cc55) !important; border: none !important;
-    color: #003311 !important; font-weight: 900 !important; font-size: 22px !important; padding: 16px 50px !important;
-    border-radius: 40px !important; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-    text-transform: uppercase; box-shadow: 0 10px 25px rgba(0, 255, 102, 0.3) !important; letter-spacing: 2px;
+    background: linear-gradient(135deg, #00ff66 0%, #00cc55 100%) !important; border: none !important;
+    color: #002205 !important; font-weight: 900 !important; font-size: 20px !important; padding: 14px 45px !important;
+    border-radius: 12px !important; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 255, 102, 0.25) !important; letter-spacing: 2px;
   }
-  #play-btn:hover:not(:disabled) { transform: translateY(-5px) scale(1.05) !important; box-shadow: 0 15px 35px rgba(0, 255, 102, 0.6) !important; }
-  #play-btn:active:not(:disabled) { transform: translateY(2px) scale(0.98) !important; }
-  #play-btn:disabled { background: #445566 !important; color: #8899aa !important; box-shadow: none !important; cursor: not-allowed; transform: scale(1) !important; }
-  #status-text { color: #ff4444 !important; font-size: 20px !important; font-weight: bold !important; text-shadow: 0 0 15px rgba(255,68,68,0.6) !important; margin-top: 25px; letter-spacing: 1px;}
+  #play-btn:hover:not(:disabled) { 
+    transform: translateY(-4px) scale(1.03) !important; 
+    box-shadow: 0 12px 30px rgba(0, 255, 102, 0.5) !important; 
+  }
+  #play-btn:active:not(:disabled) { transform: translateY(1px) scale(0.98) !important; }
+  
+  /* FIX 2: Nút Đếm ngược Hồi sinh được lột xác phong cách Digital tinh tế */
+  #play-btn:disabled { 
+    background: rgba(255, 68, 68, 0.08) !important; 
+    border: 1px solid rgba(255, 68, 68, 0.3) !important;
+    color: #ff5555 !important; box-shadow: 0 0 15px rgba(255, 68, 68, 0.15) !important; 
+    cursor: not-allowed; transform: scale(1) !important; font-family: monospace, sans-serif !important;
+    font-size: 16px !important; letter-spacing: 1px;
+    animation: pulse-red 1s infinite alternate;
+  }
+  
+  @keyframes pulse-red {
+    0% { box-shadow: 0 0 10px rgba(255,68,68,0.1); border-color: rgba(255,68,68,0.2); }
+    100% { box-shadow: 0 0 20px rgba(255,68,68,0.3); border-color: rgba(255,68,68,0.5); }
+  }
+  
+  #status-text { color: #ff4444 !important; font-size: 18px !important; font-weight: bold !important; margin-top: 20px; letter-spacing: 1px;}
+
+  /* FIX 1: NÚT TẮT TIẾNG ĐƯỢC THU NHỎ VÀ ĐẶT SÁT CẠNH MINIMAP XỊN XÒ */
+  #mute-btn {
+    position: fixed; top: 12px; right: 212px; 
+    background: rgba(15,22,30,0.7); color: white; border: 1px solid rgba(0, 255, 255, 0.2); 
+    width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; 
+    display: flex; align-items: center; justify-content: center; z-index: 9999; 
+    transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+  #mute-btn:hover {
+    background: rgba(0, 255, 255, 0.15); border-color: #00ffff;
+    box-shadow: 0 0 12px rgba(0,255,255,0.4); transform: scale(1.08);
+  }
+  
+  /* Cấu hình Co giãn Responsive mượt mà dành riêng cho Mobile */
+  @media (max-width: 768px) {
+    #ui-layer h1, #ui-layer h2 { font-size: 28px; margin-bottom: 20px; }
+    #name-input { padding: 11px 20px !important; font-size: 16px !important; width: 220px; }
+    #play-btn { padding: 11px 35px !important; font-size: 16px !important; }
+    #mute-btn { top: 8px; right: 102px; width: 28px; height: 28px; font-size: 13px; }
+  }
 `;
 document.head.appendChild(uiStyle);
 
 // =========================================================================
-// 2. HỆ THỐNG SOUND MANAGER TỐI ƯU (TIẾNG LÊN CẤP ÊM ÁI)
+// 2. QUẢN LÝ THƯ VIỆN SÓNG ÂM (ĐÃ ĐỔI TIẾNG LÊN CẤP SANG SÓNG SIN ÊM ÁI)
 // =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
@@ -77,13 +140,13 @@ const Sound = {
     if (type === 'hover') {
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
-      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      gain.gain.setValueAtTime(0.04, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
       osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
     }
     else if (type === 'click') {
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'square'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
       osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
     }
     else if (type === 'swing') {
@@ -106,23 +169,22 @@ const Sound = {
       noiseSrc.connect(nFilter); nFilter.connect(nGain); nGain.connect(this.ctx.destination);
       noiseSrc.start(now); noiseSrc.stop(now + 0.2);
     } 
-    // ĐÃ FIX 2: SỬ DỤNG SÓNG HÌNH SIN (SINE) ÊM ÁI CHO TIẾNG LÊN CẤP, KHÔNG BỊ CHÓI TAI
+    // FIX 2: SÓNG HÌNH SIN (SINE) ÊM ÁI NHƯ CHUÔNG GIÓ CRYSTAL, GIẢM 50% ÂM LƯỢNG CHÓI TAI
     else if (type === 'levelUp') {
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; // Sóng sine cực kỳ mềm mại
+        osc.type = 'sine'; 
         osc.frequency.setValueAtTime(freq, now + startOffset);
         gain.gain.setValueAtTime(0, now + startOffset);
-        gain.gain.linearRampToValueAtTime(0.08, now + startOffset + duration * 0.1); // Âm lượng thấp gọn gàng
+        gain.gain.linearRampToValueAtTime(0.06, now + startOffset + duration * 0.1); 
         gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
         osc.connect(gain); gain.connect(this.ctx.destination);
         osc.start(now + startOffset); osc.stop(now + startOffset + duration);
       };
-      // Giai điệu chuông gió thăng hoa nhẹ nhàng
-      playNote(523.25, 0, 0.4);      
-      playNote(659.25, 0.1, 0.4);    
-      playNote(783.99, 0.2, 0.4);    
-      playNote(1046.50, 0.35, 0.8);  
+      playNote(523.25, 0, 0.35);      
+      playNote(659.25, 0.08, 0.35);    
+      playNote(783.99, 0.16, 0.35);    
+      playNote(1046.50, 0.26, 0.6);  
     }
   }
 };
@@ -132,36 +194,16 @@ const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
-if (uiLayer) {
-    uiLayer.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
-    uiLayer.style.transform = "scale(1)";
-}
-
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
 
-// =========================================================================
-// 3. ĐÃ FIX 1: NÚT MUTE TINH TẾ (CHỈ ICON) ĐẶT Ở GIỮA TRÊN CÙNG
-// =========================================================================
+// --- TỰ ĐỘNG TẠO ICON MUTE GẮN ID ĐỂ ÁP CSS KHÔNG ĐÈ MINI-MAP ---
 const muteBtn = document.createElement("button");
+muteBtn.id = "mute-btn";
 muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
-muteBtn.style.cssText = "position:fixed; top:15px; left:50%; transform:translateX(-50%); background:rgba(20,25,30,0.8); color:white; border:2px solid #445566; width:46px; height:46px; border-radius:50%; cursor:pointer; font-size:22px; display:flex; align-items:center; justify-content:center; z-index:9999; transition:all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 15px rgba(0,0,0,0.5);";
 document.body.appendChild(muteBtn);
 
-muteBtn.addEventListener("mouseenter", () => { 
-    Sound.init(); Sound.play('hover'); 
-    muteBtn.style.background = "rgba(40,50,60,0.9)"; 
-    muteBtn.style.transform = "translateX(-50%) scale(1.15)"; 
-    muteBtn.style.borderColor = "#00ffff";
-    muteBtn.style.boxShadow = "0 0 15px rgba(0,255,255,0.4)";
-});
-muteBtn.addEventListener("mouseleave", () => { 
-    muteBtn.style.background = "rgba(20,25,30,0.8)"; 
-    muteBtn.style.transform = "translateX(-50%) scale(1)"; 
-    muteBtn.style.borderColor = "#445566";
-    muteBtn.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
-});
 muteBtn.addEventListener("click", () => {
     Sound.init();
     const muted = Sound.toggleMute();
@@ -210,7 +252,6 @@ const Network = {
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
-        // Không phát âm thanh tiếng ăn FOOD nữa theo yêu cầu
         
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
@@ -224,9 +265,18 @@ const Network = {
         if (!prevDead && me.isDead) {
           uiLayer.style.display = "flex"; 
           setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
-          statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
-          const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; } }, 1000);
+          statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
+          
+          // FIX 2: Câu chữ đếm ngược ngắn gọn, nam tính chuẩn phong cách eSports
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
+          const interval = setInterval(() => { 
+            left--; 
+            if (left <= 0) { 
+              clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; 
+            } else { 
+              playBtn.innerText = `HỒI SINH: ${left}S`; 
+            } 
+          }, 1000);
         }
       }
       
