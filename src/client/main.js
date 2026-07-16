@@ -9,106 +9,13 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
-// =========================================================================
-// BẢN VÁ: TỰ ĐỘNG KHỞI TẠO ĐỐI TƯỢNG ĐỆM NẾU FILE STATE.JS CHƯA CÓ
-// =========================================================================
-if (!GameState.prevPlayerLevels) GameState.prevPlayerLevels = {};
-if (!GameState.prevPlayerDeadState) GameState.prevPlayerDeadState = {};
-if (!GameState.prevPositions) GameState.prevPositions = {};
+// Khởi tạo an toàn để tránh crash JS
+GameState.prevPlayerLevels = GameState.prevPlayerLevels || {};
+GameState.prevPlayerDeadState = GameState.prevPlayerDeadState || {};
+GameState.prevPositions = GameState.prevPositions || {};
 
 // =========================================================================
-// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN 100% CHỐNG LAG
-// =========================================================================
-const uiStyle = document.createElement('style');
-uiStyle.innerHTML = `
-  #ui-layer {
-    background-color: #1a1e24;
-    background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E%3C/svg%3E");
-    background-size: 80px 138.56px;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
-    transition: opacity 0.4s ease, transform 0.4s ease;
-    padding: 20px 0; box-sizing: border-box;
-    user-select: none;
-  }
-
-  .menu-panel {
-    background: rgba(30, 38, 46, 0.88);
-    border: 2px solid rgba(65, 75, 85, 0.7);
-    border-radius: 16px; padding: 25px 40px; text-align: center;
-    max-width: 800px; width: 90%; box-shadow: 0 12px 35px rgba(0,0,0,0.6);
-  }
-  
-  .small-panel { max-width: 740px; padding: 15px 30px; }
-
-  .menu-panel h1 { color: #ffffff; font-size: 30px; margin: 0 0 8px 0; font-weight: 800; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
-  .menu-panel h2 { color: #b0b0b0; font-size: 24px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
-  .menu-panel p { color: #e0e0e0; font-size: 15px; line-height: 1.5; margin: 5px 0; font-weight: 500; }
-  .small-panel p { font-size: 13px; color: #bbbbbb; margin: 4px 0; line-height: 1.4; }
-
-  .logo-container { text-align: center; margin: 10px 0; position: relative; }
-  #game-logo { height: 150px; object-fit: contain; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.7)); animation: float 3s ease-in-out infinite; }
-  .version-text { color: #777; font-size: 12px; font-weight: bold; margin-top: -5px; }
-
-  @keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0px); }
-  }
-
-  .action-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 10px; }
-  
-  #name-input {
-    background: rgba(15, 20, 25, 0.95); border: 2px solid #556677; color: #fff; 
-    padding: 12px 20px; border-radius: 8px; font-size: 18px; text-align: center; 
-    outline: none; transition: all 0.3s ease; width: 260px; font-weight: bold;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-  }
-  #name-input:focus { border-color: #ff6600; background: rgba(25, 30, 35, 1); box-shadow: 0 0 15px rgba(255,102,0,0.4); }
-
-  #play-btn {
-    background: linear-gradient(to bottom, #ff8c00 0%, #e63900 100%);
-    border: 3px solid #ffcc00; border-bottom-width: 6px;
-    color: #ffffff; font-weight: 900; font-size: 32px; padding: 10px 70px;
-    border-radius: 12px; cursor: pointer; transition: all 0.05s ease;
-    text-transform: uppercase; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.4);
-    text-shadow: 2px 2px 0px #802000; letter-spacing: 2px; font-family: 'Impact', 'Arial Black', sans-serif;
-  }
-  #play-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); border-bottom-width: 8px; }
-  #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; filter: brightness(0.9); }
-  
-  #play-btn:disabled { 
-    background: linear-gradient(to bottom, #444, #2c2c2c) !important; border-color: #555 !important; color: #888 !important;
-    border-bottom-width: 3px !important; cursor: not-allowed; text-shadow: none !important; font-size: 18px !important; padding: 14px 40px !important;
-    font-family: monospace, sans-serif !important; transform: none !important;
-  }
-
-  #status-text { color: #ff3333; font-size: 16px; font-weight: bold; margin-top: 10px; text-shadow: 1px 1px 2px black;}
-
-  #mute-btn {
-    position: fixed; top: 12px; right: 212px; 
-    background: rgba(15,22,30,0.8); color: white; border: 2px solid #445566; 
-    width: 36px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px; 
-    display: flex; align-items: center; justify-content: center; z-index: 9999; 
-    transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-  }
-  #mute-btn:hover { background: #334455; border-color: #fff; transform: scale(1.1); }
-
-  @media (max-width: 768px) {
-    .menu-panel { padding: 15px 20px; width: 92%; }
-    .menu-panel h1 { font-size: 20px; margin-bottom: 4px; }
-    .menu-panel h2 { font-size: 16px; margin-bottom: 8px; }
-    .menu-panel p { font-size: 13px; } .small-panel p { font-size: 11px; }
-    #game-logo { height: 100px; }
-    #play-btn { font-size: 24px; padding: 8px 50px; }
-    #mute-btn { top: 8px; right: 102px; width: 30px; height: 30px; font-size: 13px; border-width: 1px; }
-  }
-`;
-document.head.appendChild(uiStyle);
-
-// =========================================================================
-// 2. SOUND ENGINE
+// QUẢN LÝ ÂM THANH
 // =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
@@ -172,7 +79,8 @@ const Sound = {
     else if (type === 'levelUp') {
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + startOffset);
+        osc.type = 'sine'; 
+        osc.frequency.setValueAtTime(freq, now + startOffset);
         gain.gain.setValueAtTime(0, now + startOffset);
         gain.gain.linearRampToValueAtTime(0.06, now + startOffset + duration * 0.1); 
         gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
@@ -188,41 +96,50 @@ const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
+const muteBtn = document.getElementById("mute-btn");
 
-if (uiLayer) {
-    uiLayer.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
-    uiLayer.style.transform = "scale(1)";
+// Khởi tạo Icon Mute lúc load trang
+if(muteBtn) muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
+
+if (playBtn) playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+if (nameInput) {
+    nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+    nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
+    nameInput.value = localStorage.getItem("evowar_name") || "";
 }
 
-playBtn.addEventListener("click", () => {
-  Sound.init(); Sound.play('click');
-  if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
-  const name = nameInput.value.trim() || "Khách"; localStorage.setItem("evowar_name", name);
-  Network.ws.send(JSON.stringify({ type: "join", name: name }));
-  playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
-});
+if (muteBtn) {
+    muteBtn.addEventListener("click", () => {
+        Sound.init();
+        const muted = Sound.toggleMute();
+        muteBtn.innerHTML = muted ? "🔇" : "🔊";
+        if (!muted) Sound.play('click');
+    });
+}
 
-playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
-nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
-nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
-
-const muteBtn = document.createElement("button");
-muteBtn.id = "mute-btn"; muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
-document.body.appendChild(muteBtn);
-
-muteBtn.addEventListener("click", () => {
-    Sound.init(); const muted = Sound.toggleMute(); muteBtn.innerHTML = muted ? "🔇" : "🔊";
-    if (!muted) Sound.play('click');
-});
-
-nameInput.value = localStorage.getItem("evowar_name") || "";
+if (playBtn) {
+    playBtn.addEventListener("click", () => {
+      Sound.init(); Sound.play('click');
+      if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
+      const name = nameInput.value.trim() || "Khách"; localStorage.setItem("evowar_name", name);
+      Network.ws.send(JSON.stringify({ type: "join", name: name }));
+      playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
+    });
+}
 
 const Network = {
   ws: null,
   connect() { 
     this.ws = new WebSocket(wsUrl); 
-    this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "PLAY"; playBtn.disabled = false; };
-    this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; };
+    this.ws.onopen = () => { 
+        if(statusText) statusText.innerText = ""; 
+        if(playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
+    };
+    this.ws.onclose = () => { 
+        if(statusText) statusText.innerText = "Mất kết nối với Server!"; 
+        if(playBtn) playBtn.disabled = true; 
+        if(uiLayer) { uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }
+    };
     this.ws.onmessage = this.onMessage; 
   },
   onMessage(msg) {
@@ -249,26 +166,38 @@ const Network = {
         GameState.clientRadius = GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20;
         
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
+        
         if (oldLevel !== GameState.clientLevel && Camera.getZoomByLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
-          setTimeout(() => uiLayer.style.display = "none", 400); 
+          if(uiLayer) {
+              uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
+              setTimeout(() => uiLayer.style.display = "none", 400); 
+          }
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
-          uiLayer.style.display = "flex"; 
-          setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
-          statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
+          if(uiLayer) {
+              uiLayer.style.display = "flex"; 
+              setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
+          }
+          if(statusText) statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; 
+          if(playBtn) playBtn.disabled = true;
           
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); 
+          if(playBtn) playBtn.innerText = `HỒI SINH SAU: ${left}S`;
+          
           const interval = setInterval(() => { 
             left--; 
             if (left <= 0) { 
-              clearInterval(interval); playBtn.innerText = "PLAY"; playBtn.disabled = false; statusText.innerText = ""; 
-            } else { playBtn.innerText = `HỒI SINH: ${left}S`; } 
+              clearInterval(interval); 
+              if(playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
+              if(statusText) statusText.innerText = ""; 
+            } else { 
+              if(playBtn) playBtn.innerText = `HỒI SINH SAU: ${left}S`; 
+            } 
           }, 1000);
         }
       }
