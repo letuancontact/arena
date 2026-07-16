@@ -1,11 +1,6 @@
-// --- main.js ---
+// --- src/client/main.js ---
 import { GameState } from './state.js';
-import * as RenderEngine from './renderer.js'; 
-
-const Camera = RenderEngine.Camera || {};
-const Resources = RenderEngine.Resources || { load: () => {} };
-const Renderer = RenderEngine.Renderer || {};
-const FX = RenderEngine.FX || {}; 
+import { Camera, FX, Resources, Renderer } from './renderer.js';
 
 const CONFIG = window.GAME_CONFIG || { MAP_WIDTH: 3000, MAP_HEIGHT: 3000, RESPAWN_TIME: 5000, CLIENT_SEND_INTERVAL: 50 };
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -17,15 +12,11 @@ GameState.prevPlayerLevels = GameState.prevPlayerLevels || {};
 GameState.prevPlayerDeadState = GameState.prevPlayerDeadState || {};
 
 let isMutedGlobal = false;
-let savedPlayerName = "";
-try {
-    isMutedGlobal = localStorage.getItem("evowar_muted") === "true";
-    savedPlayerName = localStorage.getItem("evowar_name") || "";
-} catch (e) {}
+try { isMutedGlobal = localStorage.getItem("evowar_muted") === "true"; } catch (e) {}
 
+// HỆ THỐNG ÂM THANH
 const Sound = {
-  ctx: null, lastPlay: {}, noiseBuffer: null,
-  isMuted: isMutedGlobal,
+  ctx: null, lastPlay: {}, noiseBuffer: null, isMuted: isMutedGlobal,
   init() {
     if (!this.ctx) { 
       window.AudioContext = window.AudioContext || window.webkitAudioContext; 
@@ -90,10 +81,11 @@ const Sound = {
           };
           playNote(523.25, 0, 0.35); playNote(659.25, 0.08, 0.35); playNote(783.99, 0.16, 0.35); playNote(1046.50, 0.26, 0.6);  
         }
-    } catch(err) {}
+    } catch(e) {}
   }
 };
 
+// LIÊN KẾT GIAO DIỆN
 const uiLayer = document.getElementById("ui-layer");
 const loginScreen = document.getElementById("login-screen");
 const deathScreen = document.getElementById("death-screen");
@@ -128,7 +120,7 @@ if (respawnBtn) { respawnBtn.addEventListener("mouseenter", () => { Sound.init()
 if (nameInput) {
     nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
     nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
-    nameInput.value = savedPlayerName;
+    try { nameInput.value = localStorage.getItem("evowar_name") || ""; } catch(e){}
 }
 
 const Network = {
@@ -143,12 +135,12 @@ const Network = {
         };
         this.ws.onclose = () => { 
             if (statusText) statusText.innerText = "MẤT KẾT NỐI VỚI SERVER!"; 
-            if (playBtn) { playBtn.innerText = "DISCONNECTED"; playBtn.disabled = true; }
-            if (respawnBtn) { respawnBtn.innerText = "DISCONNECTED"; respawnBtn.disabled = true; }
+            if (playBtn) { playBtn.innerText = "MẤT KẾT NỐI"; playBtn.disabled = true; }
+            if (respawnBtn) { respawnBtn.innerText = "MẤT KẾT NỐI"; respawnBtn.disabled = true; }
             if (uiLayer) { uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; }
         };
         this.ws.onmessage = this.onMessage; 
-    } catch(err) {}
+    } catch(e) {}
   },
   onMessage(msg) {
     try {
@@ -173,14 +165,13 @@ const Network = {
             const oldLevel = GameState.clientLevel;
             GameState.clientLevel = me.level || 1; 
             GameState.clientXp = me.xp || 0; 
-            GameState.clientXpToNext = me.xpToNext || 100;
+            GameState.clientXpToNext = me.xpToNext || (GameState.getXpToNext ? GameState.getXpToNext(GameState.clientLevel) : 100); 
             
-            // --- FIX 3: ĐỒNG BỘ KÍCH THƯỚC NHÂN VẬT VỚI SERVER ---
-            // me.radius là giá trị trực tiếp từ server trả về, đảm bảo 100% to bằng Bot
+            // --- FIX 3: NHÂN VẬT TO BẰNG BOT ---
+            // Bắt buộc lấy kích thước trực tiếp từ Server trả về (me.radius)
             GameState.clientRadius = me.radius || (GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20);
             
             if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); if(Camera.screenFlash !== undefined) Camera.screenFlash = 1.0; } 
-            
             if (oldLevel !== GameState.clientLevel && Camera.getZoomByLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
             if (prevDead && !me.isDead) { 
@@ -192,12 +183,12 @@ const Network = {
             } 
             else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
-            // XỬ LÝ LÚC BỊ GIẾT: HIỂN THỊ MÀN HÌNH CHẾT (POPUP TRÊN NỀN GAME)
+            // XỬ LÝ LÚC BỊ GIẾT: HIỂN THỊ MÀN HÌNH CHẾT 3 CỘT
             if (!prevDead && me.isDead) {
               if (uiLayer) { 
                   uiLayer.style.display = "flex"; 
-                  if(loginScreen) loginScreen.style.display = "none"; // Tắt bảng đăng nhập
-                  if(deathScreen) deathScreen.style.display = "flex"; // Bật bảng chết 3 cột
+                  if(loginScreen) loginScreen.style.display = "none";
+                  if(deathScreen) deathScreen.style.display = "flex";
                   
                   const killerObj = (data.players || []).find(k => k.id === me.killerId);
                   const killerNameEl = document.getElementById("killer-name");
@@ -211,7 +202,7 @@ const Network = {
               }
               if(respawnBtn) respawnBtn.disabled = true;
               let left = Math.floor((CONFIG.RESPAWN_TIME || 5000) / 1000); 
-              if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`;
+              if(respawnBtn) respawnBtn.innerText = `HỒI SINH SAU: ${left}S`;
               
               const interval = setInterval(() => { 
                 left--; 
@@ -219,7 +210,7 @@ const Network = {
                   clearInterval(interval); 
                   if(respawnBtn) { respawnBtn.innerText = "CHƠI"; respawnBtn.disabled = false; }
                 } else { 
-                  if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`; 
+                  if(respawnBtn) respawnBtn.innerText = `HỒI SINH SAU: ${left}S`; 
                 } 
               }, 1000);
             }
