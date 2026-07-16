@@ -6,24 +6,37 @@
     <title>EvoWar Arena</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* RESET & CƠ BẢN */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #111; touch-action: none; font-family: 'Nunito', sans-serif; user-select: none; -webkit-user-select: none; }
+        /* RESET */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; touch-action: none; font-family: 'Nunito', sans-serif; user-select: none; -webkit-user-select: none; }
         #game { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
 
         /* =========================================================
-           FIX 4: LỚP PHỦ GIAO DIỆN (POPUP TRÊN NỀN GAME)
+           LỚP PHỦ MENU CÓ BACKGROUND MAP NHƯ ẢNH 34
         ========================================================= */
         #ui-layer {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
-            background: rgba(0, 0, 0, 0.75); /* Màu đen trong suốt 75% */
-            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); /* Làm mờ nhẹ nền game phía sau */
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.3s ease; overflow-y: auto; overflow-x: hidden;
+            background: url('img/mapbg.png') repeat center center; /* SỬ DỤNG MAP BACKGROUND */
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            overflow-y: auto; overflow-x: hidden; /* Cho phép cuộn nếu màn hình quá bé */
+            transition: opacity 0.3s ease;
+        }
+        
+        /* Lớp phủ đen trong suốt để nổi bật khối Menu */
+        .dark-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); z-index: 1;
+        }
+
+        /* Vùng chứa nội dung chống đè chéo */
+        .screen-container {
+            position: relative; z-index: 10;
+            display: flex; flex-direction: column; align-items: center;
+            width: 95%; max-width: 700px; margin: auto; padding: 30px 0;
         }
 
         /* Nút Tắt Âm */
         #mute-btn {
-            position: fixed; top: 15px; right: 215px; background: rgba(20,25,30,0.8); color: #fff;
+            position: fixed; top: 15px; right: 15px; background: rgba(20,25,30,0.8); color: #fff;
             border: 2px solid #445566; width: 40px; height: 40px; border-radius: 50%;
             cursor: pointer; font-size: 18px; z-index: 9999; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
@@ -31,148 +44,127 @@
         #mute-btn:hover { background: #334455; border-color: #00ff66; transform: scale(1.1); }
 
         /* =========================================================
-           1. GIAO DIỆN ĐĂNG NHẬP (LOBBY SCREEN)
+           GIAO DIỆN ĐĂNG NHẬP (GIỐNG ẢNH 34 CỦA BẠN)
         ========================================================= */
-        #login-screen {
-            position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center;
-            width: 100%; max-width: 700px; padding: 15px; box-sizing: border-box;
+        .panel {
+            background: rgba(30, 35, 40, 0.9); border-radius: 16px; padding: 25px 35px;
+            text-align: center; width: 100%; box-sizing: border-box;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.05);
         }
-        .panel-top, .panel-bottom {
-            background: rgba(30, 35, 40, 0.95); border-radius: 12px; padding: 20px 30px; text-align: center; width: 100%; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            border: 1px solid rgba(255,255,255,0.1);
+        
+        .panel-top { margin-bottom: 0px; }
+        .panel-top h1 { color: #fff; font-size: 36px; margin: 0 0 5px 0; font-weight: 900; }
+        .panel-top h2 { color: #b0b0b0; font-size: 26px; margin: 0 0 15px 0; font-weight: 900;}
+        .panel-top p { color: #fff; font-size: 16px; line-height: 1.5; margin: 0; font-weight: 700; }
+
+        /* Logo nằm đè lên giữa 2 Panel */
+        .logo-box { margin: -30px 0 -20px 0; z-index: 11; position: relative; text-align: center; }
+        #game-logo { height: 160px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.7)); }
+        .version-text { color: #888; font-size: 12px; font-weight: bold; margin-top: -10px; }
+
+        .panel-bottom { padding-top: 30px; padding-bottom: 50px; }
+        .panel-bottom p { color: #bbb; font-size: 13px; margin: 5px 0; line-height: 1.5; font-weight: 500;}
+
+        /* Khối nhập tên & Nút bấm lùi lên trên đè vào Panel bottom */
+        .action-area {
+            margin-top: -35px; z-index: 12; position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;
         }
-        .panel-top { margin-bottom: 20px; }
-        .panel-top h1 { color: #fff; font-size: 28px; margin: 0 0 5px 0; font-weight: 900; text-transform: uppercase;}
-        .panel-top h2 { color: #aaa; font-size: 18px; margin: 0 0 10px 0; font-weight: 700;}
-        .panel-top p { color: #ddd; font-size: 14px; line-height: 1.4; margin: 0; }
 
-        .logo-wrapper { margin: -30px 0 -15px 0; z-index: 11; position: relative; }
-        #game-logo { height: 130px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.7)); animation: float 3s ease-in-out infinite; }
-        .version-text { color: #888; font-size: 12px; font-weight: bold; margin-top: -5px; text-align: center;}
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-
-        .panel-bottom { padding-bottom: 40px; }
-        .panel-bottom p { color: #bbb; font-size: 12px; margin: 4px 0; line-height: 1.4; }
-
-        .play-area { margin-top: -25px; z-index: 12; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;}
         #name-input {
             background: #111; border: 2px solid #555; color: #fff; padding: 12px 20px;
-            border-radius: 8px; font-size: 16px; text-align: center; width: 240px; max-width: 80%; outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700;
+            border-radius: 8px; font-size: 18px; text-align: center; width: 260px; max-width: 80%;
+            outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700;
         }
         #name-input:focus { border-color: #ff8c00; box-shadow: 0 0 10px rgba(255,140,0,0.4); }
 
-        /* =========================================================
-           2. GIAO DIỆN CHẾT (DEATH SCREEN - 3 CỘT NHƯ ẢNH)
-        ========================================================= */
-        #death-screen {
-            display: none; width: 100%; max-width: 850px; padding: 15px; box-sizing: border-box;
-            justify-content: center; align-items: stretch; gap: 15px; position: relative; z-index: 10;
-        }
-        .death-col {
-            background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 12px; padding: 15px 20px; color: white; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-        }
-        .col-side { width: 220px; }
-        .col-center { width: 320px; align-items: center; text-align: center; border-color: #555; padding-bottom: 25px;}
-        
-        .box-title { font-size: 16px; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; text-align: center; color: #fff; letter-spacing: 1px;}
-        
-        .hint-list { list-style: none; padding: 0; margin: 0; font-size: 13px; color: #aaa; line-height: 1.5; text-align: left;}
-        .hint-list li { margin-bottom: 10px; position: relative; padding-left: 15px; }
-        .hint-list li::before { content: "•"; position: absolute; left: 0; color: #ff8c00; }
-
-        #killer-name { color: #ff4444; font-size: 20px; font-weight: 900; margin-bottom: 15px; word-break: break-all;}
-        .next-evo-title { font-size: 12px; color: #ccc; margin-bottom: 8px; text-transform: uppercase; font-weight: 700;}
-        #next-evo-img { height: 100px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
-
-        /* Nút Bấm Dung Chung */
-        .btn-action {
+        .btn-play {
             background: linear-gradient(to bottom, #ff8c00, #e63900); border: 2px solid #ffcc00;
-            border-bottom-width: 5px; color: #fff; font-size: 24px; font-weight: 900;
-            padding: 8px 40px; border-radius: 8px; cursor: pointer; text-shadow: 1px 2px 0px #802000;
-            text-transform: uppercase; font-family: 'Nunito', sans-serif; letter-spacing: 1px;
-            transition: transform 0.1s, box-shadow 0.1s; margin-top: auto; box-shadow: 0 6px 15px rgba(0,0,0,0.5);
+            border-bottom-width: 6px; color: #fff; font-size: 32px; font-weight: 900;
+            padding: 10px 60px; border-radius: 12px; cursor: pointer; text-shadow: 2px 2px 0px #802000;
+            text-transform: uppercase; font-family: 'Impact', 'Nunito', sans-serif; letter-spacing: 2px;
+            transition: transform 0.1s, filter 0.1s; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
         }
-        .btn-action:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 7px; filter: brightness(1.1); }
-        .btn-action:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 1px; }
-        .btn-action:disabled { background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888; cursor: not-allowed; border-bottom-width: 3px; font-size: 16px; padding: 12px 30px; transform: none;}
-        
-        #respawn-btn { background: linear-gradient(to bottom, #e62e00, #990000); border-color: #ff6666;}
-        .ad-placeholder { width: 100%; height: 130px; background: #222; border: 1px dashed #444; display: flex; align-items: center; justify-content: center; color: #666; margin-top: 10px; font-size: 11px; border-radius: 8px;}
+        .btn-play:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 8px; filter: brightness(1.1); }
+        .btn-play:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; }
+        .btn-play:disabled { background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888; cursor: not-allowed; border-bottom-width: 3px; font-size: 20px; padding: 15px 40px; transform: none; text-shadow: none;}
+
+        #status-text { color: #ff5555; font-weight: bold; font-size: 14px; margin-top: 5px; text-shadow: 1px 1px 2px #000;}
 
         /* =========================================================
-           FIX 2: THU GỌN CHỐNG CHỒNG CHÉO TRÊN MOBILE
+           MÀN HÌNH CHẾT (Đơn giản để chạy mượt, 3 cột để sau)
         ========================================================= */
-        @media (max-width: 768px), (max-height: 600px) {
-            #ui-layer { padding: 10px 0; justify-content: flex-start; }
-            #death-screen { flex-direction: column; align-items: center; gap: 10px;}
-            /* Ẩn cột quảng cáo và gợi ý trên điện thoại để tiết kiệm diện tích */
-            .col-side { display: none; } 
-            .col-center { width: 90%; max-width: 350px; padding: 15px; }
+        #death-screen .panel { padding: 40px; }
+        .death-title { color: #ff3333; font-size: 24px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px;}
+        #killer-name { color: #fff; font-size: 32px; font-weight: bold; margin-bottom: 20px; }
+        .next-evo-txt { color: #aaa; font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;}
+        #next-evo-img { height: 120px; object-fit: contain; margin-bottom: 20px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
+
+        /* =========================================================
+           THU GỌN CHỐNG CHỒNG CHÉO TRÊN MOBILE
+        ========================================================= */
+        @media (max-width: 768px), (max-height: 700px) {
+            .screen-container { padding: 15px 0; justify-content: flex-start; }
+            .panel { padding: 15px 20px; border-radius: 12px; }
+            .panel-top h1 { font-size: 22px; margin-bottom: 2px;}
+            .panel-top h2 { font-size: 16px; margin-bottom: 10px;}
+            .panel-top p { font-size: 12px; line-height: 1.4;}
+            .panel-bottom { padding-top: 20px; padding-bottom: 35px; }
+            .panel-bottom p { font-size: 11px; margin: 3px 0;}
             
-            .panel-top, .panel-bottom { padding: 12px 15px; }
-            .panel-top h1 { font-size: 20px; margin-bottom: 2px;} 
-            .panel-top h2 { font-size: 14px; margin-bottom: 5px;}
-            .panel-top p, .panel-bottom p { font-size: 11px; line-height: 1.3;}
+            .logo-box { margin: -20px 0 -15px 0; }
+            #game-logo { height: 100px; }
             
-            .logo-wrapper { margin: -20px 0 -10px 0; }
-            #game-logo { height: 90px; }
-            #next-evo-img { height: 80px; margin-bottom: 10px;}
+            .action-area { margin-top: -25px; gap: 8px;}
+            #name-input { font-size: 15px; padding: 10px 15px; width: 220px;}
+            .btn-play { font-size: 24px; padding: 8px 45px; border-bottom-width: 4px;}
             
-            .play-area { margin-top: -15px; }
-            #name-input { font-size: 15px; padding: 10px 15px; width: 200px; }
-            .btn-action { font-size: 20px; padding: 8px 35px; }
-            #mute-btn { top: 10px; right: 100px; width: 32px; height: 32px; font-size: 14px; }
-            
-            #killer-name { font-size: 18px; margin-bottom: 10px;}
-            .box-title { font-size: 14px; margin-bottom: 8px;}
+            #mute-btn { top: 10px; right: 10px; width: 34px; height: 34px; font-size: 14px; }
         }
     </style>
 </head>
 <body>
     <canvas id="game"></canvas>
+    
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
-        <div id="login-screen">
-            <div class="panel-top">
-                <h1>Chào mừng bạn đến với trò chơi</h1>
-                <h2>Chiến đấu! Giết chóc! Tiến hóa!</h2>
-                <p>Nhân vật của bạn sẽ tiến hóa mỗi khi bạn lên cấp. Khi tiến hóa, vũ khí và trang phục của bạn cũng sẽ được nâng cấp.</p>
+        <div class="dark-overlay"></div>
+
+        <div id="login-screen" class="screen-container">
+            <div class="panel panel-top">
+                <h1>Welcome to EvoWars.io</h1>
+                <h2>Fight! Kill! Evolve!</h2>
+                <p>Your character will evolve each time you level up. When you<br>evolve your weapons and skins will improve.</p>
             </div>
-            <div class="logo-wrapper">
-                <img src="img/king.png" alt="Logo" id="game-logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
+            
+            <div class="logo-box">
+                <img src="img/king.png" id="game-logo" alt="Logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
                 <div class="version-text">v 1.0.0</div>
             </div>
-            <div class="panel-bottom">
-                <p>Chào mừng đến với Evo Arena, trò chơi đấu trường đối kháng hay nhất!</p>
-                <p>Thu thập các quả cầu và tiêu diệt đối thủ để tích lũy kinh nghiệm và tăng kích thước. Mỗi khi lên cấp, nhân vật sẽ thay đổi ngoại hình và kích thước thanh kiếm. Hãy cẩn thận với những kẻ địch nhỏ bé vì chúng rất nhanh!</p>
+
+            <div class="panel panel-bottom">
+                <p>Welcome to evowars.io, the best battling, fighting arena game!</p>
+                <p>Collect the orbs and kill your opponents to gain experience and grow in size. With each level up your character will evolve, changing the appearance and increasing the size of your sword. Beware of the small opponents as they are the fastest assassins!</p>
             </div>
-            <div class="play-area">
+
+            <div class="action-area">
                 <input type="text" id="name-input" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false" />
-                <button id="play-btn" class="btn-action" disabled>ĐANG KẾT NỐI...</button>
-                <div id="status-text" style="color: #ff5555; font-weight: bold; margin-top: 5px; font-size: 14px;"></div>
+                <button id="play-btn" class="btn-play" disabled>CONNECTING...</button>
+                <div id="status-text"></div>
             </div>
         </div>
 
-        <div id="death-screen">
-            <div class="death-col col-side">
-                <div class="box-title">GỢI Ý</div>
-                <ul class="hint-list">
-                    <li>Săn lùng những kẻ to lớn hoặc thu thập quả cầu ở cấp độ thấp.</li>
-                    <li>Giết một kẻ thù lớn mang lại cho bạn rất nhiều kinh nghiệm!</li>
-                    <li>Những quả cầu lớn mang lại cho bạn nhiều kinh nghiệm hơn những quả nhỏ.</li>
-                </ul>
-            </div>
-            <div class="death-col col-center">
-                <div class="box-title">ĐÃ HẠ GỤC BỞI</div>
+        <div id="death-screen" class="screen-container" style="display: none;">
+            <div class="panel">
+                <div class="death-title">ĐÃ HẠ GỤC BỞI</div>
                 <div id="killer-name">KẺ THÙ BÍ ẨN</div>
-                <div class="next-evo-title">TIẾN HÓA TIẾP THEO</div>
-                <img id="next-evo-img" src="img/king.png" alt="Next Level" onerror="this.src='img/king.png'">
-                <button id="respawn-btn" class="btn-action" disabled>ĐANG TẢI...</button>
-            </div>
-            <div class="death-col col-side">
-                <div class="box-title">TRÒ CHƠI CỦA</div>
-                <div class="ad-placeholder">[ KHU VỰC QUẢNG CÁO ]</div>
+                
+                <div class="next-evo-txt">TIẾN HÓA TIẾP THEO</div>
+                <img id="next-evo-img" src="img/king.png" onerror="this.src='img/king.png'">
+                <br>
+                <button id="respawn-btn" class="btn-play" disabled>ĐANG TẢI...</button>
             </div>
         </div>
     </div>
