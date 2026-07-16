@@ -1,3 +1,4 @@
+// --- src/server/bot.js ---
 "use strict";
 
 const CONFIG = require("../shared/constants");
@@ -31,7 +32,7 @@ function createBot(mapWidth, mapHeight) {
     isBot: true,
     state: "EXPLORE",
     changeStateTime: 0,
-    lastReaction: 0 // Biến mới kiểm soát thời gian phản xạ của AI
+    lastReaction: 0 
   };
 }
 
@@ -66,13 +67,39 @@ function updateBot(bot, foodTree, playerTree) {
 
     if (nearestThreat && minThreatDist < escapeVision) {
       bot.state = "ESCAPE";
-      bot.angle = Math.atan2(bot.y - nearestThreat.y, bot.x - nearestThreat.x) + Math.PI;
-      if (minThreatDist < bot.radius * 4 && bot.xp > 0) bot.rightMouseDown = true;
+      
+      // Lạng lách (Zig-zag) khi chạy trốn thay vì chạy đường thẳng
+      const baseEscapeAngle = Math.atan2(bot.y - nearestThreat.y, bot.x - nearestThreat.x) + Math.PI;
+      const juke = (Math.random() > 0.5 ? 1 : -1) * (Math.PI / 4.5); 
+      
+      // Bị ép sát quá thì chạy thẳng, xa xa thì lạng lách
+      bot.angle = baseEscapeAngle + (minThreatDist < bot.radius * 3 ? 0 : juke); 
+      
+      // Bot biết dùng Tốc Biến (Sprint) để chạy nếu bị dí sát
+      if (minThreatDist < bot.radius * 4.5 && bot.xp > 0) bot.rightMouseDown = true;
     } 
     else if (nearestPrey && minPreyDist < huntVision) {
       bot.state = "ATTACK";
-      bot.angle = Math.atan2(nearestPrey.y - bot.y, nearestPrey.x - bot.x);
-      bot.rightMouseDown = false; 
+      
+      // Cân nhắc "Hit & Run" - Nếu con mồi quay mặt lại, bot sẽ chùn bước
+      const preyAimAngle = Math.atan2(bot.y - nearestPrey.y, bot.x - nearestPrey.x);
+      let isPreyAimingUs = false;
+      if (nearestPrey.angle !== undefined) {
+         let angleDiff = Math.abs(nearestPrey.angle - preyAimAngle);
+         while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+         isPreyAimingUs = Math.abs(angleDiff) < Math.PI / 3; // Nằm trong tầm ngắm
+      }
+
+      if (isPreyAimingUs && minPreyDist < bot.radius * 4) {
+          // Lùi ra một chút xíu (Kite)
+          bot.angle = Math.atan2(bot.y - nearestPrey.y, bot.x - nearestPrey.x);
+          bot.rightMouseDown = false;
+      } else {
+          // Lao vào truy đuổi
+          bot.angle = Math.atan2(nearestPrey.y - bot.y, nearestPrey.x - bot.x);
+          // Bot biết xài Sprint để rượt nếu mục tiêu đang chạy
+          if (minPreyDist > bot.radius * 2 && bot.xp > 0) bot.rightMouseDown = true; 
+      }
     } 
     else {
       bot.state = "COLLECT";
@@ -87,7 +114,7 @@ function updateBot(bot, foodTree, playerTree) {
     }
   }
 
-  // ĐÃ FIX: CHỈ CHO PHÉP BOT QUÉT ĐIỀU KIỆN CHÉM SAU MỖI 400ms (Độ trễ con người)
+  // CHỈ CHO PHÉP BOT QUÉT ĐIỀU KIỆN CHÉM SAU MỖI 400ms (Độ trễ con người)
   if (now - bot.lastReaction > 400) {
     bot.lastReaction = now;
 
