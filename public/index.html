@@ -1,130 +1,183 @@
 <!DOCTYPE html>
 <html lang="vi">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>EvoWar Arena</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
-      /* Reset cơ bản */
-      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0d1117; touch-action: none; font-family: 'Nunito', sans-serif; user-select: none; -webkit-user-select: none; }
-      #game { display: block; width: 100vw; height: 100vh; cursor: url(img/cursor.png), auto; }
+        /* RESET & CƠ BẢN */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #111; touch-action: none; font-family: 'Nunito', sans-serif; user-select: none; -webkit-user-select: none; }
+        #game { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
 
-      /* --- GIAO DIỆN LOBBY CHUẨN MƯỢT --- */
-      #ui-layer {
-          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
-          background-color: #1a1e24;
-          background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E%3C/svg%3E");
-          background-size: 80px 138.56px;
-          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
-          transition: opacity 0.4s ease, transform 0.4s ease;
-          backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-          overflow-y: auto; overflow-x: hidden; /* Fix chồng chéo: Cho phép cuộn nếu màn hình quá thấp */
-      }
+        /* =========================================================
+           FIX 4: LỚP PHỦ GIAO DIỆN (POPUP TRÊN NỀN GAME)
+        ========================================================= */
+        #ui-layer {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
+            background: rgba(0, 0, 0, 0.75); /* Màu đen trong suốt 75% */
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); /* Làm mờ nhẹ nền game phía sau */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.3s ease; overflow-y: auto; overflow-x: hidden;
+        }
 
-      /* Hộp thoại mờ (Đã thu gọn paddings) */
-      .panel {
-          background: rgba(30, 38, 46, 0.9); border: 2px solid rgba(65, 75, 85, 0.7);
-          border-radius: 12px; padding: 15px 30px; text-align: center;
-          max-width: 650px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-          box-sizing: border-box; flex-shrink: 0;
-      }
-      .small-panel { max-width: 550px; padding: 12px 25px; }
+        /* Nút Tắt Âm */
+        #mute-btn {
+            position: fixed; top: 15px; right: 215px; background: rgba(20,25,30,0.8); color: #fff;
+            border: 2px solid #445566; width: 40px; height: 40px; border-radius: 50%;
+            cursor: pointer; font-size: 18px; z-index: 9999; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #mute-btn:hover { background: #334455; border-color: #00ff66; transform: scale(1.1); }
 
-      .panel h1 { color: #fff; font-size: 22px; margin: 0 0 5px 0; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
-      .panel h2 { color: #b0b0b0; font-size: 16px; margin: 0 0 10px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
-      .panel p { color: #e0e0e0; font-size: 14px; line-height: 1.4; margin: 0; font-weight: 500; }
-      .small-panel p { color: #bbb; font-size: 12px; margin: 4px 0; }
+        /* =========================================================
+           1. GIAO DIỆN ĐĂNG NHẬP (LOBBY SCREEN)
+        ========================================================= */
+        #login-screen {
+            position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center;
+            width: 100%; max-width: 700px; padding: 15px; box-sizing: border-box;
+        }
+        .panel-top, .panel-bottom {
+            background: rgba(30, 35, 40, 0.95); border-radius: 12px; padding: 20px 30px; text-align: center; width: 100%; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .panel-top { margin-bottom: 20px; }
+        .panel-top h1 { color: #fff; font-size: 28px; margin: 0 0 5px 0; font-weight: 900; text-transform: uppercase;}
+        .panel-top h2 { color: #aaa; font-size: 18px; margin: 0 0 10px 0; font-weight: 700;}
+        .panel-top p { color: #ddd; font-size: 14px; line-height: 1.4; margin: 0; }
 
-      /* Logo Vương Miện (Thu nhỏ lại) */
-      .logo-box { text-align: center; margin: 0; position: relative; flex-shrink: 0; }
-      #game-logo { height: 110px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6)); animation: float 3s infinite ease-in-out; }
-      .version-text { color: #777; font-size: 12px; font-weight: bold; margin-top: -5px; }
-      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .logo-wrapper { margin: -30px 0 -15px 0; z-index: 11; position: relative; }
+        #game-logo { height: 130px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.7)); animation: float 3s ease-in-out infinite; }
+        .version-text { color: #888; font-size: 12px; font-weight: bold; margin-top: -5px; text-align: center;}
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
-      /* Vùng điều khiển */
-      .action-box { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 5px; width: 100%; flex-shrink: 0; }
-      
-      #name-input {
-          background: rgba(15, 20, 25, 0.95); border: 2px solid #556677; color: #00ff66; padding: 12px 15px;
-          border-radius: 8px; font-size: 16px; text-align: center; width: 240px; max-width: 80%; outline: none; font-weight: bold;
-          transition: all 0.3s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); font-family: 'Nunito', sans-serif;
-      }
-      #name-input:focus { border-color: #00ff66; box-shadow: 0 0 15px rgba(0,255,102,0.3); background: rgba(25, 30, 35, 1); }
+        .panel-bottom { padding-bottom: 40px; }
+        .panel-bottom p { color: #bbb; font-size: 12px; margin: 4px 0; line-height: 1.4; }
 
-      /* Nút PLAY Cam e-Sports (Sử dụng Nunito đậm thay vì Impact) */
-      #play-btn {
-          background: linear-gradient(180deg, #ff8c00, #e63900); border: 2px solid #ffcc00;
-          border-bottom-width: 5px; color: #fff; font-size: 26px; font-weight: 900;
-          padding: 10px 50px; border-radius: 12px; cursor: pointer; text-shadow: 1px 2px 0px #802000;
-          text-transform: uppercase; font-family: 'Nunito', sans-serif; letter-spacing: 1px;
-          transition: all 0.1s; box-shadow: 0 6px 15px rgba(0,0,0,0.5); width: auto;
-      }
-      #play-btn:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 7px; filter: brightness(1.1); }
-      #play-btn:active:not(:disabled) { transform: translateY(3px); border-bottom-width: 2px; }
-      
-      #play-btn:disabled { 
-          background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888;
-          cursor: not-allowed; border-bottom-width: 3px; transform: none; text-shadow: none;
-          font-size: 18px; padding: 12px 35px;
-      }
+        .play-area { margin-top: -25px; z-index: 12; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;}
+        #name-input {
+            background: #111; border: 2px solid #555; color: #fff; padding: 12px 20px;
+            border-radius: 8px; font-size: 16px; text-align: center; width: 240px; max-width: 80%; outline: none; transition: 0.3s; font-family: 'Nunito', sans-serif; font-weight: 700;
+        }
+        #name-input:focus { border-color: #ff8c00; box-shadow: 0 0 10px rgba(255,140,0,0.4); }
 
-      #status-text { color: #ff4444; font-weight: bold; margin-top: 0px; font-size: 14px; text-shadow: 1px 1px 2px #000; }
+        /* =========================================================
+           2. GIAO DIỆN CHẾT (DEATH SCREEN - 3 CỘT NHƯ ẢNH)
+        ========================================================= */
+        #death-screen {
+            display: none; width: 100%; max-width: 850px; padding: 15px; box-sizing: border-box;
+            justify-content: center; align-items: stretch; gap: 15px; position: relative; z-index: 10;
+        }
+        .death-col {
+            background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 12px; padding: 15px 20px; color: white; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .col-side { width: 220px; }
+        .col-center { width: 320px; align-items: center; text-align: center; border-color: #555; padding-bottom: 25px;}
+        
+        .box-title { font-size: 16px; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; text-align: center; color: #fff; letter-spacing: 1px;}
+        
+        .hint-list { list-style: none; padding: 0; margin: 0; font-size: 13px; color: #aaa; line-height: 1.5; text-align: left;}
+        .hint-list li { margin-bottom: 10px; position: relative; padding-left: 15px; }
+        .hint-list li::before { content: "•"; position: absolute; left: 0; color: #ff8c00; }
 
-      /* Nút Tắt Âm tinh tế */
-      #mute-btn {
-          position: fixed; top: 12px; right: 212px; background: rgba(20,25,30,0.8); color: #fff;
-          border: 2px solid #445566; width: 36px; height: 36px; border-radius: 50%;
-          cursor: pointer; font-size: 16px; z-index: 2001; transition: all 0.2s;
-          display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      }
-      #mute-btn:hover { background: #334455; border-color: #00ff66; transform: scale(1.1); }
+        #killer-name { color: #ff4444; font-size: 20px; font-weight: 900; margin-bottom: 15px; word-break: break-all;}
+        .next-evo-title { font-size: 12px; color: #ccc; margin-bottom: 8px; text-transform: uppercase; font-weight: 700;}
+        #next-evo-img { height: 100px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
 
-      /* RESPONSIVE SIÊU MƯỢT CHO MOBILE */
-      @media (max-width: 768px), (max-height: 650px) {
-          #ui-layer { justify-content: flex-start; padding: 20px 0; gap: 10px; }
-          .panel { padding: 12px 15px; }
-          .panel h1 { font-size: 18px; margin-bottom: 4px; }
-          .panel h2 { font-size: 14px; margin-bottom: 6px; }
-          .panel p { font-size: 12px; line-height: 1.4; }
-          .small-panel p { font-size: 11px; margin: 3px 0; }
-          #game-logo { height: 90px; }
-          #name-input { font-size: 15px; padding: 10px 15px; width: 220px; }
-          #play-btn { font-size: 22px; padding: 8px 40px; }
-          #mute-btn { right: 105px; width: 32px; height: 32px; font-size: 14px; top: 10px; border-width: 1px; }
-      }
+        /* Nút Bấm Dung Chung */
+        .btn-action {
+            background: linear-gradient(to bottom, #ff8c00, #e63900); border: 2px solid #ffcc00;
+            border-bottom-width: 5px; color: #fff; font-size: 24px; font-weight: 900;
+            padding: 8px 40px; border-radius: 8px; cursor: pointer; text-shadow: 1px 2px 0px #802000;
+            text-transform: uppercase; font-family: 'Nunito', sans-serif; letter-spacing: 1px;
+            transition: transform 0.1s, box-shadow 0.1s; margin-top: auto; box-shadow: 0 6px 15px rgba(0,0,0,0.5);
+        }
+        .btn-action:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 7px; filter: brightness(1.1); }
+        .btn-action:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 1px; }
+        .btn-action:disabled { background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888; cursor: not-allowed; border-bottom-width: 3px; font-size: 16px; padding: 12px 30px; transform: none;}
+        
+        #respawn-btn { background: linear-gradient(to bottom, #e62e00, #990000); border-color: #ff6666;}
+        .ad-placeholder { width: 100%; height: 130px; background: #222; border: 1px dashed #444; display: flex; align-items: center; justify-content: center; color: #666; margin-top: 10px; font-size: 11px; border-radius: 8px;}
+
+        /* =========================================================
+           FIX 2: THU GỌN CHỐNG CHỒNG CHÉO TRÊN MOBILE
+        ========================================================= */
+        @media (max-width: 768px), (max-height: 600px) {
+            #ui-layer { padding: 10px 0; justify-content: flex-start; }
+            #death-screen { flex-direction: column; align-items: center; gap: 10px;}
+            /* Ẩn cột quảng cáo và gợi ý trên điện thoại để tiết kiệm diện tích */
+            .col-side { display: none; } 
+            .col-center { width: 90%; max-width: 350px; padding: 15px; }
+            
+            .panel-top, .panel-bottom { padding: 12px 15px; }
+            .panel-top h1 { font-size: 20px; margin-bottom: 2px;} 
+            .panel-top h2 { font-size: 14px; margin-bottom: 5px;}
+            .panel-top p, .panel-bottom p { font-size: 11px; line-height: 1.3;}
+            
+            .logo-wrapper { margin: -20px 0 -10px 0; }
+            #game-logo { height: 90px; }
+            #next-evo-img { height: 80px; margin-bottom: 10px;}
+            
+            .play-area { margin-top: -15px; }
+            #name-input { font-size: 15px; padding: 10px 15px; width: 200px; }
+            .btn-action { font-size: 20px; padding: 8px 35px; }
+            #mute-btn { top: 10px; right: 100px; width: 32px; height: 32px; font-size: 14px; }
+            
+            #killer-name { font-size: 18px; margin-bottom: 10px;}
+            .box-title { font-size: 14px; margin-bottom: 8px;}
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <canvas id="game"></canvas>
-    
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
-        <div class="panel">
-            <h1>CHÀO MỪNG BẠN ĐẾN VỚI TRÒ CHƠI</h1>
-            <h2>Chiến đấu! Giết chóc! Tiến hóa!</h2>
-            <p>Nhân vật của bạn sẽ tiến hóa mỗi khi bạn lên cấp. Khi tiến hóa, vũ khí và trang phục của bạn cũng sẽ được nâng cấp.</p>
+        <div id="login-screen">
+            <div class="panel-top">
+                <h1>Chào mừng bạn đến với trò chơi</h1>
+                <h2>Chiến đấu! Giết chóc! Tiến hóa!</h2>
+                <p>Nhân vật của bạn sẽ tiến hóa mỗi khi bạn lên cấp. Khi tiến hóa, vũ khí và trang phục của bạn cũng sẽ được nâng cấp.</p>
+            </div>
+            <div class="logo-wrapper">
+                <img src="img/king.png" alt="Logo" id="game-logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
+                <div class="version-text">v 1.0.0</div>
+            </div>
+            <div class="panel-bottom">
+                <p>Chào mừng đến với Evo Arena, trò chơi đấu trường đối kháng hay nhất!</p>
+                <p>Thu thập các quả cầu và tiêu diệt đối thủ để tích lũy kinh nghiệm và tăng kích thước. Mỗi khi lên cấp, nhân vật sẽ thay đổi ngoại hình và kích thước thanh kiếm. Hãy cẩn thận với những kẻ địch nhỏ bé vì chúng rất nhanh!</p>
+            </div>
+            <div class="play-area">
+                <input type="text" id="name-input" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false" />
+                <button id="play-btn" class="btn-action" disabled>ĐANG KẾT NỐI...</button>
+                <div id="status-text" style="color: #ff5555; font-weight: bold; margin-top: 5px; font-size: 14px;"></div>
+            </div>
         </div>
 
-        <div class="logo-box">
-            <img src="img/king.png" alt="Logo" id="game-logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
-            <div class="version-text">v 1.0.0</div>
-        </div>
-
-        <div class="panel small-panel">
-            <p>Chào mừng đến với Evo Arena, trò chơi đấu trường đối kháng hay nhất!</p>
-            <p>Thu thập các quả cầu và tiêu diệt đối thủ để tích lũy kinh nghiệm và tăng kích thước. Mỗi khi lên cấp, nhân vật của bạn sẽ tiến hóa, thay đổi ngoại hình và tăng kích thước thanh kiếm. Hãy cẩn thận với những đối thủ nhỏ bé vì chúng là những sát thủ nhanh nhất!</p>
-        </div>
-
-        <div class="action-box">
-            <input type="text" id="name-input" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false" />
-            <button id="play-btn" disabled>ĐANG KẾT NỐI...</button>
-            <div id="status-text"></div>
+        <div id="death-screen">
+            <div class="death-col col-side">
+                <div class="box-title">GỢI Ý</div>
+                <ul class="hint-list">
+                    <li>Săn lùng những kẻ to lớn hoặc thu thập quả cầu ở cấp độ thấp.</li>
+                    <li>Giết một kẻ thù lớn mang lại cho bạn rất nhiều kinh nghiệm!</li>
+                    <li>Những quả cầu lớn mang lại cho bạn nhiều kinh nghiệm hơn những quả nhỏ.</li>
+                </ul>
+            </div>
+            <div class="death-col col-center">
+                <div class="box-title">ĐÃ HẠ GỤC BỞI</div>
+                <div id="killer-name">KẺ THÙ BÍ ẨN</div>
+                <div class="next-evo-title">TIẾN HÓA TIẾP THEO</div>
+                <img id="next-evo-img" src="img/king.png" alt="Next Level" onerror="this.src='img/king.png'">
+                <button id="respawn-btn" class="btn-action" disabled>ĐANG TẢI...</button>
+            </div>
+            <div class="death-col col-side">
+                <div class="box-title">TRÒ CHƠI CỦA</div>
+                <div class="ad-placeholder">[ KHU VỰC QUẢNG CÁO ]</div>
+            </div>
         </div>
     </div>
 
     <script src="/shared/constants.js"></script>
     <script type="module" src="main.js"></script>
-  </body>
+</body>
 </html>
