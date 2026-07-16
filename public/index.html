@@ -11,21 +11,21 @@
         }
         #game { display: block; width: 100vw; height: 100vh; }
 
-        /* MÀN HÌNH CHỜ (LOBBY) */
+        /* MÀN HÌNH LOBBY CHỜ */
         #ui-layer {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
             background-color: #0d1117;
-            /* Lưới lưới công nghệ (Grid background) siêu nhẹ */
+            /* Lưới nền Cyberpunk */
             background-image: 
                 linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
             background-size: 40px 40px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 25px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
             transition: opacity 0.4s ease, transform 0.4s ease;
             user-select: none;
         }
 
-        /* Hộp thoại mờ */
+        /* Hộp thoại giới thiệu */
         .panel {
             background: rgba(20, 25, 30, 0.85); border: 2px solid rgba(0, 255, 255, 0.15);
             border-radius: 12px; padding: 25px 30px; text-align: center;
@@ -37,12 +37,12 @@
         .panel h2 { color: #fff; font-size: 20px; margin: 0 0 15px 0; font-weight: 600; }
         .panel p { color: #bbb; font-size: 14px; line-height: 1.6; margin: 0; }
 
-        /* Logo Vương Miện Nổi */
-        .logo-box { text-align: center; }
-        #game-logo { height: 140px; filter: drop-shadow(0 10px 15px rgba(255,200,0,0.4)); animation: float 3s infinite ease-in-out; }
+        /* Logo Vương Miện */
+        .logo-box { text-align: center; margin: 5px 0; }
+        #game-logo { height: 130px; filter: drop-shadow(0 10px 15px rgba(255,200,0,0.4)); animation: float 3s infinite ease-in-out; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
 
-        /* Khu vực điều khiển */
+        /* Khu vực điều khiển nhập tên */
         .action-box { display: flex; flex-direction: column; align-items: center; gap: 15px; }
         
         #name-input {
@@ -52,7 +52,7 @@
         }
         #name-input:focus { border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.3); background: #1c2128; }
 
-        /* Nút PLAY chuẩn e-Sports */
+        /* Nút PLAY Cam */
         #play-btn {
             background: linear-gradient(180deg, #ff8c00, #e63900); border: 2px solid #ffcc00;
             border-bottom-width: 6px; color: #fff; font-size: 32px; font-weight: 900;
@@ -63,16 +63,15 @@
         #play-btn:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 8px; filter: brightness(1.1); }
         #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; }
         
-        /* Trạng thái kết nối / Chờ hồi sinh */
         #play-btn:disabled { 
             background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888;
             cursor: not-allowed; border-bottom-width: 3px; transform: none; text-shadow: none;
             font-size: 20px; padding: 15px 40px; font-family: monospace, sans-serif;
         }
 
-        #status-text { color: #ff4444; font-weight: bold; margin-top: 5px; font-size: 16px; text-shadow: 1px 1px 2px #000; }
+        #status-text { color: #ff4444; font-weight: bold; margin-top: 5px; font-size: 16px; text-shadow: 1px 1px 2px #000; max-width: 80%; text-align: center;}
 
-        /* Nút Mute thu nhỏ, sang trọng góc phải */
+        /* Nút Tắt/Bật Âm Thanh */
         #mute-btn {
             position: fixed; top: 15px; right: 215px; background: rgba(20,25,30,0.8); color: #fff;
             border: 2px solid #445566; width: 40px; height: 40px; border-radius: 50%;
@@ -104,7 +103,7 @@
         </div>
 
         <div class="logo-box">
-            <img src="https://evowars.io/assets/images/logo.png" alt="Logo" id="game-logo">
+            <img src="img/king.png" alt="Logo" id="game-logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
         </div>
 
         <div class="action-box">
