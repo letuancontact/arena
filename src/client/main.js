@@ -1,12 +1,11 @@
 // --- main.js ---
 import { GameState } from './state.js';
-// Ép import kiểu Module bảo mật: Dù thiếu biến cũng không báo lỗi sập Game
 import * as RenderEngine from './renderer.js'; 
 
 const Camera = RenderEngine.Camera || {};
 const Resources = RenderEngine.Resources || { load: () => {} };
 const Renderer = RenderEngine.Renderer || {};
-const FX = RenderEngine.FX; // Nếu thiếu FX sẽ gán = undefined thay vì sập game
+const FX = RenderEngine.FX; 
 
 const CONFIG = window.GAME_CONFIG || { MAP_WIDTH: 3000, MAP_HEIGHT: 3000, RESPAWN_TIME: 5000, CLIENT_SEND_INTERVAL: 50 };
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -17,25 +16,17 @@ GameState.freezeUntil = 0;
 GameState.prevPlayerLevels = GameState.prevPlayerLevels || {};
 GameState.prevPlayerDeadState = GameState.prevPlayerDeadState || {};
 
-// =========================================================================
-// QUẢN LÝ DỮ LIỆU AN TOÀN (CHỐNG LỖI ẨN DANH)
-// =========================================================================
 let isMutedGlobal = false;
 let savedPlayerName = "";
 try {
     isMutedGlobal = localStorage.getItem("evowar_muted") === "true";
     savedPlayerName = localStorage.getItem("evowar_name") || "";
-} catch (e) {
-    console.warn("Trình duyệt chặn LocalStorage");
-}
+} catch (e) {}
 
-// =========================================================================
-// QUẢN LÝ ÂM THANH MỚI
-// =========================================================================
+// QUẢN LÝ ÂM THANH
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
   isMuted: isMutedGlobal,
-  
   init() {
     if (!this.ctx) { 
       window.AudioContext = window.AudioContext || window.webkitAudioContext; 
@@ -46,19 +37,16 @@ const Sound = {
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   },
-  
   toggleMute() {
     this.isMuted = !this.isMuted;
     try { localStorage.setItem("evowar_muted", this.isMuted); } catch(e){}
     return this.isMuted;
   },
-
   play(type) {
     if (!this.ctx || this.isMuted) return;
     const nowMs = Date.now();
     if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
     const now = this.ctx.currentTime;
-    
     try {
         if (type === 'hover') {
           const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -107,43 +95,53 @@ const Sound = {
   }
 };
 
-// =========================================================================
-// SỰ KIỆN GIAO DIỆN (UI EVENTS)
-// =========================================================================
+// LIÊN KẾT PHẦN TỬ DOM
 const uiLayer = document.getElementById("ui-layer");
+const loginScreen = document.getElementById("login-screen");
+const deathScreen = document.getElementById("death-screen");
+
 const playBtn = document.getElementById("play-btn");
+const respawnBtn = document.getElementById("respawn-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
+const deathStatusText = document.getElementById("death-status-text");
 const muteBtn = document.getElementById("mute-btn");
 
 if (muteBtn) {
     muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
     muteBtn.addEventListener("click", () => {
-        Sound.init();
-        const muted = Sound.toggleMute();
-        muteBtn.innerHTML = muted ? "🔇" : "🔊";
+        Sound.init(); const muted = Sound.toggleMute(); muteBtn.innerHTML = muted ? "🔇" : "🔊";
         if (!muted) Sound.play('click');
     });
 }
 
-if (playBtn) playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+// Logic Nút Bấm
+const joinGame = () => {
+    Sound.init(); Sound.play('click');
+    if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
+    const name = nameInput.value.trim() || "Khách"; 
+    try { localStorage.setItem("evowar_name", name); } catch(e){}
+    Network.ws.send(JSON.stringify({ type: "join", name: name }));
+    if(playBtn) { playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true; }
+    if(respawnBtn) { respawnBtn.innerText = "ĐANG VÀO..."; respawnBtn.disabled = true; }
+};
+
+if (playBtn) {
+    playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+    playBtn.addEventListener("click", joinGame);
+}
+if (respawnBtn) {
+    respawnBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+    respawnBtn.addEventListener("click", joinGame);
+}
+
 if (nameInput) {
     nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
     nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
     nameInput.value = savedPlayerName;
 }
 
-if (playBtn) {
-    playBtn.addEventListener("click", () => {
-      Sound.init(); Sound.play('click');
-      if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
-      const name = nameInput.value.trim() || "Khách"; 
-      try { localStorage.setItem("evowar_name", name); } catch(e){}
-      Network.ws.send(JSON.stringify({ type: "join", name: name }));
-      playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
-    });
-}
-
+// KHỐI MẠNG (WEBSOCKET)
 const Network = {
   ws: null,
   connect() { 
@@ -152,16 +150,15 @@ const Network = {
         this.ws.onopen = () => { 
             if (statusText) statusText.innerText = ""; 
             if (playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
+            if (respawnBtn) { respawnBtn.innerText = "CHƠI"; respawnBtn.disabled = false; }
         };
         this.ws.onclose = () => { 
             if (statusText) statusText.innerText = "MẤT KẾT NỐI VỚI SERVER!"; 
-            if (playBtn) { playBtn.innerText = "MẤT KẾT NỐI"; playBtn.disabled = true; }
-            if (uiLayer) { uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }
+            if (playBtn) { playBtn.innerText = "DISCONNECTED"; playBtn.disabled = true; }
+            if (uiLayer) { uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; }
         };
         this.ws.onmessage = this.onMessage; 
-    } catch(err) {
-        if(statusText) statusText.innerText = "Lỗi WebSocket: " + err.message;
-    }
+    } catch(err) {}
   },
   onMessage(msg) {
     try {
@@ -181,39 +178,57 @@ const Network = {
           if (data.foodRemoved && data.foodRemoved.length > 0) { const removedSet = new Set(data.foodRemoved); GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); }
           
           const prevDead = GameState.isDead ?? true; const me = (data.players || []).find((p) => p.id === GameState.playerId);
+          
           if (me) {
             const oldLevel = GameState.clientLevel;
             GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
-            GameState.clientXpToNext = me.xpToNext || (GameState.getXpToNext ? GameState.getXpToNext(GameState.clientLevel) : 100); 
-            GameState.clientRadius = GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20;
             
             if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); if(Camera.screenFlash !== undefined) Camera.screenFlash = 1.0; } 
+            
             if (oldLevel !== GameState.clientLevel && Camera.getZoomByLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
             if (prevDead && !me.isDead) { 
               GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
               if(uiLayer) {
-                  uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
-                  setTimeout(() => uiLayer.style.display = "none", 400); 
+                  uiLayer.style.opacity = "0"; 
+                  setTimeout(() => uiLayer.style.display = "none", 300); 
               }
             } 
             else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
+            // LÚC CHẾT -> HIỂN THỊ MÀN HÌNH CHẾT (DEATH SCREEN)
             if (!prevDead && me.isDead) {
-              if(uiLayer) { uiLayer.style.display = "flex"; setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); }
-              if(statusText) statusText.innerText = ""; 
-              if(playBtn) playBtn.disabled = true;
+              if (uiLayer) { 
+                  uiLayer.style.display = "flex"; 
+                  // Ẩn bảng Login, bật bảng Death
+                  if(loginScreen) loginScreen.style.display = "none";
+                  if(deathScreen) deathScreen.style.display = "flex";
+                  
+                  // Hiển thị tên kẻ thù đã giết bạn
+                  const killerObj = (data.players || []).find(k => k.id === me.killerId);
+                  const killerNameEl = document.getElementById("killer-name");
+                  if (killerNameEl) killerNameEl.innerText = killerObj ? (killerObj.name || "Khách") : "KẺ THÙ BÍ ẨN";
+                  
+                  // Hiển thị ảnh Tiến hóa cấp tiếp theo
+                  const nextEvoImg = document.getElementById("next-evo-img");
+                  const nextLv = Math.min(40, GameState.clientLevel + 1);
+                  if (nextEvoImg) nextEvoImg.src = `img/lv${nextLv}.png`;
+
+                  setTimeout(() => { uiLayer.style.opacity = "1"; }, 10); 
+              }
+              
+              if(respawnBtn) respawnBtn.disabled = true;
               
               let left = Math.floor((CONFIG.RESPAWN_TIME || 5000) / 1000); 
-              if(playBtn) playBtn.innerText = `HỒI SINH SAU: ${left}S`;
+              if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`;
               
               const interval = setInterval(() => { 
                 left--; 
                 if (left <= 0) { 
                   clearInterval(interval); 
-                  if(playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
+                  if(respawnBtn) { respawnBtn.innerText = "CHƠI"; respawnBtn.disabled = false; }
                 } else { 
-                  if(playBtn) playBtn.innerText = `HỒI SINH SAU: ${left}S`; 
+                  if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`; 
                 } 
               }, 1000);
             }
@@ -414,7 +429,7 @@ function main() {
         if (GameState.clientXp <= 0 && GameState.rightMouseDown) { GameState.rightMouseDown = false; Network.sendPositionUpdate(true); }
       }, CONFIG.UI_UPDATE_INTERVAL || 100);
   } catch(err) {
-      if(statusText) statusText.innerText = "LỖI: " + err.message;
+      console.error(err);
   }
 }
 
