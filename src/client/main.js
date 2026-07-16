@@ -9,10 +9,47 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
-// --- GIAI ĐOẠN 5: SOUND MANAGER VÀ MUTE BUTTON ---
+// =========================================================================
+// 1. TỰ ĐỘNG TIÊM CSS LỘT XÁC GIAO DIỆN CHỜ (KHÔNG CẦN SỬA HTML)
+// =========================================================================
+const uiStyle = document.createElement('style');
+uiStyle.innerHTML = `
+  #ui-layer {
+    background: radial-gradient(circle at center, rgba(15,25,35,0.85) 0%, rgba(5,10,15,0.95) 100%) !important;
+    backdrop-filter: blur(8px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
+  }
+  #ui-layer h1, #ui-layer h2 { color: #fff; text-shadow: 0 0 20px #00ffff; font-size: 40px; margin-bottom: 30px; text-transform: uppercase; text-align: center; }
+  #name-input {
+    background: rgba(255, 255, 255, 0.05) !important; border: 2px solid rgba(0, 255, 255, 0.3) !important;
+    color: #fff !important; padding: 16px 30px !important; border-radius: 40px !important; font-size: 20px !important;
+    text-align: center; outline: none; transition: all 0.3s ease !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1) !important; width: 280px; max-width: 80vw;
+    margin-bottom: 25px; font-weight: bold; letter-spacing: 1px;
+  }
+  #name-input:focus { border-color: #00ffff !important; box-shadow: 0 0 30px rgba(0, 255, 255, 0.5) !important; background: rgba(255,255,255,0.1) !important; }
+  #name-input::placeholder { color: rgba(255,255,255,0.4); font-weight: normal; }
+  #play-btn {
+    background: linear-gradient(135deg, #00ff66, #00cc55) !important; border: none !important;
+    color: #003311 !important; font-weight: 900 !important; font-size: 22px !important; padding: 16px 50px !important;
+    border-radius: 40px !important; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    text-transform: uppercase; box-shadow: 0 10px 25px rgba(0, 255, 102, 0.3) !important; letter-spacing: 2px;
+  }
+  #play-btn:hover:not(:disabled) { transform: translateY(-5px) scale(1.05) !important; box-shadow: 0 15px 35px rgba(0, 255, 102, 0.6) !important; }
+  #play-btn:active:not(:disabled) { transform: translateY(2px) scale(0.98) !important; }
+  #play-btn:disabled { background: #445566 !important; color: #8899aa !important; box-shadow: none !important; cursor: not-allowed; transform: scale(1) !important; }
+  #status-text { color: #ff4444 !important; font-size: 20px !important; font-weight: bold !important; text-shadow: 0 0 15px rgba(255,68,68,0.6) !important; margin-top: 25px; letter-spacing: 1px;}
+`;
+document.head.appendChild(uiStyle);
+
+// =========================================================================
+// 2. HỆ THỐNG SOUND MANAGER TỐI ƯU (TIẾNG LÊN CẤP ÊM ÁI)
+// =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
-  isMuted: localStorage.getItem("evowar_muted") === "true", // Đọc cài đặt tắt tiếng
+  isMuted: localStorage.getItem("evowar_muted") === "true", 
   
   init() {
     if (!this.ctx) { 
@@ -32,12 +69,11 @@ const Sound = {
   },
 
   play(type) {
-    if (!this.ctx || this.isMuted) return; // Không phát âm nếu đang Mute
+    if (!this.ctx || this.isMuted) return; 
     const nowMs = Date.now();
     if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
     const now = this.ctx.currentTime;
     
-    // Âm thanh Giao diện Menu
     if (type === 'hover') {
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
@@ -50,7 +86,6 @@ const Sound = {
       gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
       osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
     }
-    // Âm thanh in-game (ĐÃ XÓA TIẾNG ĂN FOOD)
     else if (type === 'swing') {
       const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
       const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass';
@@ -71,15 +106,23 @@ const Sound = {
       noiseSrc.connect(nFilter); nFilter.connect(nGain); nGain.connect(this.ctx.destination);
       noiseSrc.start(now); noiseSrc.stop(now + 0.2);
     } 
+    // ĐÃ FIX 2: SỬ DỤNG SÓNG HÌNH SIN (SINE) ÊM ÁI CHO TIẾNG LÊN CẤP, KHÔNG BỊ CHÓI TAI
     else if (type === 'levelUp') {
       const playNote = (freq, startOffset, duration) => {
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'square'; osc.frequency.setValueAtTime(freq, now + startOffset);
-        gain.gain.setValueAtTime(0.1, now + startOffset); gain.gain.exponentialRampToValueAtTime(0.01, now + startOffset + duration);
+        osc.type = 'sine'; // Sóng sine cực kỳ mềm mại
+        osc.frequency.setValueAtTime(freq, now + startOffset);
+        gain.gain.setValueAtTime(0, now + startOffset);
+        gain.gain.linearRampToValueAtTime(0.08, now + startOffset + duration * 0.1); // Âm lượng thấp gọn gàng
+        gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
         osc.connect(gain); gain.connect(this.ctx.destination);
         osc.start(now + startOffset); osc.stop(now + startOffset + duration);
       };
-      playNote(440, 0, 0.2); playNote(554.37, 0.1, 0.2); playNote(659.25, 0.2, 0.4); playNote(880, 0.3, 0.6); 
+      // Giai điệu chuông gió thăng hoa nhẹ nhàng
+      playNote(523.25, 0, 0.4);      
+      playNote(659.25, 0.1, 0.4);    
+      playNote(783.99, 0.2, 0.4);    
+      playNote(1046.50, 0.35, 0.8);  
     }
   }
 };
@@ -89,29 +132,40 @@ const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
-// --- THÊM HIỆU ỨNG POPUP ĐÀN HỒI CHO MENU ---
 if (uiLayer) {
     uiLayer.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
     uiLayer.style.transform = "scale(1)";
 }
 
-// Bắt sự kiện Hover/Click tạo âm thanh
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
 
-// Tự động tạo nút Bật/Tắt âm thanh (Mute Button) góc phải
+// =========================================================================
+// 3. ĐÃ FIX 1: NÚT MUTE TINH TẾ (CHỈ ICON) ĐẶT Ở GIỮA TRÊN CÙNG
+// =========================================================================
 const muteBtn = document.createElement("button");
-muteBtn.innerHTML = Sound.isMuted ? "🔇 Bật Âm Thanh" : "🔊 Tắt Âm Thanh";
-muteBtn.style.cssText = "position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.6); color:white; border:2px solid #555; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:bold; z-index:9999; transition:all 0.2s; font-family:sans-serif;";
+muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
+muteBtn.style.cssText = "position:fixed; top:15px; left:50%; transform:translateX(-50%); background:rgba(20,25,30,0.8); color:white; border:2px solid #445566; width:46px; height:46px; border-radius:50%; cursor:pointer; font-size:22px; display:flex; align-items:center; justify-content:center; z-index:9999; transition:all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 15px rgba(0,0,0,0.5);";
 document.body.appendChild(muteBtn);
 
-muteBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); muteBtn.style.background = "rgba(50,50,50,0.9)"; });
-muteBtn.addEventListener("mouseleave", () => { muteBtn.style.background = "rgba(0,0,0,0.6)"; });
+muteBtn.addEventListener("mouseenter", () => { 
+    Sound.init(); Sound.play('hover'); 
+    muteBtn.style.background = "rgba(40,50,60,0.9)"; 
+    muteBtn.style.transform = "translateX(-50%) scale(1.15)"; 
+    muteBtn.style.borderColor = "#00ffff";
+    muteBtn.style.boxShadow = "0 0 15px rgba(0,255,255,0.4)";
+});
+muteBtn.addEventListener("mouseleave", () => { 
+    muteBtn.style.background = "rgba(20,25,30,0.8)"; 
+    muteBtn.style.transform = "translateX(-50%) scale(1)"; 
+    muteBtn.style.borderColor = "#445566";
+    muteBtn.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
+});
 muteBtn.addEventListener("click", () => {
     Sound.init();
     const muted = Sound.toggleMute();
-    muteBtn.innerHTML = muted ? "🔇 Bật Âm Thanh" : "🔊 Tắt Âm Thanh";
+    muteBtn.innerHTML = muted ? "🔇" : "🔊";
     if (!muted) Sound.play('click');
 });
 
@@ -156,20 +210,20 @@ const Network = {
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
-        // ĐÃ XÓA dòng phát âm thanh Sound.play('eat') ở đây
+        // Không phát âm thanh tiếng ăn FOOD nữa theo yêu cầu
         
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; // Thu nhỏ và ẩn UI mượt mà
+          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
           setTimeout(() => uiLayer.style.display = "none", 400); 
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
           uiLayer.style.display = "flex"; 
-          setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); // Bật nảy UI khi chết
+          setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
           statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
           const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; } }, 1000);
