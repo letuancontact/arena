@@ -2,20 +2,17 @@
 import { GameState } from './state.js';
 import { Camera, FX, Resources, Renderer } from './renderer.js';
 
-const CONFIG = window.GAME_CONFIG;
+const CONFIG = window.GAME_CONFIG || { MAP_WIDTH: 3000, MAP_HEIGHT: 3000, RESPAWN_TIME: 5000, CLIENT_SEND_INTERVAL: 50 };
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${protocol}//${window.location.host}`;
 const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
-
-// Khởi tạo an toàn để tránh crash JS
 GameState.prevPlayerLevels = GameState.prevPlayerLevels || {};
 GameState.prevPlayerDeadState = GameState.prevPlayerDeadState || {};
-GameState.prevPositions = GameState.prevPositions || {};
 
 // =========================================================================
-// QUẢN LÝ ÂM THANH
+// HỆ THỐNG ÂM THANH (SÓNG SIN ÊM ÁI)
 // =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
@@ -68,8 +65,7 @@ const Sound = {
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
       gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.connect(gain); gain.connect(this.ctx.destination);
-      osc.start(now); osc.stop(now + 0.3);
+      osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.3);
       const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
       const nFilter = this.ctx.createBiquadFilter(); nFilter.type = 'lowpass'; nFilter.frequency.setValueAtTime(800, now);
       const nGain = this.ctx.createGain(); nGain.gain.setValueAtTime(0.4, now); nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
@@ -92,13 +88,15 @@ const Sound = {
   }
 };
 
+// =========================================================================
+// LOGIC GIAO DIỆN (DOM)
+// =========================================================================
 const uiLayer = document.getElementById("ui-layer");
 const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 const muteBtn = document.getElementById("mute-btn");
 
-// Khởi tạo Icon Mute lúc load trang
 if(muteBtn) muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
 
 if (playBtn) playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
@@ -127,16 +125,26 @@ if (playBtn) {
     });
 }
 
+// Cảnh báo nếu Server đang "ngủ"
+let wakeUpTimeout = setTimeout(() => {
+    if (playBtn && playBtn.disabled && playBtn.innerText === "ĐANG KẾT NỐI...") {
+        playBtn.innerText = "ĐANG ĐÁNH THỨC SERVER...";
+        if(statusText) statusText.innerText = "Lưu ý: Mất khoảng 10 giây để khởi động Server";
+    }
+}, 3000);
+
 const Network = {
   ws: null,
   connect() { 
     this.ws = new WebSocket(wsUrl); 
     this.ws.onopen = () => { 
+        clearTimeout(wakeUpTimeout);
         if(statusText) statusText.innerText = ""; 
         if(playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
     };
     this.ws.onclose = () => { 
-        if(statusText) statusText.innerText = "Mất kết nối với Server!"; 
+        clearTimeout(wakeUpTimeout);
+        if(statusText) statusText.innerText = "MẤT KẾT NỐI VỚI SERVER!"; 
         if(playBtn) playBtn.disabled = true; 
         if(uiLayer) { uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }
     };
@@ -166,7 +174,6 @@ const Network = {
         GameState.clientRadius = GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20;
         
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
-        
         if (oldLevel !== GameState.clientLevel && Camera.getZoomByLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
@@ -179,10 +186,7 @@ const Network = {
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
-          if(uiLayer) {
-              uiLayer.style.display = "flex"; 
-              setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
-          }
+          if(uiLayer) { uiLayer.style.display = "flex"; setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); }
           if(statusText) statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; 
           if(playBtn) playBtn.disabled = true;
           
