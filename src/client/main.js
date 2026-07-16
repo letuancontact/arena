@@ -10,14 +10,14 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 
 // =========================================================================
-// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN (NỀN TỔ ONG, NÚT CAM, PANELS)
+// 1. TIÊM CSS GIAO DIỆN CHUẨN NGUYÊN BẢN (ĐÃ VÁ LỖI CHUỖI SVG)
 // =========================================================================
 const uiStyle = document.createElement('style');
 uiStyle.innerHTML = `
-  /* Nền Tổ Ong (Honeycomb Pattern) bằng CSS thuần, siêu nhẹ không cần ảnh */
+  /* Nền Tổ Ong (Honeycomb Pattern) bằng CSS thuần, siêu nhẹ không tốn băng thông */
   #ui-layer {
     background-color: #1a1e24;
-    background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E%3C/svg%3E");
     background-size: 80px 138.56px;
     display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -26,32 +26,30 @@ uiStyle.innerHTML = `
     padding: 20px 0; box-sizing: border-box;
   }
 
-  /* Khối văn bản Panel mờ */
+  /* Khối văn bản hộp thoại mờ góc bo tròn */
   .menu-panel {
-    background: rgba(35, 42, 50, 0.85);
-    border: 2px solid rgba(60, 70, 80, 0.6);
+    background: rgba(30, 38, 46, 0.88);
+    border: 2px solid rgba(65, 75, 85, 0.7);
     border-radius: 16px;
     padding: 25px 40px;
     text-align: center;
     max-width: 800px;
     width: 90%;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.6);
   }
   
-  .small-panel {
-    max-width: 700px; padding: 15px 30px;
-  }
+  .small-panel { max-width: 740px; padding: 15px 30px; }
 
   /* Typography */
-  .menu-panel h1 { color: #f0f0f0; font-size: 32px; margin: 0 0 10px 0; font-weight: 800; text-shadow: 1px 2px 4px rgba(0,0,0,0.8); }
-  .menu-panel h2 { color: #aaaaaa; font-size: 26px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.8); }
-  .menu-panel p { color: #e0e0e0; font-size: 16px; line-height: 1.5; margin: 5px 0; font-weight: 500; }
-  .small-panel p { font-size: 13px; color: #cccccc; margin: 3px 0;}
+  .menu-panel h1 { color: #ffffff; font-size: 30px; margin: 0 0 8px 0; font-weight: 800; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
+  .menu-panel h2 { color: #b0b0b0; font-size: 24px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
+  .menu-panel p { color: #e0e0e0; font-size: 15px; line-height: 1.5; margin: 5px 0; font-weight: 500; }
+  .small-panel p { font-size: 13px; color: #bbbbbb; margin: 4px 0; line-height: 1.4; }
 
-  /* Khu vực Logo */
-  .logo-container { text-align: center; margin: 15px 0; position: relative; }
-  #game-logo { height: 160px; object-fit: contain; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); animation: float 3s ease-in-out infinite; }
-  .version-text { color: #888; font-size: 12px; font-weight: bold; margin-top: -10px; }
+  /* Khu vực hiển thị Logo */
+  .logo-container { text-align: center; margin: 10px 0; position: relative; }
+  #game-logo { height: 150px; object-fit: contain; filter: drop-shadow(0 15px 15px rgba(0,0,0,0.7)); animation: float 3s ease-in-out infinite; }
+  .version-text { color: #777; font-size: 12px; font-weight: bold; margin-top: -5px; }
 
   @keyframes float {
     0% { transform: translateY(0px); }
@@ -59,63 +57,65 @@ uiStyle.innerHTML = `
     100% { transform: translateY(0px); }
   }
 
-  /* Input và Nút Play */
-  .action-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 15px; }
+  /* Khối Input và Nút Chơi */
+  .action-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 10px; }
   
   #name-input {
-    background: rgba(20, 25, 30, 0.9); border: 2px solid #556677; color: #fff; 
+    background: rgba(15, 20, 25, 0.95); border: 2px solid #556677; color: #fff; 
     padding: 12px 20px; border-radius: 8px; font-size: 18px; text-align: center; 
     outline: none; transition: all 0.3s ease; width: 260px; font-weight: bold;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
   }
-  #name-input:focus { border-color: #ff5500; background: rgba(30, 35, 40, 1); box-shadow: 0 0 15px rgba(255,85,0,0.3); }
+  #name-input:focus { border-color: #ff6600; background: rgba(25, 30, 35, 1); box-shadow: 0 0 15px rgba(255,102,0,0.4); }
 
-  /* Nút PLAY màu cam chuẩn Evowars */
+  /* Nút PLAY màu cam 3D dày dặn chuẩn Evowars */
   #play-btn {
-    background: linear-gradient(to bottom, #ff8c00, #e63900);
+    background: linear-gradient(to bottom, #ff8c00 0%, #e63900 100%);
     border: 3px solid #ffcc00;
     border-bottom-width: 6px;
-    color: #ffffff; font-weight: 900; font-size: 28px; padding: 12px 60px;
-    border-radius: 12px; cursor: pointer; transition: all 0.1s ease;
-    text-transform: uppercase; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6), inset 0 2px 5px rgba(255,255,255,0.4);
-    text-shadow: 2px 2px 0px #802000, -1px -1px 0px #ffb380;
+    color: #ffffff; font-weight: 900; font-size: 32px; padding: 10px 70px;
+    border-radius: 12px; cursor: pointer; transition: all 0.05s ease;
+    text-transform: uppercase; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.4);
+    text-shadow: 2px 2px 0px #802000;
     letter-spacing: 2px; font-family: 'Impact', 'Arial Black', sans-serif;
   }
-  #play-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); border-bottom-width: 8px; margin-top: -2px; }
-  #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; margin-top: 4px; filter: brightness(0.9); }
+  #play-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); border-bottom-width: 8px; }
+  #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; filter: brightness(0.9); }
   
   #play-btn:disabled { 
-    background: linear-gradient(to bottom, #555, #333); border-color: #777; color: #aaa;
-    border-bottom-width: 3px; cursor: not-allowed; text-shadow: none; font-size: 20px; padding: 15px 40px;
+    background: linear-gradient(to bottom, #555, #333) !important; border-color: #777 !important; color: #aaa !important;
+    border-bottom-width: 3px !important; cursor: not-allowed; text-shadow: none !important; font-size: 18px !important; padding: 14px 40px !important;
+    font-family: monospace, sans-serif !important;
   }
 
   #status-text { color: #ff3333; font-size: 16px; font-weight: bold; margin-top: 10px; text-shadow: 1px 1px 2px black;}
 
-  /* Icon Tắt âm góc bản đồ */
+  /* Icon Mute thu nhỏ đặt sát cạnh Minimap */
   #mute-btn {
     position: fixed; top: 12px; right: 212px; 
     background: rgba(15,22,30,0.8); color: white; border: 2px solid #445566; 
-    width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px; 
+    width: 36px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px; 
     display: flex; align-items: center; justify-content: center; z-index: 9999; 
     transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
   }
   #mute-btn:hover { background: #334455; border-color: #fff; transform: scale(1.1); }
 
-  /* Responsive Mobile */
+  /* Responsive mượt cho Điện thoại */
   @media (max-width: 768px) {
-    .menu-panel { padding: 15px 20px; }
-    .menu-panel h1 { font-size: 22px; margin-bottom: 5px; }
-    .menu-panel h2 { font-size: 18px; margin-bottom: 10px; }
+    .menu-panel { padding: 15px 20px; width: 92%; }
+    .menu-panel h1 { font-size: 20px; margin-bottom: 4px; }
+    .menu-panel h2 { font-size: 16px; margin-bottom: 8px; }
     .menu-panel p { font-size: 13px; }
     .small-panel p { font-size: 11px; }
-    #game-logo { height: 110px; }
-    #play-btn { font-size: 24px; padding: 10px 40px; }
+    #game-logo { height: 100px; }
+    #play-btn { font-size: 24px; padding: 8px 50px; }
     #mute-btn { top: 8px; right: 102px; width: 30px; height: 30px; font-size: 13px; border-width: 1px; }
   }
 `;
 document.head.appendChild(uiStyle);
 
 // =========================================================================
-// 2. SOUND MANAGER
+// 2. SOUND ENGINE
 // =========================================================================
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
@@ -200,6 +200,11 @@ const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
+if (uiLayer) {
+    uiLayer.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+    uiLayer.style.transform = "scale(1)";
+}
+
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
@@ -262,7 +267,7 @@ const Network = {
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.1)"; 
+          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; 
           setTimeout(() => uiLayer.style.display = "none", 400); 
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
@@ -272,13 +277,13 @@ const Network = {
           setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
           statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
           
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
+          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU: ${left}S`;
           const interval = setInterval(() => { 
             left--; 
             if (left <= 0) { 
               clearInterval(interval); playBtn.innerText = "PLAY"; playBtn.disabled = false; statusText.innerText = ""; 
             } else { 
-              playBtn.innerText = `HỒI SINH: ${left}S`; 
+              playBtn.innerText = `HỒI SINH SAU: ${left}S`; 
             } 
           }, 1000);
         }
