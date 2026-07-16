@@ -9,8 +9,11 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
+// --- GIAI ĐOẠN 5: SOUND MANAGER VÀ MUTE BUTTON ---
 const Sound = {
   ctx: null, lastPlay: {}, noiseBuffer: null,
+  isMuted: localStorage.getItem("evowar_muted") === "true", // Đọc cài đặt tắt tiếng
+  
   init() {
     if (!this.ctx) { 
       window.AudioContext = window.AudioContext || window.webkitAudioContext; 
@@ -21,13 +24,34 @@ const Sound = {
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   },
+  
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    localStorage.setItem("evowar_muted", this.isMuted);
+    return this.isMuted;
+  },
+
   play(type) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.isMuted) return; // Không phát âm nếu đang Mute
     const nowMs = Date.now();
     if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
     const now = this.ctx.currentTime;
     
-    if (type === 'swing') {
+    // Âm thanh Giao diện Menu
+    if (type === 'hover') {
+      const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+      gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
+    }
+    else if (type === 'click') {
+      const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+      osc.type = 'square'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
+    }
+    // Âm thanh in-game (ĐÃ XÓA TIẾNG ĂN FOOD)
+    else if (type === 'swing') {
       const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
       const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass';
       filter.frequency.setValueAtTime(300, now); filter.frequency.linearRampToValueAtTime(1200, now + 0.15); filter.Q.value = 1.0;
@@ -35,20 +59,12 @@ const Sound = {
       noiseSrc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
       noiseSrc.start(now); noiseSrc.stop(now + 0.15);
     } 
-    else if (type === 'eat') {
-      const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-      osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
-      gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-      osc.connect(gain); gain.connect(this.ctx.destination);
-      osc.start(now); osc.stop(now + 0.1);
-    } 
     else if (type === 'kill') {
       const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
       osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
       gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.connect(gain); gain.connect(this.ctx.destination);
       osc.start(now); osc.stop(now + 0.3);
-      
       const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
       const nFilter = this.ctx.createBiquadFilter(); nFilter.type = 'lowpass'; nFilter.frequency.setValueAtTime(800, now);
       const nGain = this.ctx.createGain(); nGain.gain.setValueAtTime(0.4, now); nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
@@ -73,9 +89,35 @@ const playBtn = document.getElementById("play-btn");
 const nameInput = document.getElementById("name-input");
 const statusText = document.getElementById("status-text");
 
+// --- THÊM HIỆU ỨNG POPUP ĐÀN HỒI CHO MENU ---
+if (uiLayer) {
+    uiLayer.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+    uiLayer.style.transform = "scale(1)";
+}
+
+// Bắt sự kiện Hover/Click tạo âm thanh
+playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
+
+// Tự động tạo nút Bật/Tắt âm thanh (Mute Button) góc phải
+const muteBtn = document.createElement("button");
+muteBtn.innerHTML = Sound.isMuted ? "🔇 Bật Âm Thanh" : "🔊 Tắt Âm Thanh";
+muteBtn.style.cssText = "position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.6); color:white; border:2px solid #555; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:bold; z-index:9999; transition:all 0.2s; font-family:sans-serif;";
+document.body.appendChild(muteBtn);
+
+muteBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); muteBtn.style.background = "rgba(50,50,50,0.9)"; });
+muteBtn.addEventListener("mouseleave", () => { muteBtn.style.background = "rgba(0,0,0,0.6)"; });
+muteBtn.addEventListener("click", () => {
+    Sound.init();
+    const muted = Sound.toggleMute();
+    muteBtn.innerHTML = muted ? "🔇 Bật Âm Thanh" : "🔊 Tắt Âm Thanh";
+    if (!muted) Sound.play('click');
+});
+
 nameInput.value = localStorage.getItem("evowar_name") || "";
 playBtn.addEventListener("click", () => {
-  Sound.init(); 
+  Sound.init(); Sound.play('click');
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   const name = nameInput.value.trim() || "Khách"; localStorage.setItem("evowar_name", name);
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
@@ -87,7 +129,7 @@ const Network = {
   connect() { 
     this.ws = new WebSocket(wsUrl); 
     this.ws.onopen = () => { statusText.innerText = ""; playBtn.innerText = "VÀO TRẬN"; playBtn.disabled = false; };
-    this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; };
+    this.ws.onclose = () => { statusText.innerText = "Mất kết nối với Server!"; playBtn.disabled = true; uiLayer.style.display = "flex"; uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; };
     this.ws.onmessage = this.onMessage; 
   },
   onMessage(msg) {
@@ -108,24 +150,26 @@ const Network = {
       
       const prevDead = GameState.isDead ?? true; const me = (data.players || []).find((p) => p.id === GameState.playerId);
       if (me) {
-        const oldLevel = GameState.clientLevel; const oldXp = GameState.clientXp;
+        const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        // ĐÃ FIX 1: LOẠI BỎ HOÀN TOÀN NHÁY SÁNG MÀN HÌNH & GLOW THANH XP
-        if (GameState.clientLevel > oldLevel) {
-          Sound.play('levelUp'); 
-        } 
-        else if (GameState.clientXp > oldXp) Sound.play('eat');
+        if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
+        // ĐÃ XÓA dòng phát âm thanh Sound.play('eat') ở đây
         
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
-        if (prevDead && !me.isDead) { GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; uiLayer.style.opacity = "0"; setTimeout(() => uiLayer.style.display = "none", 300); } 
+        if (prevDead && !me.isDead) { 
+          GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
+          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; // Thu nhỏ và ẩn UI mượt mà
+          setTimeout(() => uiLayer.style.display = "none", 400); 
+        } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
-          uiLayer.style.display = "flex"; setTimeout(() => uiLayer.style.opacity = "1", 10);
+          uiLayer.style.display = "flex"; 
+          setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); // Bật nảy UI khi chết
           statusText.innerText = "Bạn đã bị hạ gục!"; playBtn.disabled = true;
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH SAU (${left}s)`;
           const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH SAU (${left}s)`; } }, 1000);
@@ -146,10 +190,8 @@ const Network = {
 
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
-            
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); 
             Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
-            
             Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
           }
         }
