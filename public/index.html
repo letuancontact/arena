@@ -1,38 +1,116 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>EvoWar Arena</title>
     <style>
-      body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "Segoe UI", Tahoma, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
-      #game { display: block; cursor: url(img/cursor.png), auto; }
+      /* Reset cơ bản */
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0d1117; touch-action: none; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; -webkit-user-select: none; }
+      #game { display: block; width: 100vw; height: 100vh; cursor: url(img/cursor.png), auto; }
 
-      /* GIAO DIỆN MAIN MENU */
-      #ui-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(5px); transition: opacity 0.3s ease; }
-      .menu-box { background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%); padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); border: 2px solid #444; text-align: center; width: 320px; }
-      .game-title { color: #fff; font-size: 42px; font-weight: 900; margin-top: 0; margin-bottom: 25px; text-shadow: 0 4px 6px rgba(0,0,0,0.5); letter-spacing: 2px; }
-      .game-title span { color: #00ff66; }
-      #name-input { width: 100%; box-sizing: border-box; padding: 15px; margin-bottom: 20px; border-radius: 8px; border: 2px solid #555; background: #000; color: #00ff66; font-size: 18px; font-weight: bold; text-align: center; outline: none; transition: border-color 0.2s; }
-      #name-input:focus { border-color: #00ff66; }
-      #play-btn { width: 100%; padding: 15px; border-radius: 8px; border: none; background: linear-gradient(180deg, #00ff66 0%, #00cc55 100%); color: #000; font-size: 20px; font-weight: bold; cursor: pointer; transition: transform 0.1s, filter 0.2s; box-shadow: 0 4px 10px rgba(0,255,102,0.3); }
-      #play-btn:active { transform: scale(0.95); }
-      #play-btn:hover { filter: brightness(1.2); }
-      #play-btn:disabled { background: #555; color: #888; box-shadow: none; cursor: not-allowed; }
-      #status-text { color: #ff3333; margin-top: 15px; font-weight: bold; min-height: 20px; font-size: 16px; }
+      /* --- GIAO DIỆN LOBBY CHUẨN EVOWARS --- */
+      #ui-layer {
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
+          background-color: #1a1e24;
+          background-image: url("data:image/svg+xml,%3Csvg width='40' height='69.28203230275509' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 11.547L40 23.094L20 34.641L0 23.094L0 11.547L20 0L40 11.547ZM20 46.188L20 57.735L0 69.282L-20 57.735L-20 46.188L0 34.641L20 46.188ZM60 46.188L60 57.735L40 69.282L20 57.735L20 46.188L40 34.641L60 46.188Z' fill='none' stroke='%23252a32' stroke-width='2' /%3E%3C/svg%3E");
+          background-size: 80px 138.56px;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+          transition: opacity 0.4s ease, transform 0.4s ease;
+          backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+      }
+
+      .panel {
+          background: rgba(30, 38, 46, 0.9); border: 2px solid rgba(65, 75, 85, 0.7);
+          border-radius: 16px; padding: 25px 40px; text-align: center;
+          max-width: 750px; width: 90%; box-shadow: 0 12px 35px rgba(0,0,0,0.6);
+          box-sizing: border-box;
+      }
+      .small-panel { max-width: 650px; padding: 15px 30px; }
+
+      .panel h1 { color: #fff; font-size: 28px; margin: 0 0 10px 0; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
+      .panel h2 { color: #b0b0b0; font-size: 20px; margin: 0 0 15px 0; font-weight: 700; text-shadow: 1px 2px 4px rgba(0,0,0,0.9); }
+      .panel p { color: #e0e0e0; font-size: 14px; line-height: 1.5; margin: 0; font-weight: 500; }
+      .small-panel p { color: #bbb; font-size: 13px; margin: 5px 0; }
+
+      .logo-box { text-align: center; margin: 5px 0; position: relative; }
+      #game-logo { height: 140px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6)); animation: float 3s infinite ease-in-out; }
+      .version-text { color: #777; font-size: 12px; font-weight: bold; margin-top: -5px; }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+      .action-box { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 5px; width: 100%; }
+      
+      #name-input {
+          background: rgba(15, 20, 25, 0.95); border: 2px solid #556677; color: #00ff66; padding: 14px 20px;
+          border-radius: 8px; font-size: 18px; text-align: center; width: 260px; max-width: 80%; outline: none; font-weight: bold;
+          transition: all 0.3s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+      }
+      #name-input:focus { border-color: #00ff66; box-shadow: 0 0 15px rgba(0,255,102,0.3); background: rgba(25, 30, 35, 1); }
+
+      #play-btn {
+          background: linear-gradient(180deg, #ff8c00, #e63900); border: 2px solid #ffcc00;
+          border-bottom-width: 6px; color: #fff; font-size: 32px; font-weight: 900;
+          padding: 12px 60px; border-radius: 12px; cursor: pointer; text-shadow: 2px 2px 0px #802000;
+          text-transform: uppercase; font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 2px;
+          transition: all 0.1s; box-shadow: 0 8px 20px rgba(0,0,0,0.5); width: auto;
+      }
+      #play-btn:hover:not(:disabled) { transform: translateY(-2px); border-bottom-width: 8px; filter: brightness(1.1); }
+      #play-btn:active:not(:disabled) { transform: translateY(4px); border-bottom-width: 2px; }
+      
+      #play-btn:disabled { 
+          background: linear-gradient(180deg, #444, #222); border-color: #555; color: #888;
+          cursor: not-allowed; border-bottom-width: 3px; transform: none; text-shadow: none;
+          font-size: 20px; padding: 15px 40px; font-family: monospace, sans-serif;
+      }
+
+      #status-text { color: #ff4444; font-weight: bold; margin-top: 5px; font-size: 16px; text-shadow: 1px 1px 2px #000; }
+
+      /* Nút Tắt Âm tinh tế đặt sát viền Minimap */
+      #mute-btn {
+          position: fixed; top: 15px; right: 215px; background: rgba(20,25,30,0.8); color: #fff;
+          border: 2px solid #445566; width: 40px; height: 40px; border-radius: 50%;
+          cursor: pointer; font-size: 18px; z-index: 2001; transition: all 0.2s;
+          display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      }
+      #mute-btn:hover { background: #334455; border-color: #00ff66; transform: scale(1.1); }
+
+      @media (max-width: 768px) {
+          .panel { padding: 15px 20px; }
+          .panel h1 { font-size: 22px; }
+          .panel h2 { font-size: 16px; }
+          #game-logo { height: 100px; }
+          #play-btn { font-size: 24px; padding: 10px 50px; }
+          #mute-btn { right: 105px; width: 34px; height: 34px; font-size: 14px; top: 8px; border-width: 1px; }
+      }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    
+    <button id="mute-btn">🔊</button>
 
-    <!-- MÀN HÌNH CHỜ (MAIN MENU) -->
     <div id="ui-layer">
-      <div class="menu-box">
-        <h1 class="game-title">EVO<span>WARS</span></h1>
-        <input type="text" id="name-input" placeholder="Nhập tên của bạn..." maxlength="15" autocomplete="off" spellcheck="false" />
-        <button id="play-btn" disabled>ĐANG KẾT NỐI...</button>
-        <div id="status-text"></div>
-      </div>
+        <div class="panel">
+            <h1>CHÀO MỪNG BẠN ĐẾN VỚI TRÒ CHƠI</h1>
+            <h2>Chiến đấu! Giết chóc! Tiến hóa!</h2>
+            <p>Nhân vật của bạn sẽ tiến hóa mỗi khi bạn lên cấp. Khi tiến hóa, vũ khí và trang phục của bạn cũng sẽ được nâng cấp.</p>
+        </div>
+
+        <div class="logo-box">
+            <img src="img/king.png" alt="Logo" id="game-logo" onerror="this.src='https://evowars.io/assets/images/logo.png'">
+            <div class="version-text">v 1.0.0</div>
+        </div>
+
+        <div class="panel small-panel">
+            <p>Chào mừng đến với Evo Arena, trò chơi đấu trường đối kháng hay nhất!</p>
+            <p>Thu thập các quả cầu và tiêu diệt đối thủ để tích lũy kinh nghiệm và tăng kích thước. Mỗi khi lên cấp, nhân vật của bạn sẽ tiến hóa, thay đổi ngoại hình và tăng kích thước thanh kiếm. Hãy cẩn thận với những đối thủ nhỏ bé vì chúng là những sát thủ nhanh nhất!</p>
+        </div>
+
+        <div class="action-box">
+            <input type="text" id="name-input" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false" />
+            <button id="play-btn" disabled>ĐANG KẾT NỐI...</button>
+            <div id="status-text"></div>
+        </div>
     </div>
 
     <script src="/shared/constants.js"></script>
