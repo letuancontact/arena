@@ -45,7 +45,6 @@ export const Resources = {
     this.mapBgImg.onload = () => { this.mapPattern = ctx.createPattern(this.mapBgImg, "repeat"); this.mapPatternReady = true; Renderer.renderBackground(); };
     this.mapBgImg.src = "img/mapbg.png";
 
-    // Tối ưu hóa: Tạo sẵn ảnh Glow để tránh giật lag GPU
     this.foodGlowCanvas = document.createElement('canvas'); this.foodGlowCanvas.width = 128; this.foodGlowCanvas.height = 128;
     const fgCtx = this.foodGlowCanvas.getContext('2d', { alpha: true });
     const fGrad = fgCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -63,15 +62,13 @@ export const Resources = {
 };
 
 export const FX = {
-  particles: Array.from({length: 400}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
+  particles: Array.from({length: 250}, () => ({ active: false, type: 0, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "" })),
   spawn(x, y, vx, vy, life, size, color, type = 0) {
     let activeCount = 0;
     for (let i = 0; i < this.particles.length; i++) {
       if (!this.particles[i].active) {
         const p = this.particles[i]; p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.maxLife = life; p.size = size; p.color = color; p.type = type; p.active = true; break;
-      } else {
-        activeCount++; if (activeCount > 250) break; // Khóa chặn lag
-      }
+      } else { activeCount++; if (activeCount > 150) break; }
     }
   },
   spawnHitSparks(x, y) {
@@ -93,10 +90,8 @@ export const FX = {
         const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
         if (p.type === 1) { 
           const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
-          ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.fillRect(-p.size, -p.size/2, p.size + speed * 2, p.size); // Tối ưu: fillRect
-        } else { 
-          ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); 
-        }
+          ctx.translate(p.x, p.y); ctx.rotate(angle); ctx.fillRect(-p.size, -p.size/2, p.size + speed * 2, p.size); 
+        } else { ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * ratio), 0, Math.PI * 2); ctx.fill(); }
         ctx.restore();
       }
     }
@@ -105,11 +100,11 @@ export const FX = {
 
 export const Renderer = {
   leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
-  trails: Array.from({length: 200}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
-  levelUpEffects: Array.from({length: 10}, () => ({active: false, x:0, y:0, radius:0, start:0})),
-  xpEffects: Array.from({length: 30}, () => ({active: false, x:0, y:0, amount:0, start:0})),
+  trails: Array.from({length: 150}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
+  levelUpEffects: Array.from({length: 5}, () => ({active: false, x:0, y:0, radius:0, start:0})),
+  xpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
-  floatingTexts: Array.from({length: 30}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
+  floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   
   lastLeaderboardHeight: 0,
@@ -118,25 +113,18 @@ export const Renderer = {
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
       if(!this.floatingTexts[i].active) {
-        const e = this.floatingTexts[i];
-        e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
+        const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
       }
     }
   },
 
   addKillFeed(killer, victim, isMe) {
     for(let i = this.killFeeds.length - 1; i > 0; i--) {
-      this.killFeeds[i].killer = this.killFeeds[i-1].killer;
-      this.killFeeds[i].victim = this.killFeeds[i-1].victim;
-      this.killFeeds[i].isMe = this.killFeeds[i-1].isMe;
-      this.killFeeds[i].start = this.killFeeds[i-1].start;
-      this.killFeeds[i].active = this.killFeeds[i-1].active;
+      this.killFeeds[i].killer = this.killFeeds[i-1].killer; this.killFeeds[i].victim = this.killFeeds[i-1].victim;
+      this.killFeeds[i].isMe = this.killFeeds[i-1].isMe; this.killFeeds[i].start = this.killFeeds[i-1].start; this.killFeeds[i].active = this.killFeeds[i-1].active;
     }
-    this.killFeeds[0].killer = String(killer).substring(0, 15);
-    this.killFeeds[0].victim = String(victim).substring(0, 15);
-    this.killFeeds[0].isMe = isMe;
-    this.killFeeds[0].start = Date.now();
-    this.killFeeds[0].active = true;
+    this.killFeeds[0].killer = String(killer).substring(0, 15); this.killFeeds[0].victim = String(victim).substring(0, 15);
+    this.killFeeds[0].isMe = isMe; this.killFeeds[0].start = Date.now(); this.killFeeds[0].active = true;
   },
 
   drawFastGlow(x, y, radius, isFood = true) {
@@ -174,14 +162,15 @@ export const Renderer = {
 
   setupUI() {
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
-    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;transition:box-shadow 0.3s ease;`; document.body.appendChild(this.xpBar);
+    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
     this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
     this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};background:rgba(20,20,20,0.92);border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5);`; 
+    // --- GIAI ĐOẠN 5: Xóa nét vẽ strokeRect xấu xí, thêm đổ bóng xịn cho khung bản đồ ---
+    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   
@@ -196,16 +185,31 @@ export const Renderer = {
     if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
     else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
-
+  
   updateUI() {
     this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
-    this.minimapCtx.clearRect(0, 0, 180, 120); this.minimapCtx.strokeStyle = "#aaa"; this.minimapCtx.lineWidth = 2; this.minimapCtx.strokeRect(2, 2, 176, 116);
+    
+    // --- GIAI ĐOẠN 5: MINIMAP POLISH ---
+    this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
-    if (top1) { const px = 2 + (top1.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (top1.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#ff3333"; this.minimapCtx.fill(); }
+    
+    // Đánh dấu Vua (Top 1) bằng chấm vàng nổi bật
+    if (top1) { 
+      const px = (top1.x / CONFIG.MAP_WIDTH) * 180; const py = (top1.y / CONFIG.MAP_HEIGHT) * 120; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4.5, 0, Math.PI * 2); 
+      this.minimapCtx.fillStyle = "#ffcc00"; this.minimapCtx.fill(); 
+      this.minimapCtx.lineWidth = 1.5; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.stroke(); 
+    }
+    
+    // Đánh dấu Bản thân bằng chấm xanh lá
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
-    if (me && !me.isDead) { const px = 2 + (me.x / CONFIG.MAP_WIDTH) * 176; const py = 2 + (me.y / CONFIG.MAP_HEIGHT) * 116; this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); }
+    if (me && !me.isDead) { 
+      const px = (me.x / CONFIG.MAP_WIDTH) * 180; const py = (me.y / CONFIG.MAP_HEIGHT) * 120; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3.5, 0, Math.PI * 2); 
+      this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); 
+    }
   },
   
   updateLeaderboard(playersArr) {
@@ -325,21 +329,23 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
+    // Tối ưu gom nhóm thức ăn
+    const foodByType = {};
     for (const f of GameState.food) {
-      if (f.x >= viewportLeft && f.x <= viewportRight && f.y >= viewportTop && f.y <= viewportBottom) {
-        const type = f.type ?? 0; const img = Resources.foodImages[type];
-        const seed = (f.x + f.y) % 10; const pulse = 1.0 + Math.sin(now / 150 + seed) * 0.08; 
-        
-        this.drawFastGlow(f.x, f.y, f.radius * 3.5 * pulse, true);
-
-        if (img && img.complete && img.naturalHeight !== 0) { 
-          this.drawImageWithAspectRatio(img, f.x, f.y, f.radius * 2 * pulse); 
-          if (Math.sin(now / 40 + seed * 5) > 0.82) {
-            ctx.save(); ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.beginPath();
-            ctx.arc(f.x + Math.cos(seed)*f.radius*0.4, f.y + Math.sin(seed)*f.radius*0.4, 1.8, 0, Math.PI*2); ctx.fill(); ctx.restore();
-          }
-        } 
-        else { ctx.beginPath(); ctx.arc(f.x, f.y, f.radius * pulse, 0, Math.PI * 2); ctx.fillStyle = "#ccc"; ctx.fill(); }
+      if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) {
+        const type = f.type || 0;
+        if (!foodByType[type]) foodByType[type] = [];
+        foodByType[type].push(f);
+      }
+    }
+    for (const type in foodByType) {
+      const img = Resources.foodImages[type];
+      if (img && img.complete) {
+        for (const f of foodByType[type]) {
+          const pulse = 1.0 + Math.sin(now / 200 + (f.x+f.y)%10) * 0.05;
+          const size = f.radius * 2 * pulse;
+          ctx.drawImage(img, f.x - size/2, f.y - size/2, size, size);
+        }
       }
     }
 
@@ -369,7 +375,6 @@ export const Renderer = {
         if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
         this.drawShadow(p.x, p.y, vRadius, breathScale);
 
-        if (p.level >= 15) this.drawFastGlow(p.x, p.y, vRadius * 2.2, false);
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
         
         const img = Resources.getPlayerImage(p.level || 1);
@@ -399,8 +404,6 @@ export const Renderer = {
       if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
       this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
 
-      if (GameState.clientLevel >= 15) this.drawFastGlow(GameState.clientX, GameState.clientY, vRadius * 2.2, false);
-
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
@@ -422,7 +425,6 @@ export const Renderer = {
       }
     }
 
-    // VÒNG TRÒN LÊN CẤP 
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -503,7 +505,6 @@ export const Renderer = {
         
         ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
         
-        // Tối ưu: Dùng fillRect thay vì roundRect cho nhẹ máy
         ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
         ctx.fillRect(0, 0, kfWidth, kfHeight);
         
