@@ -94,6 +94,7 @@ const Sound = {
   }
 };
 
+// LIÊN KẾT PHẦN TỬ DOM TỪ HTML MỚI
 const uiLayer = document.getElementById("ui-layer");
 const loginScreen = document.getElementById("login-screen");
 const deathScreen = document.getElementById("death-screen");
@@ -112,12 +113,14 @@ if (muteBtn) {
     });
 }
 
+// Xử lý sự kiện nhấn nút Tham gia
 const joinGame = () => {
     Sound.init(); Sound.play('click');
     if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
-    const name = nameInput.value.trim() || "Khách"; 
+    const name = nameInput ? (nameInput.value.trim() || "Khách") : "Khách"; 
     try { localStorage.setItem("evowar_name", name); } catch(e){}
     Network.ws.send(JSON.stringify({ type: "join", name: name }));
+    
     if(playBtn) { playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true; }
     if(respawnBtn) { respawnBtn.innerText = "ĐANG VÀO..."; respawnBtn.disabled = true; }
 };
@@ -139,7 +142,7 @@ const Network = {
         this.ws.onopen = () => { 
             if (statusText) statusText.innerText = ""; 
             if (playBtn) { playBtn.innerText = "PLAY"; playBtn.disabled = false; }
-            if (respawnBtn) { respawnBtn.innerText = "CHƠI"; respawnBtn.disabled = false; }
+            if (respawnBtn) { respawnBtn.innerText = "CHƠI LẠI"; respawnBtn.disabled = false; }
         };
         this.ws.onclose = () => { 
             if (statusText) statusText.innerText = "MẤT KẾT NỐI VỚI SERVER!"; 
@@ -175,8 +178,7 @@ const Network = {
             GameState.clientXp = me.xp || 0; 
             GameState.clientXpToNext = me.xpToNext || 100;
             
-            // --- FIX 3: ĐỒNG BỘ KÍCH THƯỚC NHÂN VẬT VỚI SERVER ---
-            // me.radius là giá trị trực tiếp từ server trả về, đảm bảo 100% to bằng Bot
+            // Đồng bộ kích thước từ server
             GameState.clientRadius = me.radius || (GameState.getRadiusByLevel ? GameState.getRadiusByLevel(GameState.clientLevel) : 20);
             
             if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); if(Camera.screenFlash !== undefined) Camera.screenFlash = 1.0; } 
@@ -192,12 +194,12 @@ const Network = {
             } 
             else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
-            // XỬ LÝ LÚC BỊ GIẾT: HIỂN THỊ MÀN HÌNH CHẾT (POPUP TRÊN NỀN GAME)
+            // XỬ LÝ LÚC BỊ GIẾT -> Bật Màn hình chết
             if (!prevDead && me.isDead) {
               if (uiLayer) { 
                   uiLayer.style.display = "flex"; 
-                  if(loginScreen) loginScreen.style.display = "none"; // Tắt bảng đăng nhập
-                  if(deathScreen) deathScreen.style.display = "flex"; // Bật bảng chết 3 cột
+                  if(loginScreen) loginScreen.style.display = "none";
+                  if(deathScreen) deathScreen.style.display = "flex";
                   
                   const killerObj = (data.players || []).find(k => k.id === me.killerId);
                   const killerNameEl = document.getElementById("killer-name");
@@ -211,15 +213,15 @@ const Network = {
               }
               if(respawnBtn) respawnBtn.disabled = true;
               let left = Math.floor((CONFIG.RESPAWN_TIME || 5000) / 1000); 
-              if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`;
+              if(respawnBtn) respawnBtn.innerText = `HỒI SINH SAU: ${left}S`;
               
               const interval = setInterval(() => { 
                 left--; 
                 if (left <= 0) { 
                   clearInterval(interval); 
-                  if(respawnBtn) { respawnBtn.innerText = "CHƠI"; respawnBtn.disabled = false; }
+                  if(respawnBtn) { respawnBtn.innerText = "CHƠI LẠI"; respawnBtn.disabled = false; }
                 } else { 
-                  if(respawnBtn) respawnBtn.innerText = `HỒI SINH: ${left}S`; 
+                  if(respawnBtn) respawnBtn.innerText = `HỒI SINH SAU: ${left}S`; 
                 } 
               }, 1000);
             }
