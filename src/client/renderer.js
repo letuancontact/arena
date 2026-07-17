@@ -349,6 +349,40 @@ export const Renderer = {
       }
     }
 
+    // ĐÃ THÊM: Vẽ Nam Châm Hút XP 
+    for (let i = GameState.magnetFoods.length - 1; i >= 0; i--) {
+      const mf = GameState.magnetFoods[i];
+      let tx = mf.x, ty = mf.y;
+      
+      if (mf.targetId === GameState.playerId) {
+        tx = GameState.clientX; ty = GameState.clientY;
+      } else {
+        const targetP = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find(p => p.id === mf.targetId);
+        if (targetP) { tx = targetP.x; ty = targetP.y; }
+      }
+
+      const dx = tx - mf.x;
+      const dy = ty - mf.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = 35 * dtMultiplier; 
+
+      if (dist < speed || mf.progress > 40) {
+        GameState.magnetFoods.splice(i, 1);
+      } else {
+        mf.x += (dx / dist) * speed;
+        mf.y += (dy / dist) * speed;
+        mf.progress += 1;
+
+        const img = Resources.foodImages[mf.type || 0];
+        if (img && img.complete) {
+          // Khi bay sát vào người thì nhỏ dần lại (chui vào miệng)
+          const scale = Math.max(0.1, 1 - (mf.progress / 50));
+          const size = mf.radius * 2 * scale;
+          ctx.drawImage(img, mf.x - size/2, mf.y - size/2, size, size);
+        }
+      }
+    }
+
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
       if (t.active) {
