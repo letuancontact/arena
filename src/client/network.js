@@ -78,22 +78,20 @@ export const Network = {
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
       }
 
-      // --- ĐÃ THÊM: XỬ LÝ SÁT THƯƠNG (HIT) TỪ SERVER ---
+      // Xử lý sát thương bùng nổ (Damage Pop-ups & Hit Flash)
       if (data.hits && data.hits.length > 0) {
         for (const hit of data.hits) {
             Renderer.addDamageText(hit.x, hit.y, hit.amount);
             Renderer.addHitFlash(hit.victimId);
             
-            // Nếu mình chém trúng ai đó
             if (hit.attackerId === GameState.playerId) {
                 FX.spawnHitSparks(hit.x, hit.y);
                 Camera.addShake(4);
             }
-            // Nếu mình bị chém trúng (Chớp viền màn hình đỏ)
             if (hit.victimId === GameState.playerId) {
                 Camera.addShake(12);
                 Camera.screenFlash = 0.5;
-                Camera.flashColor = "255, 50, 50"; // Màu đỏ
+                Camera.flashColor = "255, 50, 50"; 
             }
         }
       }
@@ -113,7 +111,7 @@ export const Network = {
         if (GameState.clientLevel > oldLevel) { 
             Sound.play('levelUp'); 
             Camera.screenFlash = 1.0; 
-            Camera.flashColor = "255, 255, 255"; // Màu trắng
+            Camera.flashColor = "255, 255, 255"; 
         } 
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
