@@ -107,7 +107,6 @@ export const Renderer = {
   floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   
-  // ĐÃ THÊM: Mảng quản lý sát thương bùng nổ và hiệu ứng Hit Flash
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
@@ -119,8 +118,8 @@ export const Renderer = {
         if(!this.damageTexts[i].active) {
             const d = this.damageTexts[i]; 
             d.x = x; d.y = y; d.amount = amount; 
-            d.vx = (Math.random() - 0.5) * 8; // Văng sang hai bên ngẫu nhiên
-            d.vy = -7 - Math.random() * 4;    // Bật lên trên
+            d.vx = (Math.random() - 0.5) * 8; 
+            d.vy = -7 - Math.random() * 4;    
             d.start = Date.now(); 
             d.active = true; 
             break;
@@ -429,7 +428,6 @@ export const Renderer = {
         const img = Resources.getPlayerImage(p.level || 1);
         if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, vRadius * 2, angle, breathScale);
         
-        // --- ĐÃ THÊM: Vẽ hiệu ứng Hit Flash (chớp đỏ trắng) ---
         if (this.hitFlashes[id] && now - this.hitFlashes[id] < 150) {
             ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, vRadius, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(255, 200, 200, 0.6)"; ctx.fill(); ctx.restore();
@@ -463,7 +461,6 @@ export const Renderer = {
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
       
-      // --- ĐÃ THÊM: Vẽ hiệu ứng Hit Flash cho Bản Thân ---
       if (this.hitFlashes[GameState.playerId] && now - this.hitFlashes[GameState.playerId] < 150) {
           ctx.save(); ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius, 0, Math.PI * 2);
           ctx.fillStyle = "rgba(255, 100, 100, 0.5)"; ctx.fill(); ctx.restore();
@@ -486,14 +483,12 @@ export const Renderer = {
       }
     }
 
-    // --- ĐÃ THÊM: Render Con Số Sát Thương Bùng Nổ ---
     for (let i = 0; i < this.damageTexts.length; i++) {
         const d = this.damageTexts[i];
         if (d.active) {
             const elapsed = now - d.start;
             if (elapsed > 800) { d.active = false; }
             else {
-                // Gravity physics
                 d.x += d.vx * dtMultiplier;
                 d.y += d.vy * dtMultiplier;
                 d.vy += 0.5 * dtMultiplier; 
@@ -557,7 +552,6 @@ export const Renderer = {
     
     ctx.restore(); 
 
-    // --- ĐÃ THÊM: Hỗ trợ màu chớp màn hình (Flash Red / Flash White) ---
     if (Camera.screenFlash > 0) {
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = `rgba(${Camera.flashColor}, ${Camera.screenFlash * 0.4})`; 
