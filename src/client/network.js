@@ -38,6 +38,7 @@ export const Network = {
       GameState.clientX = GameState.serverX = data.x ?? GameState.mapWidth / 2;
       GameState.clientY = GameState.serverY = data.y ?? GameState.mapHeight / 2;
       GameState.food = data.food || [];
+      GameState.magnetFoods = []; // Làm sạch mảng hút
     }
     
     if (data.type === "state") {
@@ -45,8 +46,39 @@ export const Network = {
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
+      
+      // ĐÃ THÊM LOGIC NAM CHÂM: Chuyển Food tĩnh thành Food đang bay
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
+        const latestPlayers = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
+        
+        for (const f of GameState.food) {
+          if (removedSet.has(f.id)) {
+            let nearestP = null;
+            let minDist = Infinity;
+            
+            // So với bản thân mình trước
+            const distToMe = Math.hypot(GameState.clientX - f.x, GameState.clientY - f.y);
+            if (!GameState.isDead && distToMe < minDist) {
+                minDist = distToMe;
+                nearestP = { id: GameState.playerId, x: GameState.clientX, y: GameState.clientY };
+            }
+
+            // So với người chơi khác
+            for (const p of latestPlayers) {
+              if (p.isDead) continue;
+              const dist = Math.hypot(p.x - f.x, p.y - f.y);
+              if (dist < minDist) {
+                minDist = dist; nearestP = p;
+              }
+            }
+
+            // Nếu nằm trong tầm hút (300px) thì cho bay vào người
+            if (nearestP && minDist < 300) {
+              GameState.magnetFoods.push({ ...f, targetId: nearestP.id, progress: 0 });
+            }
+          }
+        }
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
       }
       
