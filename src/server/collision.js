@@ -41,7 +41,9 @@ function weaponHitsPlayerArc(attacker, victim) {
 
 function checkFoodCollision(player, food) {
   const dist = Math.hypot(player.x - food.x, player.y - food.y);
-  return dist < player.radius + food.radius;
+  // ĐÃ SỬA: Tăng bán kính va chạm để tạo hiệu ứng "Nam Châm" (Hút XP từ xa)
+  const magnetRadius = player.radius + 120;
+  return dist < magnetRadius + food.radius;
 }
 
 module.exports = { weaponHitsPlayerArc, checkFoodCollision };
