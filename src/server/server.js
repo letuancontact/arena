@@ -18,9 +18,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// CHƯƠNG 19: BẬT TÍNH NĂNG CACHE TĨNH CHO PRODUCTION (Giảm 90% tải Băng thông)
 app.use(express.static(path.join(__dirname, "../../public"), {
-  maxAge: "7d" // Lưu Cache trên máy người chơi 7 ngày
+  maxAge: "7d" 
 }));
 app.use("/shared", express.static(path.join(__dirname, "../shared"), {
   maxAge: "7d"
@@ -119,8 +118,6 @@ let lastTick = Date.now();
 let foodTree = null;
 let foodAdded = [];
 let foodRemoved = [];
-
-// --- ĐÃ THÊM: Mảng chứa thông tin sát thương (Damage/Hit) trong frame hiện tại ---
 let hitsBuffer = []; 
 
 setInterval(() => {
@@ -171,19 +168,17 @@ setInterval(() => {
         if (collisionLib.weaponHitsPlayerArc(attacker, victim)) {
           attacker.hitVictims.add(victim.id); 
           
-          // --- ĐÃ THÊM: Tính toán lượng sát thương hiển thị pop-up ---
           let damageAmount = 0;
           if (victim.level > 1) {
-             damageAmount = playerLib.getXpToNext(victim.level - 1); // Hiển thị XP tương đương của cấp độ bị trừ
+             damageAmount = playerLib.getXpToNext(victim.level - 1); 
              victim.level--; 
              victim.radius = playerLib.getRadiusByLevel(victim.level); 
              victim.xp = playerLib.getXpToNext(victim.level); 
           } else {
-             damageAmount = victim.xp > 0 ? victim.xp : 15; // Nếu đã ở lv1 và hết xp, hiển thị số ảo (vd: 15)
+             damageAmount = victim.xp > 0 ? victim.xp : 15; 
              victim.xp = 0; 
           }
 
-          // --- ĐÃ THÊM: Đẩy gói hit vào buffer để gửi xuống Client ---
           hitsBuffer.push({
             x: victim.x,
             y: victim.y,
@@ -221,7 +216,6 @@ setInterval(() => {
       deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
     }));
     
-    // --- ĐÃ THÊM: Gửi kèm mảng hits xuống Client nếu có combat ---
     const statePayload = JSON.stringify({ 
         type: "state", 
         players: allPlayers, 
@@ -232,10 +226,9 @@ setInterval(() => {
 
     for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
     
-    // Reset buffers
     foodAdded = []; 
     foodRemoved = [];
-    hitsBuffer = []; // Clear mảng hits sau khi đã gửi thành công
+    hitsBuffer = []; 
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
