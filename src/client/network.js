@@ -38,7 +38,7 @@ export const Network = {
       GameState.clientX = GameState.serverX = data.x ?? GameState.mapWidth / 2;
       GameState.clientY = GameState.serverY = data.y ?? GameState.mapHeight / 2;
       GameState.food = data.food || [];
-      GameState.magnetFoods = []; // Làm sạch mảng hút
+      GameState.magnetFoods = [];
     }
     
     if (data.type === "state") {
@@ -47,7 +47,6 @@ export const Network = {
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
       
-      // ĐÃ THÊM LOGIC NAM CHÂM: Chuyển Food tĩnh thành Food đang bay
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
         const latestPlayers = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
@@ -57,14 +56,12 @@ export const Network = {
             let nearestP = null;
             let minDist = Infinity;
             
-            // So với bản thân mình trước
             const distToMe = Math.hypot(GameState.clientX - f.x, GameState.clientY - f.y);
             if (!GameState.isDead && distToMe < minDist) {
                 minDist = distToMe;
                 nearestP = { id: GameState.playerId, x: GameState.clientX, y: GameState.clientY };
             }
 
-            // So với người chơi khác
             for (const p of latestPlayers) {
               if (p.isDead) continue;
               const dist = Math.hypot(p.x - f.x, p.y - f.y);
@@ -73,13 +70,32 @@ export const Network = {
               }
             }
 
-            // Nếu nằm trong tầm hút (300px) thì cho bay vào người
             if (nearestP && minDist < 300) {
               GameState.magnetFoods.push({ ...f, targetId: nearestP.id, progress: 0 });
             }
           }
         }
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
+      }
+
+      // --- ĐÃ THÊM: XỬ LÝ SÁT THƯƠNG (HIT) TỪ SERVER ---
+      if (data.hits && data.hits.length > 0) {
+        for (const hit of data.hits) {
+            Renderer.addDamageText(hit.x, hit.y, hit.amount);
+            Renderer.addHitFlash(hit.victimId);
+            
+            // Nếu mình chém trúng ai đó
+            if (hit.attackerId === GameState.playerId) {
+                FX.spawnHitSparks(hit.x, hit.y);
+                Camera.addShake(4);
+            }
+            // Nếu mình bị chém trúng (Chớp viền màn hình đỏ)
+            if (hit.victimId === GameState.playerId) {
+                Camera.addShake(12);
+                Camera.screenFlash = 0.5;
+                Camera.flashColor = "255, 50, 50"; // Màu đỏ
+            }
+        }
       }
       
       const prevDead = GameState.isDead ?? true; 
@@ -94,7 +110,11 @@ export const Network = {
         GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel);
         GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
         
-        if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; } 
+        if (GameState.clientLevel > oldLevel) { 
+            Sound.play('levelUp'); 
+            Camera.screenFlash = 1.0; 
+            Camera.flashColor = "255, 255, 255"; // Màu trắng
+        } 
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
         if (prevDead && !me.isDead) { 
