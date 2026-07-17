@@ -5,7 +5,7 @@ export const GameState = {
   playerId: null,
   players: {},
   food: [],
-  magnetFoods: [], // ĐÃ THÊM: Mảng quản lý hạt XP đang bị hút
+  magnetFoods: [], 
   mapWidth: CONFIG.MAP_WIDTH,
   mapHeight: CONFIG.MAP_HEIGHT,
   clientX: null,
