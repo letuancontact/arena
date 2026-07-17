@@ -7,7 +7,7 @@ const ctx = canvas.getContext("2d");
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
-  shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0,
+  shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0, flashColor: "255, 255, 255",
   
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
@@ -107,8 +107,30 @@ export const Renderer = {
   floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   
+  // ĐÃ THÊM: Mảng quản lý sát thương bùng nổ và hiệu ứng Hit Flash
+  damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
+  hitFlashes: {},
+
   lastLeaderboardHeight: 0,
   lastHeightCheck: 0,
+
+  addDamageText(x, y, amount) {
+    for(let i=0; i<this.damageTexts.length; i++) {
+        if(!this.damageTexts[i].active) {
+            const d = this.damageTexts[i]; 
+            d.x = x; d.y = y; d.amount = amount; 
+            d.vx = (Math.random() - 0.5) * 8; // Văng sang hai bên ngẫu nhiên
+            d.vy = -7 - Math.random() * 4;    // Bật lên trên
+            d.start = Date.now(); 
+            d.active = true; 
+            break;
+        }
+    }
+  },
+
+  addHitFlash(id) {
+    this.hitFlashes[id] = Date.now();
+  },
 
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
@@ -169,7 +191,6 @@ export const Renderer = {
     this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    // --- GIAI ĐOẠN 5: Xóa nét vẽ strokeRect xấu xí, thêm đổ bóng xịn cho khung bản đồ ---
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
@@ -190,12 +211,10 @@ export const Renderer = {
     this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
     const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
     
-    // --- GIAI ĐOẠN 5: MINIMAP POLISH ---
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
     
-    // Đánh dấu Vua (Top 1) bằng chấm vàng nổi bật
     if (top1) { 
       const px = (top1.x / CONFIG.MAP_WIDTH) * 180; const py = (top1.y / CONFIG.MAP_HEIGHT) * 120; 
       this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4.5, 0, Math.PI * 2); 
@@ -203,7 +222,6 @@ export const Renderer = {
       this.minimapCtx.lineWidth = 1.5; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.stroke(); 
     }
     
-    // Đánh dấu Bản thân bằng chấm xanh lá
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) { 
       const px = (me.x / CONFIG.MAP_WIDTH) * 180; const py = (me.y / CONFIG.MAP_HEIGHT) * 120; 
@@ -329,7 +347,6 @@ export const Renderer = {
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
     const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
-    // Tối ưu gom nhóm thức ăn
     const foodByType = {};
     for (const f of GameState.food) {
       if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) {
@@ -349,7 +366,6 @@ export const Renderer = {
       }
     }
 
-    // ĐÃ THÊM: Vẽ Nam Châm Hút XP 
     for (let i = GameState.magnetFoods.length - 1; i >= 0; i--) {
       const mf = GameState.magnetFoods[i];
       let tx = mf.x, ty = mf.y;
@@ -375,7 +391,6 @@ export const Renderer = {
 
         const img = Resources.foodImages[mf.type || 0];
         if (img && img.complete) {
-          // Khi bay sát vào người thì nhỏ dần lại (chui vào miệng)
           const scale = Math.max(0.1, 1 - (mf.progress / 50));
           const size = mf.radius * 2 * scale;
           ctx.drawImage(img, mf.x - size/2, mf.y - size/2, size, size);
@@ -414,6 +429,12 @@ export const Renderer = {
         const img = Resources.getPlayerImage(p.level || 1);
         if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, vRadius * 2, angle, breathScale);
         
+        // --- ĐÃ THÊM: Vẽ hiệu ứng Hit Flash (chớp đỏ trắng) ---
+        if (this.hitFlashes[id] && now - this.hitFlashes[id] < 150) {
+            ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, vRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 200, 200, 0.6)"; ctx.fill(); ctx.restore();
+        }
+
         this.drawWeapons(p.x, p.y, vRadius, p.level, p.angle, p.isAttacking, p.attackTime, p.isMoving);
         if (p.justRespawned) this.drawShield(p.x, p.y, vRadius, p.justRespawned);
         
@@ -442,6 +463,12 @@ export const Renderer = {
       const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
       if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
       
+      // --- ĐÃ THÊM: Vẽ hiệu ứng Hit Flash cho Bản Thân ---
+      if (this.hitFlashes[GameState.playerId] && now - this.hitFlashes[GameState.playerId] < 150) {
+          ctx.save(); ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 100, 100, 0.5)"; ctx.fill(); ctx.restore();
+      }
+
       this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
       if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, vRadius, me.justRespawned);
 
@@ -457,6 +484,33 @@ export const Renderer = {
         ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
         ctx.strokeText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.restore();
       }
+    }
+
+    // --- ĐÃ THÊM: Render Con Số Sát Thương Bùng Nổ ---
+    for (let i = 0; i < this.damageTexts.length; i++) {
+        const d = this.damageTexts[i];
+        if (d.active) {
+            const elapsed = now - d.start;
+            if (elapsed > 800) { d.active = false; }
+            else {
+                // Gravity physics
+                d.x += d.vx * dtMultiplier;
+                d.y += d.vy * dtMultiplier;
+                d.vy += 0.5 * dtMultiplier; 
+
+                if (d.x < viewportLeft || d.x > viewportRight || d.y < viewportTop || d.y > viewportBottom) continue;
+
+                const alpha = elapsed > 500 ? 1 - ((elapsed - 500) / 300) : 1;
+                const scale = elapsed < 100 ? 1 + (100 - elapsed)/100 * 0.5 : 1; 
+
+                ctx.save(); ctx.globalAlpha = alpha;
+                ctx.translate(d.x, d.y); ctx.scale(scale, scale);
+                ctx.font = "900 28px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.lineWidth = 5; ctx.strokeStyle = "#440000"; ctx.fillStyle = "#ff2222";
+                ctx.strokeText(`-${d.amount}`, 0, 0); ctx.fillText(`-${d.amount}`, 0, 0);
+                ctx.restore();
+            }
+        }
     }
 
     for (let i = 0; i < this.levelUpEffects.length; i++) {
@@ -503,9 +557,10 @@ export const Renderer = {
     
     ctx.restore(); 
 
+    // --- ĐÃ THÊM: Hỗ trợ màu chớp màn hình (Flash Red / Flash White) ---
     if (Camera.screenFlash > 0) {
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = `rgba(255, 255, 255, ${Camera.screenFlash * 0.4})`; 
+      ctx.fillStyle = `rgba(${Camera.flashColor}, ${Camera.screenFlash * 0.4})`; 
       ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
     }
 
