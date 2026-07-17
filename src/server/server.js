@@ -120,6 +120,9 @@ let foodTree = null;
 let foodAdded = [];
 let foodRemoved = [];
 
+// --- ĐÃ THÊM: Mảng chứa thông tin sát thương (Damage/Hit) trong frame hiện tại ---
+let hitsBuffer = []; 
+
 setInterval(() => {
   const now = Date.now();
   const dtMultiplier = Math.min(((now - lastTick) / 1000) * 60, 3);
@@ -167,8 +170,27 @@ setInterval(() => {
         
         if (collisionLib.weaponHitsPlayerArc(attacker, victim)) {
           attacker.hitVictims.add(victim.id); 
-          if (victim.level > 1) { victim.level--; victim.radius = playerLib.getRadiusByLevel(victim.level); victim.xp = playerLib.getXpToNext(victim.level); } 
-          else { victim.xp = 0; }
+          
+          // --- ĐÃ THÊM: Tính toán lượng sát thương hiển thị pop-up ---
+          let damageAmount = 0;
+          if (victim.level > 1) {
+             damageAmount = playerLib.getXpToNext(victim.level - 1); // Hiển thị XP tương đương của cấp độ bị trừ
+             victim.level--; 
+             victim.radius = playerLib.getRadiusByLevel(victim.level); 
+             victim.xp = playerLib.getXpToNext(victim.level); 
+          } else {
+             damageAmount = victim.xp > 0 ? victim.xp : 15; // Nếu đã ở lv1 và hết xp, hiển thị số ảo (vd: 15)
+             victim.xp = 0; 
+          }
+
+          // --- ĐÃ THÊM: Đẩy gói hit vào buffer để gửi xuống Client ---
+          hitsBuffer.push({
+            x: victim.x,
+            y: victim.y,
+            amount: damageAmount,
+            victimId: victim.id,
+            attackerId: attacker.id
+          });
           
           victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           let gainXp = Math.floor((victim.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_ATTACKER);
@@ -199,9 +221,21 @@ setInterval(() => {
       deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
     }));
     
-    const statePayload = JSON.stringify({ type: "state", players: allPlayers, foodAdded: foodAdded.length > 0 ? foodAdded : undefined, foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined });
+    // --- ĐÃ THÊM: Gửi kèm mảng hits xuống Client nếu có combat ---
+    const statePayload = JSON.stringify({ 
+        type: "state", 
+        players: allPlayers, 
+        foodAdded: foodAdded.length > 0 ? foodAdded : undefined, 
+        foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined,
+        hits: hitsBuffer.length > 0 ? hitsBuffer : undefined
+    });
+
     for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
-    foodAdded = []; foodRemoved = [];
+    
+    // Reset buffers
+    foodAdded = []; 
+    foodRemoved = [];
+    hitsBuffer = []; // Clear mảng hits sau khi đã gửi thành công
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
