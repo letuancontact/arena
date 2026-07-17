@@ -5,6 +5,7 @@ export const GameState = {
   playerId: null,
   players: {},
   food: [],
+  magnetFoods: [], // ĐÃ THÊM: Mảng quản lý hạt XP đang bị hút
   mapWidth: CONFIG.MAP_WIDTH,
   mapHeight: CONFIG.MAP_HEIGHT,
   clientX: null,
@@ -26,7 +27,7 @@ export const GameState = {
   lastSentTime: 0,
   lastSentAngle: 0,
   mouseAngle: 0,
-  targetMouseAngle: 0, // ĐÃ THÊM: Điểm neo để xoay nhân vật mềm mại
+  targetMouseAngle: 0, 
   stateBuffer: [],
   prevPositions: {},
   prevAngles: {},
