@@ -68,14 +68,12 @@
       .action-btn:hover { filter: brightness(1.2); }
       .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; border-color: #666; }
 
-      /* === GAME OVER 3 CỘT Y HỆT ẢNH DEMO === */
+      /* === GAME OVER 3 CỘT === */
       #game-over-screen {
-        /* Chỉnh lại cấu trúc nền mờ cho chuẩn */
-        display: none; 
+        /* CSS gốc */
         background-image: none; 
         background-color: rgba(5,5,5,0.8); 
         backdrop-filter: blur(8px);
-        /* Ép hiển thị giữa màn hình khi chuyển sang flex */
         justify-content: center;
         align-items: center;
       }
@@ -126,7 +124,7 @@
 
     <div id="ui-layer">
         <!-- 1. MÀN HÌNH MENU -->
-        <div id="lobby-screen" class="screen-container">
+        <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
                 <div class="panel-section">
                     <h1>ARENA.IO</h1>
@@ -135,7 +133,7 @@
                 </div>
                 
                 <div class="logo-section">
-                    <img src="img/lv10.png" alt="Logo">
+                    <img src="img/logo.png" alt="Logo">
                 </div>
 
                 <div class="panel-section" style="margin-bottom: 0;">
@@ -148,7 +146,8 @@
         </div>
 
         <!-- 2. MÀN HÌNH GAME OVER -->
-        <div id="game-over-screen" class="screen-container">
+        <!-- ĐÃ SỬA: Chặn cứng display: none trực tiếp trên thẻ HTML -->
+        <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
                 
                 <div class="go-panel go-side">
@@ -162,7 +161,7 @@
 
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
-                    <div id="go-killer-name" class="go-killer">KẺ THÙ ẨN DANH</div>
+                    <div id="go-killer-name" class="go-killer">MỘT KẺ VÔ DANH</div>
                     <div class="go-next-text">TIẾN HÓA TIẾP THEO</div>
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
                     <button id="respawn-btn" class="action-btn">CHƠI</button>
