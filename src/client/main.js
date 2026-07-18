@@ -10,9 +10,6 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
-// Biến khóa bảo vệ: Bắt buộc phải bấm PLAY thì mới được phép hiện Game Over
-let isPlaying = false; 
-
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
@@ -43,9 +40,7 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  // Mở khóa: Xác nhận người chơi đã chính thức vào map
-  isPlaying = true;
-  
+  // ẨN SẠCH MỌI LỚP UI ĐỂ VÀO GAME
   uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
   gameOverScreen.style.display = 'none';
@@ -60,19 +55,23 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
-// Hàm hiển thị Bảng Game Over (Nhận tín hiệu gọi từ network.js)
-export function showGameOver(level, kills, xp, killerName) {
-    // FIX 1: Nếu chưa bấm PLAY thì tuyệt đối không cho hiện Game Over để chống đè màn hình
-    if (!isPlaying) return; 
-    
-    // Đã chết, khóa lại chờ lần PLAY tiếp theo
-    isPlaying = false; 
+// ==========================================
+// HÀM HIỂN THỊ GAME OVER BẤT TỬ
+// ==========================================
+function triggerGameOver(level, kills, xp, killerName) {
+    // 1. KHÓA TỬ: Tuyệt đối không hiện Game Over nếu đang ở màn hình Đăng Nhập
+    if (lobbyScreen && lobbyScreen.style.display !== 'none') {
+        return; 
+    }
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
         
-        // FIX 2: Lấy đúng tên do Network truyền vào. Nếu trống mới hiển thị dự phòng.
-        const finalKiller = killerName || "MỘT KẺ VÔ DANH";
+        // 2. TÌM TÊN KẺ THÙ: Ưu tiên tên từ Network truyền vào -> Tìm trong GameState -> Dự phòng
+        let finalKiller = "MỘT KẺ VÔ DANH";
+        if (typeof killerName === 'string' && killerName.trim() !== '') finalKiller = killerName;
+        else if (typeof GameState.killerName === 'string' && GameState.killerName.trim() !== '') finalKiller = GameState.killerName;
+        
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
@@ -81,13 +80,18 @@ export function showGameOver(level, kills, xp, killerName) {
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        if (lobbyScreen) lobbyScreen.style.display = 'none'; 
+        // 3. ÉP MỞ BẢNG 3 CỘT
         if (uiLayer) uiLayer.style.display = 'block';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
     } catch (e) {
-        console.warn("Lỗi UI Game Over:", e);
+        console.warn("Bỏ qua lỗi nhẹ để ép UI hiện:", e);
     }
 }
+
+// XUẤT HÀM ĐA CHIỀU (Đảm bảo file network.js gọi bằng cách nào cũng trúng)
+export const showGameOver = triggerGameOver;
+window.showGameOver = triggerGameOver; 
+// ==========================================
 
 export function enablePlayButton() {
     playBtn.disabled = false;
@@ -159,8 +163,24 @@ function main() {
   
   requestAnimationFrame(loop);
   
-  // Đã xóa hàm setInterval chứa vòng lặp Radar gây lỗi ghi đè tên
+  let wasDead = true; 
+
   setInterval(() => {
+    // 4. RADAR DỰ PHÒNG: Lưới an toàn cuối cùng.
+    // Nếu nhân vật chết mà sau 0.2s cái bảng Game Over vẫn cứng đầu không chịu hiện ra, Radar sẽ ép gọi hàm.
+    if (GameState.isDead && !wasDead) {
+        wasDead = true;
+        setTimeout(() => {
+            if (gameOverScreen && gameOverScreen.style.display === 'none' && lobbyScreen.style.display === 'none') {
+                triggerGameOver(GameState.clientLevel, GameState.kills, GameState.score, GameState.killerName);
+            }
+        }, 200);
+    } 
+    // Nhân vật hồi sinh thành công thì reset lại radar
+    else if (!GameState.isDead && wasDead) {
+        wasDead = false;
+    }
+
     if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
         GameState.rightMouseDown = false; 
