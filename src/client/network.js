@@ -58,12 +58,10 @@ export const Network = {
         }
       }
 
-      // --- LẮNG NGHE ANNOUNCER ---
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
             Renderer.triggerAnnouncer(ann.name, ann.streak);
-            // Phát âm thanh đúng theo mốc tương ứng với file bạn đã upload
             if (ann.streak === 2) Sound.play("doublekill");
             else if (ann.streak === 3) Sound.play("triplekill");
             else if (ann.streak === 5) Sound.play("quadkill");
@@ -77,6 +75,9 @@ export const Network = {
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       const uiLayer = document.getElementById("ui-layer"); const playBtn = document.getElementById("play-btn"); const statusText = document.getElementById("status-text");
 
+      // --- TÌM VÀ ĐIỀU KHIỂN NÚT LOA (Tự động nhận diện class/id chứa chữ 'sound' hoặc 'mute') ---
+      const speakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']");
+
       if (me) {
         const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
@@ -88,18 +89,30 @@ export const Network = {
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
           uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; setTimeout(() => uiLayer.style.display = "none", 400); 
+          
+          // ĐÃ THÊM: Hiện lại nút loa khi vào game
+          if (speakerIcon) speakerIcon.style.display = "block";
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
           uiLayer.style.display = "flex"; setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
           statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
+          
+          // ĐÃ THÊM: Ẩn nút loa khi bị hạ gục / ra sảnh
+          if (speakerIcon) speakerIcon.style.display = "none";
+
           let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
           const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH: ${left}S`; } }, 1000);
         }
       }
       
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
+
+      // Ẩn loa ngay từ lúc mới F5 tải trang (chưa chơi lần nào)
+      if (prevDead && me && me.isDead && speakerIcon && uiLayer.style.display !== "none") {
+          speakerIcon.style.display = "none";
+      }
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
