@@ -5,7 +5,7 @@ export const Sound = {
     noiseBuffer: null,
     isMuted: localStorage.getItem("evowar_muted") === "true", 
     
-    // ĐÃ THÊM: Kho chứa file âm thanh MP3 cho Announcer
+    // ĐÃ SỬA: Chuyển sang dùng bộ đệm AudioBuffer để không bao giờ bị kẹt tiếng
     announcerBuffers: {}, 
     
     init() {
@@ -16,12 +16,22 @@ export const Sound = {
         const output = this.noiseBuffer.getChannelData(0);
         for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
 
-        // ĐÃ THÊM: Tải sẵn các file MP3 khớp đúng tên của bạn
-        this.announcerBuffers.doublekill = new Audio('sounds/Double Kill.mp3'); 
-        this.announcerBuffers.triplekill = new Audio('sounds/triplekill.mp3'); 
-        this.announcerBuffers.quadkill = new Audio('sounds/Quad Kill.mp3'); 
-        this.announcerBuffers.megakill = new Audio('sounds/Mega Kill.mp3'); 
-        this.announcerBuffers.legendary = new Audio('sounds/Legendary.mp3'); 
+        // Tải thẳng file MP3 vào bộ nhớ đệm (Giải quyết 100% lỗi mất tiếng liên tục)
+        const loadVoice = async (key, url) => {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                this.ctx.decodeAudioData(arrayBuffer, (buffer) => {
+                    this.announcerBuffers[key] = buffer;
+                });
+            } catch(e) {}
+        };
+
+        loadVoice('doublekill', 'sounds/Double Kill.mp3'); 
+        loadVoice('triplekill', 'sounds/triplekill.mp3'); 
+        loadVoice('quadkill', 'sounds/Quad Kill.mp3'); 
+        loadVoice('megakill', 'sounds/Mega Kill.mp3'); 
+        loadVoice('legendary', 'sounds/Legendary.mp3'); 
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
     },
@@ -33,18 +43,18 @@ export const Sound = {
     },
   
     play(type) {
-      if (this.isMuted) return; 
+      if (this.isMuted || !this.ctx) return; 
 
-      // --- ĐÃ THÊM: XỬ LÝ PHÁT ÂM THANH MP3 (ANNOUNCER) ---
+      // XỬ LÝ PHÁT MP3 QUA KÊNH WEBAUDIO (Độc lập, mượt mà, đè nhau thoải mái)
       if (this.announcerBuffers[type]) {
-          const audioClone = this.announcerBuffers[type].cloneNode();
-          audioClone.volume = 1.0;
-          audioClone.play().catch(() => {});
-          return; // Chạy xong âm thanh MP3 thì thoát, không chạy code AudioContext bên dưới
+          const source = this.ctx.createBufferSource();
+          source.buffer = this.announcerBuffers[type];
+          source.connect(this.ctx.destination);
+          source.start(0);
+          return;
       }
 
-      // --- GIỮ NGUYÊN: XỬ LÝ ÂM THANH TỔNG HỢP CỦA BẠN ---
-      if (!this.ctx) return;
+      // XỬ LÝ ÂM THANH TỔNG HỢP CŨ
       const nowMs = Date.now();
       if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
       const now = this.ctx.currentTime;
