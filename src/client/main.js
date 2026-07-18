@@ -10,6 +10,9 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
+// Biến khóa bảo vệ: Bắt buộc phải bấm PLAY thì mới được phép hiện Game Over
+let isPlaying = false; 
+
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
@@ -40,6 +43,9 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
+  // Mở khóa: Xác nhận người chơi đã chính thức vào map
+  isPlaying = true;
+  
   uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
   gameOverScreen.style.display = 'none';
@@ -54,27 +60,32 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
-// Hàm hiển thị Bảng Game Over
-export function showGameOver(level, kills, xp, killerName = "KẺ THÙ ẨN DANH") {
+// Hàm hiển thị Bảng Game Over (Nhận tín hiệu gọi từ network.js)
+export function showGameOver(level, kills, xp, killerName) {
+    // FIX 1: Nếu chưa bấm PLAY thì tuyệt đối không cho hiện Game Over để chống đè màn hình
+    if (!isPlaying) return; 
+    
+    // Đã chết, khóa lại chờ lần PLAY tiếp theo
+    isPlaying = false; 
+
     try {
         const currentLevel = level || GameState.clientLevel || 1;
         
+        // FIX 2: Lấy đúng tên do Network truyền vào. Nếu trống mới hiển thị dự phòng.
+        const finalKiller = killerName || "MỘT KẺ VÔ DANH";
         const killerEl = document.getElementById('go-killer-name');
-        if (killerEl) killerEl.innerText = killerName;
+        if (killerEl) killerEl.innerText = finalKiller;
         
         let nextLevel = currentLevel + 1;
         if (nextLevel > 40) nextLevel = 40; 
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // ĐÃ SỬA: Bắt buộc ẨN màn hình lobby đăng nhập để không bị đè
         if (lobbyScreen) lobbyScreen.style.display = 'none'; 
-
-        // Sau đó mới BẬT màn hình Game Over
         if (uiLayer) uiLayer.style.display = 'block';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
     } catch (e) {
-        console.warn("Lỗi UI:", e);
+        console.warn("Lỗi UI Game Over:", e);
     }
 }
 
@@ -148,22 +159,8 @@ function main() {
   
   requestAnimationFrame(loop);
   
-  // ĐÃ SỬA: Đặt wasDead = true từ đầu.
-  // Lý do: Lúc mới mở web, nhân vật mặc định là chưa spawn (coi như đã chết). 
-  // Nếu để false, Radar sẽ tưởng bạn đang chơi rồi lăn đùng ra chết, dẫn đến việc hiện nhầm bảng.
-  let wasDead = true; 
-
+  // Đã xóa hàm setInterval chứa vòng lặp Radar gây lỗi ghi đè tên
   setInterval(() => {
-    // Nếu phát hiện nhân vật vừa chết trong lúc đang chơi
-    if (GameState.isDead && !wasDead) {
-        wasDead = true;
-        showGameOver(GameState.clientLevel, 0, 0, "KẺ THÙ ẨN DANH"); 
-    } 
-    // Nếu nhân vật vừa nhấn nút PLAY và spawn thành công (hết chết)
-    else if (!GameState.isDead && wasDead) {
-        wasDead = false;
-    }
-
     if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
         GameState.rightMouseDown = false; 
