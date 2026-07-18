@@ -43,13 +43,11 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  // ĐÃ SỬA: Phải display:none toàn bộ uiLayer thì Canvas mới nhận được thao tác chuột/cảm ứng
   uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
   gameOverScreen.style.display = 'none';
   statusText.innerText = "";
 
-  // Gửi lệnh spawn
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
 }
 
@@ -59,13 +57,19 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
-// HÀM HIỂN THỊ GAME OVER (Export để gọi từ network.js)
-export function showGameOver(level, kills, xp) {
-    document.getElementById('go-level').innerText = level || 1;
-    document.getElementById('go-kills').innerText = kills || 0;
-    document.getElementById('go-xp').innerText = Math.floor(xp || 0);
+// ĐÃ SỬA: HÀM HIỂN THỊ GAME OVER HOÀN THIỆN
+export function showGameOver(level, kills, xp, killerName = "KẺ THÙ ẨN DANH") {
+    const currentLevel = level || 1;
     
-    // Bật lại uiLayer để chặn Canvas và hiện bảng
+    // Set tên người giết bạn
+    document.getElementById('go-killer-name').innerText = killerName;
+    
+    // Tính toán hình ảnh cấp độ tiếp theo (Max level là 40)
+    let nextLevel = currentLevel + 1;
+    if (nextLevel > 40) nextLevel = 40; 
+    document.getElementById('go-next-img').src = `img/lv${nextLevel}.png`;
+    
+    // Bật uiLayer và hiện bảng
     uiLayer.style.display = 'block';
     gameOverScreen.style.display = 'flex';
 }
@@ -139,7 +143,6 @@ function main() {
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
   
-  // Mặc định vô hiệu hóa nút Play cho đến khi kết nối Server
   playBtn.disabled = true;
   playBtn.innerText = "ĐANG KẾT NỐI...";
   
