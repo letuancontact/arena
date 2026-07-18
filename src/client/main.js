@@ -58,15 +58,13 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// HÀM HIỂN THỊ GAME OVER ĐÃ ĐƯỢC DỌN SẠCH
+// HÀM HIỂN THỊ GAME OVER (ĐÃ FIX LỖI OPACITY)
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
     try {
         const currentLevel = level || GameState.clientLevel || 1;
-        // Lấy chính xác tên từ network.js truyền qua
         const finalKiller = (killerName && killerName.trim() !== '') ? killerName : "MỘT KẺ VÔ DANH";
         
-        // Cập nhật lên màn hình
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
@@ -75,11 +73,19 @@ function triggerGameOver(level, kills, xp, killerName) {
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        if (uiLayer) uiLayer.style.display = 'block';
+        // --- ĐIỂM SỬA CHỮA CHÍNH TẠI ĐÂY ---
+        if (uiLayer) {
+            uiLayer.style.display = 'block';
+            uiLayer.style.opacity = '1';         // Bắt buộc loại bỏ tàng hình
+            uiLayer.style.transform = 'scale(1)'; // Trả lại kích thước gốc
+        }
         if (lobbyScreen) lobbyScreen.style.display = 'none';
-        if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
+        if (gameOverScreen) {
+            gameOverScreen.style.display = 'flex'; 
+            gameOverScreen.style.opacity = '1';
+        }
+        // ------------------------------------
 
-        // Đếm ngược hồi sinh (3 giây)
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
         
@@ -178,16 +184,29 @@ function main() {
   
   requestAnimationFrame(loop);
   
-  if (!GameState.isDead) {
-      setInterval(() => { Renderer.updateUI(); }, CONFIG.UI_UPDATE_INTERVAL || 100);
-  }
-  
+  let wasDead = true; 
+
+  // KHÔI PHỤC VÒNG LẶP DỰ PHÒNG: Bắt mọi trường hợp lỡ nhịp từ Server
   setInterval(() => {
+    if (GameState.isDead && !wasDead) {
+        wasDead = true;
+        setTimeout(() => {
+            if (gameOverScreen && gameOverScreen.style.display === 'none') {
+                triggerGameOver(GameState.clientLevel, GameState.kills, GameState.clientXp, GameState.killerName);
+            }
+        }, 250);
+    } 
+    else if (!GameState.isDead && wasDead) {
+        wasDead = false;
+    }
+
+    if (!GameState.isDead) Renderer.updateUI();
+    
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
         GameState.rightMouseDown = false; 
         Network.sendPositionUpdate(true); 
     }
-  }, 100);
+  }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
 
 main();
