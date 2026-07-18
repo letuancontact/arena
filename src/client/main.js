@@ -10,6 +10,8 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
+let respawnInterval = null; // Quản lý bộ đếm hồi sinh
+
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
@@ -40,7 +42,9 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  // ẨN SẠCH MỌI LỚP UI ĐỂ VÀO GAME
+  // Dọn dẹp bộ đếm ngược nếu còn sót lại
+  if (respawnInterval) clearInterval(respawnInterval);
+  
   uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
   gameOverScreen.style.display = 'none';
@@ -52,25 +56,29 @@ function startGame() {
 playBtn.addEventListener("click", startGame);
 respawnBtn.addEventListener("click", startGame);
 nameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter" && !playBtn.disabled) startGame();
+    if (e.key === "Enter" && !playBtn.disabled && !playBtn.hasAttribute("disabled")) startGame();
 });
 
 // ==========================================
 // HÀM HIỂN THỊ GAME OVER BẤT TỬ
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
-    // 1. KHÓA TỬ: Tuyệt đối không hiện Game Over nếu đang ở màn hình Đăng Nhập
-    if (lobbyScreen && lobbyScreen.style.display !== 'none') {
-        return; 
-    }
+    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
         
-        // 2. TÌM TÊN KẺ THÙ: Ưu tiên tên từ Network truyền vào -> Tìm trong GameState -> Dự phòng
+        // --- TÌM TÊN NGƯỜI GIẾT (QUÉT RỘNG TẤT CẢ CÁC NGUỒN) ---
         let finalKiller = "MỘT KẺ VÔ DANH";
-        if (typeof killerName === 'string' && killerName.trim() !== '') finalKiller = killerName;
-        else if (typeof GameState.killerName === 'string' && GameState.killerName.trim() !== '') finalKiller = GameState.killerName;
+        if (typeof killerName === 'string' && killerName.trim() !== '') {
+            finalKiller = killerName;
+        } else if (typeof GameState.killerName === 'string' && GameState.killerName.trim() !== '') {
+            finalKiller = GameState.killerName;
+        } else if (localStorage.getItem('last_killer')) { 
+            // Vớt vát nếu Network ghi ra local storage
+            finalKiller = localStorage.getItem('last_killer');
+            localStorage.removeItem('last_killer');
+        }
         
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
@@ -80,15 +88,34 @@ function triggerGameOver(level, kills, xp, killerName) {
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // 3. ÉP MỞ BẢNG 3 CỘT
         if (uiLayer) uiLayer.style.display = 'block';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
+
+        // --- BỘ ĐẾM THỜI GIAN HỒI SINH (3 GIÂY) ---
+        const timerEl = document.getElementById('respawn-timer');
+        let countdown = 3; 
+        
+        if (respawnBtn) respawnBtn.disabled = true; // Làm xám nút
+        if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
+        
+        if (respawnInterval) clearInterval(respawnInterval);
+        
+        respawnInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
+            } else {
+                clearInterval(respawnInterval);
+                if (timerEl) timerEl.innerText = "ĐÃ SẴN SÀNG!";
+                if (respawnBtn) respawnBtn.disabled = false; // Mở khóa nút
+            }
+        }, 1000);
+
     } catch (e) {
         console.warn("Bỏ qua lỗi nhẹ để ép UI hiện:", e);
     }
 }
 
-// XUẤT HÀM ĐA CHIỀU (Đảm bảo file network.js gọi bằng cách nào cũng trúng)
 export const showGameOver = triggerGameOver;
 window.showGameOver = triggerGameOver; 
 // ==========================================
@@ -166,8 +193,6 @@ function main() {
   let wasDead = true; 
 
   setInterval(() => {
-    // 4. RADAR DỰ PHÒNG: Lưới an toàn cuối cùng.
-    // Nếu nhân vật chết mà sau 0.2s cái bảng Game Over vẫn cứng đầu không chịu hiện ra, Radar sẽ ép gọi hàm.
     if (GameState.isDead && !wasDead) {
         wasDead = true;
         setTimeout(() => {
@@ -176,7 +201,6 @@ function main() {
             }
         }, 200);
     } 
-    // Nhân vật hồi sinh thành công thì reset lại radar
     else if (!GameState.isDead && wasDead) {
         wasDead = false;
     }
