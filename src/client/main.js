@@ -1,4 +1,24 @@
 // --- src/client/main.js ---
+
+// =======================================================
+// HACK: BỘ ĐÁNH CHẶN DỮ LIỆU ĐỂ BẮT LẤY TÊN NGƯỜI GIẾT
+// =======================================================
+const originalParse = JSON.parse;
+JSON.parse = function(text, reviver) {
+    const data = originalParse(text, reviver);
+    if (data && typeof data === 'object') {
+        // Quét tìm tất cả các khóa có thể chứa tên kẻ địch từ Server gửi về
+        const possibleKiller = data.killerName || data.killer || data.killedBy || data.by || data.name;
+        // Kiểm tra xem dữ liệu này có đi kèm tín hiệu chết hay không
+        if (possibleKiller && (data.type === 'dead' || data.type === 'death' || data.isDead || data.killer)) {
+            window.LAST_KILLER_NAME = possibleKiller; 
+            localStorage.setItem('last_killer', possibleKiller);
+        }
+    }
+    return data;
+};
+// =======================================================
+
 import { GameState } from './state.js';
 import { Camera, Resources, Renderer } from './renderer.js';
 import { Sound } from './audio.js';
@@ -9,8 +29,7 @@ const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
-
-let respawnInterval = null; // Quản lý bộ đếm hồi sinh
+let respawnInterval = null; 
 
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
@@ -42,7 +61,6 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  // Dọn dẹp bộ đếm ngược nếu còn sót lại
   if (respawnInterval) clearInterval(respawnInterval);
   
   uiLayer.style.display = 'none';
@@ -60,7 +78,7 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// HÀM HIỂN THỊ GAME OVER BẤT TỬ
+// HÀM HIỂN THỊ GAME OVER HOÀN CHỈNH
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
     if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
@@ -68,17 +86,22 @@ function triggerGameOver(level, kills, xp, killerName) {
     try {
         const currentLevel = level || GameState.clientLevel || 1;
         
-        // --- TÌM TÊN NGƯỜI GIẾT (QUÉT RỘNG TẤT CẢ CÁC NGUỒN) ---
-        let finalKiller = "MỘT KẺ VÔ DANH";
+        // --- XỬ LÝ LẤY TÊN TỪ BỘ ĐÁNH CHẶN ---
+        let finalKiller = "MỘT KẺ VÔ DANH"; // Mặc định nếu tự đâm vào tường/lỗi
+        
         if (typeof killerName === 'string' && killerName.trim() !== '') {
             finalKiller = killerName;
+        } else if (window.LAST_KILLER_NAME) {
+            finalKiller = window.LAST_KILLER_NAME;
         } else if (typeof GameState.killerName === 'string' && GameState.killerName.trim() !== '') {
             finalKiller = GameState.killerName;
         } else if (localStorage.getItem('last_killer')) { 
-            // Vớt vát nếu Network ghi ra local storage
             finalKiller = localStorage.getItem('last_killer');
-            localStorage.removeItem('last_killer');
         }
+        
+        // Xóa dấu vết đợt trước để không bị trùng cho lượt chơi sau
+        window.LAST_KILLER_NAME = "";
+        localStorage.removeItem('last_killer');
         
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
@@ -91,11 +114,11 @@ function triggerGameOver(level, kills, xp, killerName) {
         if (uiLayer) uiLayer.style.display = 'block';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
 
-        // --- BỘ ĐẾM THỜI GIAN HỒI SINH (3 GIÂY) ---
+        // --- ĐẾM NGƯỢC 3 GIÂY ---
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
         
-        if (respawnBtn) respawnBtn.disabled = true; // Làm xám nút
+        if (respawnBtn) respawnBtn.disabled = true; 
         if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
         
         if (respawnInterval) clearInterval(respawnInterval);
@@ -107,12 +130,12 @@ function triggerGameOver(level, kills, xp, killerName) {
             } else {
                 clearInterval(respawnInterval);
                 if (timerEl) timerEl.innerText = "ĐÃ SẴN SÀNG!";
-                if (respawnBtn) respawnBtn.disabled = false; // Mở khóa nút
+                if (respawnBtn) respawnBtn.disabled = false;
             }
         }, 1000);
 
     } catch (e) {
-        console.warn("Bỏ qua lỗi nhẹ để ép UI hiện:", e);
+        console.warn("Lỗi UI ẩn:", e);
     }
 }
 
