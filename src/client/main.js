@@ -58,55 +58,28 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// MÁY QUÉT TÊN KẺ THÙ (BẤT CHẤP THỨ TỰ BIẾN)
+// HÀM HIỂN THỊ GAME OVER ĐÃ ĐƯỢC DỌN SẠCH
 // ==========================================
-function triggerGameOver(arg1, arg2, arg3, arg4) {
-    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
-
+function triggerGameOver(level, kills, xp, killerName) {
     try {
-        let currentLevel = GameState.clientLevel || 1;
-        let finalKiller = null;
-
-        // Quét toàn bộ dữ liệu mà network.js ném vào hàm này
-        const args = [arg1, arg2, arg3, arg4];
+        const currentLevel = level || GameState.clientLevel || 1;
+        // Lấy chính xác tên từ network.js truyền qua
+        const finalKiller = (killerName && killerName.trim() !== '') ? killerName : "MỘT KẺ VÔ DANH";
         
-        for (const arg of args) {
-            // Nếu là số nhỏ, đó là Cấp độ
-            if (typeof arg === 'number' && arg > 0 && arg < 100) {
-                currentLevel = arg;
-            }
-            // Nếu là Chuỗi ký tự (không phải số), đó chính là Tên kẻ địch!
-            else if (typeof arg === 'string' && isNaN(arg) && arg.trim() !== '') {
-                finalKiller = arg;
-            } 
-            // Nếu là một Object bọc kín, ta lôi tên ra từ trong Object đó
-            else if (typeof arg === 'object' && arg !== null) {
-                if (arg.killerName) finalKiller = arg.killerName;
-                else if (arg.killer) finalKiller = arg.killer;
-                else if (arg.name) finalKiller = arg.name;
-                else if (arg.killedBy) finalKiller = arg.killedBy;
-            }
-        }
-        
-        // Nếu vẫn không thấy, tìm kiếm trong GameState
-        if (!finalKiller && typeof GameState.killerName === 'string') finalKiller = GameState.killerName;
-        // Mặc định cuối cùng
-        if (!finalKiller) finalKiller = "MỘT KẺ VÔ DANH";
-        
-        // Cập nhật tên lên màn hình
+        // Cập nhật lên màn hình
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
-        // Tính toán cấp độ tiến hóa
         let nextLevel = currentLevel + 1;
         if (nextLevel > 40) nextLevel = 40; 
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
         if (uiLayer) uiLayer.style.display = 'block';
+        if (lobbyScreen) lobbyScreen.style.display = 'none';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
 
-        // Đếm ngược 3 giây
+        // Đếm ngược hồi sinh (3 giây)
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
         
@@ -205,43 +178,16 @@ function main() {
   
   requestAnimationFrame(loop);
   
-  let wasDead = true; 
-
+  if (!GameState.isDead) {
+      setInterval(() => { Renderer.updateUI(); }, CONFIG.UI_UPDATE_INTERVAL || 100);
+  }
+  
   setInterval(() => {
-    if (GameState.isDead && !wasDead) {
-        wasDead = true;
-        setTimeout(() => {
-            if (gameOverScreen && gameOverScreen.style.display === 'none' && lobbyScreen.style.display === 'none') {
-                // Gọi dự phòng
-                triggerGameOver(GameState.clientLevel, GameState.kills, GameState.score, GameState.killerName);
-            }
-        }, 200);
-    } 
-    else if (!GameState.isDead && wasDead) {
-        wasDead = false;
-    }
-
-    if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
         GameState.rightMouseDown = false; 
         Network.sendPositionUpdate(true); 
     }
-  }, CONFIG.UI_UPDATE_INTERVAL || 100);
+  }, 100);
 }
-
-// Bắt sự kiện nếu Network.js cố ghi vào các ID ẩn cũ bằng phương pháp DOM Event
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        const id = mutation.target.id || "";
-        if (id.toLowerCase().includes('killer') || id.toLowerCase().includes('death')) {
-            const val = mutation.target.innerText || mutation.target.textContent;
-            if (val && val.trim() !== "") {
-                const targetEl = document.getElementById('go-killer-name');
-                if (targetEl) targetEl.innerText = val;
-            }
-        }
-    });
-});
-observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 
 main();
