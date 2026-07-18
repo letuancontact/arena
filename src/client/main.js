@@ -10,8 +10,8 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
-// Gắn sự kiện cho UI mới
-const gameUiLayer = document.getElementById("game-ui-layer");
+// Gắn sự kiện cho UI
+const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
 const playBtn = document.getElementById("play-btn");
@@ -35,7 +35,7 @@ muteBtn.addEventListener("click", () => {
 // Lấy tên cũ đã lưu
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
-// Hàm bắt đầu/hồi sinh game
+// HÀM BẮT ĐẦU / HỒI SINH
 function startGame() {
   Sound.init(); Sound.play('click');
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
@@ -43,10 +43,10 @@ function startGame() {
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  // Ẩn bảng UI
+  // ĐÃ SỬA: Phải display:none toàn bộ uiLayer thì Canvas mới nhận được thao tác chuột/cảm ứng
+  uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
   gameOverScreen.style.display = 'none';
-  gameUiLayer.style.pointerEvents = 'none';
   statusText.innerText = "";
 
   // Gửi lệnh spawn
@@ -56,7 +56,7 @@ function startGame() {
 playBtn.addEventListener("click", startGame);
 respawnBtn.addEventListener("click", startGame);
 nameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") startGame();
+    if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
 // HÀM HIỂN THỊ GAME OVER (Export để gọi từ network.js)
@@ -65,13 +65,15 @@ export function showGameOver(level, kills, xp) {
     document.getElementById('go-kills').innerText = kills || 0;
     document.getElementById('go-xp').innerText = Math.floor(xp || 0);
     
+    // Bật lại uiLayer để chặn Canvas và hiện bảng
+    uiLayer.style.display = 'block';
     gameOverScreen.style.display = 'flex';
-    gameUiLayer.style.pointerEvents = 'auto';
 }
 
-// Hàm vô hiệu hóa nút Play khi chưa kết nối xong mạng (Tùy chọn)
+// Hàm vô hiệu hóa nút Play khi chưa kết nối mạng xong
 export function enablePlayButton() {
     playBtn.disabled = false;
+    playBtn.innerText = "PLAY";
     statusText.innerText = "SẴN SÀNG!";
     setTimeout(() => { statusText.innerText = ""; }, 1500);
 }
@@ -137,9 +139,12 @@ function main() {
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
   muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
   
+  // Mặc định vô hiệu hóa nút Play cho đến khi kết nối Server
+  playBtn.disabled = true;
+  playBtn.innerText = "ĐANG KẾT NỐI...";
+  
   requestAnimationFrame(loop);
   
-  // Vòng lặp cập nhật UI chạy riêng (100ms/lần)
   setInterval(() => {
     if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
@@ -149,5 +154,4 @@ function main() {
   }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
 
-// Khởi chạy khi DOM và script đã sẵn sàng
 main();
