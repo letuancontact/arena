@@ -114,7 +114,6 @@ export const Renderer = {
   lastHeightCheck: 0,
 
   triggerAnnouncer(name, streak) {
-      // ĐÃ SỬA: Chặn hiển thị thông báo nếu đang ở sảnh chờ/đăng nhập
       const uiLayer = document.getElementById("ui-layer");
       if (uiLayer && uiLayer.style.display !== "none") return;
 
@@ -127,16 +126,21 @@ export const Renderer = {
       
       if (!msg || !this.announcerDiv) return;
 
-      // ĐÃ SỬA: Chữ nhỏ hơn, font thanh thoát hơn, viền bóng tối ưu
-      this.announcerDiv.innerHTML = `<div style="font-size:16px;color:#ddd;margin-bottom:-2px;letter-spacing:1px;text-transform:uppercase;">${name}</div><div style="font-size:38px;color:${color};text-shadow: 0px 4px 8px rgba(0,0,0,0.6);">${msg}!</div>`;
+      const isMob = window.innerWidth <= 768;
+      
+      // ĐÃ SỬA: Thiết kế gọn gàng, font Arial, giống hệt khung Kill Feed
+      this.announcerDiv.innerHTML = `<span style="color:#ffffff;">${name}</span> <span style="color:${color};">⚔️ ${msg}</span>`;
       
       this.announcerDiv.style.opacity = "1";
-      this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1.15)";
-
-      setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1)"; }, 150);
+      this.announcerDiv.style.top = isMob ? "75px" : "95px"; // Trượt nhẹ xuống
 
       if (this.announcerTimeout) clearTimeout(this.announcerTimeout);
-      this.announcerTimeout = setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.opacity = "0"; }, 2500);
+      this.announcerTimeout = setTimeout(() => { 
+        if(this.announcerDiv) {
+            this.announcerDiv.style.opacity = "0"; 
+            this.announcerDiv.style.top = isMob ? "60px" : "80px"; // Trượt ngược lên
+        }
+      }, 3000);
   },
 
   addDamageText(x, y, amount) {
@@ -179,6 +183,7 @@ export const Renderer = {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
+  
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
@@ -201,6 +206,10 @@ export const Renderer = {
   },
 
   setupUI() {
+    // ĐÃ SỬA: Ép ẩn icon loa NGAY LẬP TỨC bằng JS khi load game
+    const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
+    if (speakerIcon) speakerIcon.style.display = "none";
+
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
     this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
@@ -212,9 +221,9 @@ export const Renderer = {
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
 
-    // ĐÃ SỬA CSS (Giảm lag GPU): Đổi sang text-stroke và thêm thuộc tính will-change
+    // CSS Mới: Box đen mờ, bo góc nhẹ, font Arial như Kill Feed
     this.announcerDiv = document.createElement("div");
-    this.announcerDiv.style.cssText = `position:fixed;top:18%;left:50%;transform:translate(-50%, -50%);font-family:'Arial Black', Impact, sans-serif;font-weight:900;text-align:center;pointer-events:none;z-index:2000;opacity:0;transition:opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); -webkit-text-stroke: 1.5px black; will-change: transform, opacity;`;
+    this.announcerDiv.style.cssText = `position:fixed; top:${isMob ? '60px' : '80px'}; left:50%; transform:translateX(-50%); font-family:Arial, sans-serif; font-weight:bold; font-size:${isMob ? '12px' : '14px'}; text-align:center; pointer-events:none; z-index:2000; opacity:0; transition:all 0.25s ease-out; background:rgba(0,0,0,0.5); padding:${isMob ? '4px 12px' : '6px 16px'}; border-radius:4px; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow: 0 2px 5px rgba(0,0,0,0.4);`;
     document.body.appendChild(this.announcerDiv);
   },
   
