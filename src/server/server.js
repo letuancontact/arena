@@ -18,12 +18,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(express.static(path.join(__dirname, "../../public"), {
-  maxAge: "7d" 
-}));
-app.use("/shared", express.static(path.join(__dirname, "../shared"), {
-  maxAge: "7d"
-}));
+app.use(express.static(path.join(__dirname, "../../public"), { maxAge: "7d" }));
+app.use("/shared", express.static(path.join(__dirname, "../shared"), { maxAge: "7d" }));
 
 const players = new Map();
 const bots = new Map();
@@ -34,83 +30,51 @@ foodLib.spawnFood(food);
 function getSafeSpawn(activePlayers, mapW, mapH) {
   let bestPos = { x: Math.random() * mapW, y: Math.random() * mapH };
   let maxDistFound = -1;
-
   for (let i = 0; i < 30; i++) { 
-    const tx = Math.random() * mapW;
-    const ty = Math.random() * mapH;
+    const tx = Math.random() * mapW; const ty = Math.random() * mapH;
     let minDistToPlayer = Infinity;
-    
     for (const p of activePlayers) {
-      if (!p.isDead) {
-        const d = Math.hypot(p.x - tx, p.y - ty);
-        if (d < minDistToPlayer) minDistToPlayer = d;
-      }
+      if (!p.isDead) { const d = Math.hypot(p.x - tx, p.y - ty); if (d < minDistToPlayer) minDistToPlayer = d; }
     }
-
     if (minDistToPlayer === Infinity) return { x: tx, y: ty };
     if (minDistToPlayer > 800) return { x: tx, y: ty }; 
-
-    if (minDistToPlayer > maxDistFound) {
-      maxDistFound = minDistToPlayer;
-      bestPos = { x: tx, y: ty };
-    }
+    if (minDistToPlayer > maxDistFound) { maxDistFound = minDistToPlayer; bestPos = { x: tx, y: ty }; }
   }
   return bestPos;
 }
 
-function heartbeat() {
-  this.isAlive = true;
-}
+function heartbeat() { this.isAlive = true; }
 
 wss.on("connection", (ws) => {
-  ws.isAlive = true;
-  ws.on('pong', heartbeat);
-
+  ws.isAlive = true; ws.on('pong', heartbeat);
   const p = playerLib.createPlayer(ws);
   const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-  p.x = safePos.x;
-  p.y = safePos.y;
-  p.isDead = true; 
+  p.x = safePos.x; p.y = safePos.y; p.isDead = true; p.killStreak = 0;
   players.set(p.id, p);
 
   ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT, food: food }));
 
   ws.on("message", (msg) => {
     try {
-      const data = JSON.parse(msg);
-      const player = players.get(p.id);
-      if (!player) return;
-
+      const data = JSON.parse(msg); const player = players.get(p.id); if (!player) return;
       if (data.type === "join") {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          player.x = safePos.x; player.y = safePos.y; 
+          player.x = safePos.x; player.y = safePos.y; player.killStreak = 0;
         }
       }
-
       if (data.type === "move") playerLib.handlePlayerMove(player, data);
       if (data.type === "attack") playerLib.handlePlayerAttack(player);
     } catch (err) {}
   });
 
-  ws.on("close", () => {
-    players.delete(p.id);
-  });
+  ws.on("close", () => { players.delete(p.id); });
 });
 
-const interval = setInterval(function ping() {
-  wss.clients.forEach(function each(ws) {
-    if (ws.isAlive === false) return ws.terminate(); 
-    ws.isAlive = false;
-    ws.ping(); 
-  });
-}, 30000); 
-
-wss.on('close', function close() {
-  clearInterval(interval);
-});
+const interval = setInterval(function ping() { wss.clients.forEach(function each(ws) { if (ws.isAlive === false) return ws.terminate(); ws.isAlive = false; ws.ping(); }); }, 30000); 
+wss.on('close', function close() { clearInterval(interval); });
 
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
@@ -119,6 +83,7 @@ let foodTree = null;
 let foodAdded = [];
 let foodRemoved = [];
 let hitsBuffer = []; 
+let announcementsBuffer = []; 
 
 setInterval(() => {
   const now = Date.now();
@@ -141,12 +106,8 @@ setInterval(() => {
         food.splice(food.indexOf(f), 1); foodRemoved.push(f.id);
         if (p.level < CONFIG.MAX_LEVEL) {
           p.xp += f.xp || 10; p.score += f.xp || 10;
-          while (p.xp >= playerLib.getXpToNext(p.level) && p.level < CONFIG.MAX_LEVEL) {
-            p.xp -= playerLib.getXpToNext(p.level); p.level++; p.radius = playerLib.getRadiusByLevel(p.level);
-          }
-        } else {
-          p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL)); p.score += f.xp || 10;
-        }
+          while (p.xp >= playerLib.getXpToNext(p.level) && p.level < CONFIG.MAX_LEVEL) { p.xp -= playerLib.getXpToNext(p.level); p.level++; p.radius = playerLib.getRadiusByLevel(p.level); }
+        } else { p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL)); p.score += f.xp || 10; }
         break;
       }
     }
@@ -169,31 +130,24 @@ setInterval(() => {
           attacker.hitVictims.add(victim.id); 
           
           let damageAmount = 0;
-          if (victim.level > 1) {
-             damageAmount = playerLib.getXpToNext(victim.level - 1); 
-             victim.level--; 
-             victim.radius = playerLib.getRadiusByLevel(victim.level); 
-             victim.xp = playerLib.getXpToNext(victim.level); 
-          } else {
-             damageAmount = victim.xp > 0 ? victim.xp : 15; 
-             victim.xp = 0; 
+          if (victim.level > 1) { damageAmount = playerLib.getXpToNext(victim.level - 1); victim.level--; victim.radius = playerLib.getRadiusByLevel(victim.level); victim.xp = playerLib.getXpToNext(victim.level); } 
+          else { damageAmount = victim.xp > 0 ? victim.xp : 15; victim.xp = 0; }
+
+          hitsBuffer.push({ x: victim.x, y: victim.y, amount: damageAmount, victimId: victim.id, attackerId: attacker.id });
+          victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
+          
+          victim.killStreak = 0; 
+          attacker.killStreak = (attacker.killStreak || 0) + 1; 
+          
+          const s = attacker.killStreak;
+          if (s === 2 || s === 3 || s === 5 || s === 7 || s === 10) {
+              announcementsBuffer.push({ type: "killstreak", name: attacker.name || "Khách", streak: s });
           }
 
-          hitsBuffer.push({
-            x: victim.x,
-            y: victim.y,
-            amount: damageAmount,
-            victimId: victim.id,
-            attackerId: attacker.id
-          });
-          
-          victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           let gainXp = Math.floor((victim.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_ATTACKER);
           attacker.xp += gainXp; attacker.score = (attacker.score || 0) + gainXp;
           
-          while (attacker.xp >= playerLib.getXpToNext(attacker.level) && attacker.level < CONFIG.MAX_LEVEL) {
-            attacker.xp -= playerLib.getXpToNext(attacker.level); attacker.level++; attacker.radius = playerLib.getRadiusByLevel(attacker.level);
-          }
+          while (attacker.xp >= playerLib.getXpToNext(attacker.level) && attacker.level < CONFIG.MAX_LEVEL) { attacker.xp -= playerLib.getXpToNext(attacker.level); attacker.level++; attacker.radius = playerLib.getRadiusByLevel(attacker.level); }
         }
       }
     } else { if (attacker.hitVictims) attacker.hitVictims.clear(); }
@@ -203,7 +157,6 @@ setInterval(() => {
     const attackDuration = CONFIG.BASE_ATTACK_DURATION + (entity.level || 1) * CONFIG.ATTACK_DURATION_PER_LEVEL;
     if (entity.isAttacking && now - entity.attackTime >= attackDuration) entity.isAttacking = false;
   }
-
   for (const bot of bots.values()) { if (!bot.isDead) botLib.updateBot(bot, foodTree, playerTree); }
 
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
@@ -217,18 +170,16 @@ setInterval(() => {
     }));
     
     const statePayload = JSON.stringify({ 
-        type: "state", 
-        players: allPlayers, 
+        type: "state", players: allPlayers, 
         foodAdded: foodAdded.length > 0 ? foodAdded : undefined, 
         foodRemoved: foodRemoved.length > 0 ? foodRemoved : undefined,
-        hits: hitsBuffer.length > 0 ? hitsBuffer : undefined
+        hits: hitsBuffer.length > 0 ? hitsBuffer : undefined,
+        announcements: announcementsBuffer.length > 0 ? announcementsBuffer : undefined
     });
 
     for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
     
-    foodAdded = []; 
-    foodRemoved = [];
-    hitsBuffer = []; 
+    foodAdded = []; foodRemoved = []; hitsBuffer = []; announcementsBuffer = []; 
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
@@ -238,28 +189,21 @@ setInterval(() => {
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          entity.x = safePos.x; entity.y = safePos.y; 
-          entity.angle = Math.random() * Math.PI * 2;
-          entity.killerId = null;
+          entity.x = safePos.x; entity.y = safePos.y; entity.angle = Math.random() * Math.PI * 2; entity.killerId = null; entity.killStreak = 0;
         }
       }
     }
     
-    const realPlayers = players.size;
-    let botTarget = Math.max(0, CONFIG.MAX_PLAYERS - realPlayers);
-    let botCount = bots.size;
+    let botTarget = Math.max(0, CONFIG.MAX_PLAYERS - players.size); let botCount = bots.size;
     if (botCount < botTarget) { 
       for (let i = botCount; i < botTarget; i++) {
-        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-        const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-        bot.x = safePos.x; bot.y = safePos.y;
-        bots.set(bot.id, bot); 
+        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.killStreak = 0;
+        const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.x = safePos.x; bot.y = safePos.y; bots.set(bot.id, bot); 
       }
     } 
     else if (botCount > botTarget) { let removeCount = botCount - botTarget; for (const [id, bot] of bots) { bots.delete(id); if (--removeCount <= 0) break; } }
   }
-
 }, CONFIG.SERVER_TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT} - Production Mode Active`));
+server.listen(PORT, () => console.log(`[Engine] Server running on port ${PORT}`));
