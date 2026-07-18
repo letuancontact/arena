@@ -1,7 +1,12 @@
 // --- src/client/audio.js ---
 export const Sound = {
-    ctx: null, lastPlay: {}, noiseBuffer: null,
+    ctx: null, 
+    lastPlay: {}, 
+    noiseBuffer: null,
     isMuted: localStorage.getItem("evowar_muted") === "true", 
+    
+    // ĐÃ THÊM: Kho chứa file âm thanh MP3 cho Announcer
+    announcerBuffers: {}, 
     
     init() {
       if (!this.ctx) { 
@@ -10,6 +15,13 @@ export const Sound = {
         this.noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate);
         const output = this.noiseBuffer.getChannelData(0);
         for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
+
+        // ĐÃ THÊM: Tải sẵn các file MP3 khớp đúng tên của bạn
+        this.announcerBuffers.doublekill = new Audio('sounds/Double Kill.mp3'); 
+        this.announcerBuffers.triplekill = new Audio('sounds/triplekill.mp3'); 
+        this.announcerBuffers.quadkill = new Audio('sounds/Quad Kill.mp3'); 
+        this.announcerBuffers.megakill = new Audio('sounds/Mega Kill.mp3'); 
+        this.announcerBuffers.legendary = new Audio('sounds/Legendary.mp3'); 
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
     },
@@ -21,7 +33,18 @@ export const Sound = {
     },
   
     play(type) {
-      if (!this.ctx || this.isMuted) return; 
+      if (this.isMuted) return; 
+
+      // --- ĐÃ THÊM: XỬ LÝ PHÁT ÂM THANH MP3 (ANNOUNCER) ---
+      if (this.announcerBuffers[type]) {
+          const audioClone = this.announcerBuffers[type].cloneNode();
+          audioClone.volume = 1.0;
+          audioClone.play().catch(() => {});
+          return; // Chạy xong âm thanh MP3 thì thoát, không chạy code AudioContext bên dưới
+      }
+
+      // --- GIỮ NGUYÊN: XỬ LÝ ÂM THANH TỔNG HỢP CỦA BẠN ---
+      if (!this.ctx) return;
       const nowMs = Date.now();
       if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
       const now = this.ctx.currentTime;
