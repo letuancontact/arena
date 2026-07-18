@@ -4,8 +4,6 @@ export const Sound = {
     lastPlay: {}, 
     noiseBuffer: null,
     isMuted: localStorage.getItem("evowar_muted") === "true", 
-    
-    // ĐÃ SỬA: Chuyển sang dùng bộ đệm AudioBuffer để không bao giờ bị kẹt tiếng
     announcerBuffers: {}, 
     
     init() {
@@ -16,7 +14,6 @@ export const Sound = {
         const output = this.noiseBuffer.getChannelData(0);
         for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
 
-        // Tải thẳng file MP3 vào bộ nhớ đệm (Giải quyết 100% lỗi mất tiếng liên tục)
         const loadVoice = async (key, url) => {
             try {
                 const response = await fetch(url);
@@ -45,7 +42,12 @@ export const Sound = {
     play(type) {
       if (this.isMuted || !this.ctx) return; 
 
-      // XỬ LÝ PHÁT MP3 QUA KÊNH WEBAUDIO (Độc lập, mượt mà, đè nhau thoải mái)
+      // ĐÃ SỬA: Đưa chốt chặn thời gian LÊN ĐẦU để chống spam lag cho TẤT CẢ âm thanh (kể cả MP3)
+      const nowMs = Date.now();
+      if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 100) return; 
+      this.lastPlay[type] = nowMs;
+
+      // XỬ LÝ PHÁT MP3
       if (this.announcerBuffers[type]) {
           const source = this.ctx.createBufferSource();
           source.buffer = this.announcerBuffers[type];
@@ -55,8 +57,6 @@ export const Sound = {
       }
 
       // XỬ LÝ ÂM THANH TỔNG HỢP CŨ
-      const nowMs = Date.now();
-      if (this.lastPlay[type] && nowMs - this.lastPlay[type] < 60) return; this.lastPlay[type] = nowMs;
       const now = this.ctx.currentTime;
       
       if (type === 'hover') {
