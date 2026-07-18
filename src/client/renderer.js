@@ -114,9 +114,11 @@ export const Renderer = {
   lastHeightCheck: 0,
 
   triggerAnnouncer(name, streak) {
+      // ĐÃ SỬA: Chặn hiển thị thông báo nếu đang ở sảnh chờ/đăng nhập
+      const uiLayer = document.getElementById("ui-layer");
+      if (uiLayer && uiLayer.style.display !== "none") return;
+
       let msg = "", color = "";
-      
-      // Map đúng với text của các file audio
       if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
       else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
       else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
@@ -125,15 +127,16 @@ export const Renderer = {
       
       if (!msg || !this.announcerDiv) return;
 
-      this.announcerDiv.innerHTML = `<div style="font-size:24px;color:#ddd;margin-bottom:-10px;">${name}</div><div style="font-size:56px;color:${color}">${msg}!</div>`;
+      // ĐÃ SỬA: Chữ nhỏ hơn, font thanh thoát hơn, viền bóng tối ưu
+      this.announcerDiv.innerHTML = `<div style="font-size:16px;color:#ddd;margin-bottom:-2px;letter-spacing:1px;text-transform:uppercase;">${name}</div><div style="font-size:38px;color:${color};text-shadow: 0px 4px 8px rgba(0,0,0,0.6);">${msg}!</div>`;
       
       this.announcerDiv.style.opacity = "1";
-      this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1.3)";
+      this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1.15)";
 
       setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1)"; }, 150);
 
       if (this.announcerTimeout) clearTimeout(this.announcerTimeout);
-      this.announcerTimeout = setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.opacity = "0"; }, 3000);
+      this.announcerTimeout = setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.opacity = "0"; }, 2500);
   },
 
   addDamageText(x, y, amount) {
@@ -209,8 +212,9 @@ export const Renderer = {
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
 
+    // ĐÃ SỬA CSS (Giảm lag GPU): Đổi sang text-stroke và thêm thuộc tính will-change
     this.announcerDiv = document.createElement("div");
-    this.announcerDiv.style.cssText = `position:fixed;top:25%;left:50%;transform:translate(-50%, -50%);font-family:Arial,sans-serif;font-weight:900;text-align:center;pointer-events:none;z-index:2000;opacity:0;transition:opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-shadow: 0 0 15px rgba(0,0,0,0.8), 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;`;
+    this.announcerDiv.style.cssText = `position:fixed;top:18%;left:50%;transform:translate(-50%, -50%);font-family:'Arial Black', Impact, sans-serif;font-weight:900;text-align:center;pointer-events:none;z-index:2000;opacity:0;transition:opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); -webkit-text-stroke: 1.5px black; will-change: transform, opacity;`;
     document.body.appendChild(this.announcerDiv);
   },
   
