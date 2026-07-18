@@ -73,9 +73,8 @@ export const Network = {
       
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
-      const uiLayer = document.getElementById("ui-layer"); const playBtn = document.getElementById("play-btn"); const statusText = document.getElementById("status-text");
-
-      // --- TÌM VÀ ĐIỀU KHIỂN NÚT LOA (Tự động nhận diện class/id chứa chữ 'sound' hoặc 'mute') ---
+      const uiLayer = document.getElementById("ui-layer"); 
+      
       const speakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']");
 
       if (me) {
@@ -89,27 +88,30 @@ export const Network = {
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
           uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; setTimeout(() => uiLayer.style.display = "none", 400); 
-          
-          // ĐÃ THÊM: Hiện lại nút loa khi vào game
           if (speakerIcon) speakerIcon.style.display = "block";
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
+        // ========================================================
+        // ĐÃ SỬA: LOGIC KHI BẠN BỊ CHẾT CHÍNH XÁC 100%
+        // ========================================================
         if (!prevDead && me.isDead) {
-          uiLayer.style.display = "flex"; setTimeout(() => { uiLayer.style.opacity = "1"; uiLayer.style.transform = "scale(1)"; }, 10); 
-          statusText.innerText = "BẠN ĐÃ BỊ HẠ GỤC!"; playBtn.disabled = true;
-          
-          // ĐÃ THÊM: Ẩn nút loa khi bị hạ gục / ra sảnh
           if (speakerIcon) speakerIcon.style.display = "none";
+          
+          // 1. Tìm kẻ đã giết bạn bằng killerId
+          const killer = (data.players || []).find(k => k.id === me.killerId);
+          const finalKillerName = killer ? (killer.name || "MỘT KẺ VÔ DANH") : "MỘT KẺ VÔ DANH";
 
-          let left = Math.floor(CONFIG.RESPAWN_TIME / 1000); playBtn.innerText = `HỒI SINH: ${left}S`;
-          const interval = setInterval(() => { left--; if (left <= 0) { clearInterval(interval); playBtn.innerText = "VÀO TRẬN LẠI"; playBtn.disabled = false; statusText.innerText = ""; } else { playBtn.innerText = `HỒI SINH: ${left}S`; } }, 1000);
+          // 2. GỌI TRỰC TIẾP HÀM GAME OVER Ở MAIN.JS
+          if (window.showGameOver) {
+              window.showGameOver(me.level, 0, me.xp, finalKillerName);
+          }
         }
+        // ========================================================
       }
       
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
-      // Ẩn loa ngay từ lúc mới F5 tải trang (chưa chơi lần nào)
       if (prevDead && me && me.isDead && speakerIcon && uiLayer.style.display !== "none") {
           speakerIcon.style.display = "none";
       }
