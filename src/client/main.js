@@ -67,9 +67,12 @@ export function showGameOver(level, kills, xp, killerName = "KẺ THÙ ẨN DANH
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // ÉP BUỘC HIỂN THỊ
+        // ĐÃ SỬA: Bắt buộc ẨN màn hình lobby đăng nhập để không bị đè
+        if (lobbyScreen) lobbyScreen.style.display = 'none'; 
+
+        // Sau đó mới BẬT màn hình Game Over
         if (uiLayer) uiLayer.style.display = 'block';
-        if (gameOverScreen) gameOverScreen.style.display = 'flex'; // Dùng flex để canh giữa 3 cột
+        if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
     } catch (e) {
         console.warn("Lỗi UI:", e);
     }
@@ -145,18 +148,18 @@ function main() {
   
   requestAnimationFrame(loop);
   
-  // ==========================================
-  // ĐÃ SỬA: RADAR TỰ ĐỘNG BẮT SỰ KIỆN CHẾT
-  // ==========================================
-  let wasDead = false;
+  // ĐÃ SỬA: Đặt wasDead = true từ đầu.
+  // Lý do: Lúc mới mở web, nhân vật mặc định là chưa spawn (coi như đã chết). 
+  // Nếu để false, Radar sẽ tưởng bạn đang chơi rồi lăn đùng ra chết, dẫn đến việc hiện nhầm bảng.
+  let wasDead = true; 
+
   setInterval(() => {
-    // Nếu phát hiện nhân vật vừa chết
+    // Nếu phát hiện nhân vật vừa chết trong lúc đang chơi
     if (GameState.isDead && !wasDead) {
         wasDead = true;
-        // Bắt buộc gọi hàm hiện bảng Game Over 3 cột
         showGameOver(GameState.clientLevel, 0, 0, "KẺ THÙ ẨN DANH"); 
     } 
-    // Nếu nhân vật hồi sinh
+    // Nếu nhân vật vừa nhấn nút PLAY và spawn thành công (hết chết)
     else if (!GameState.isDead && wasDead) {
         wasDead = false;
     }
