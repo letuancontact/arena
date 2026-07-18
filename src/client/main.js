@@ -1,24 +1,4 @@
 // --- src/client/main.js ---
-
-// =======================================================
-// HACK: BỘ ĐÁNH CHẶN DỮ LIỆU ĐỂ BẮT LẤY TÊN NGƯỜI GIẾT
-// =======================================================
-const originalParse = JSON.parse;
-JSON.parse = function(text, reviver) {
-    const data = originalParse(text, reviver);
-    if (data && typeof data === 'object') {
-        // Quét tìm tất cả các khóa có thể chứa tên kẻ địch từ Server gửi về
-        const possibleKiller = data.killerName || data.killer || data.killedBy || data.by || data.name;
-        // Kiểm tra xem dữ liệu này có đi kèm tín hiệu chết hay không
-        if (possibleKiller && (data.type === 'dead' || data.type === 'death' || data.isDead || data.killer)) {
-            window.LAST_KILLER_NAME = possibleKiller; 
-            localStorage.setItem('last_killer', possibleKiller);
-        }
-    }
-    return data;
-};
-// =======================================================
-
 import { GameState } from './state.js';
 import { Camera, Resources, Renderer } from './renderer.js';
 import { Sound } from './audio.js';
@@ -78,34 +58,46 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// HÀM HIỂN THỊ GAME OVER HOÀN CHỈNH
+// MÁY QUÉT TÊN KẺ THÙ (BẤT CHẤP THỨ TỰ BIẾN)
 // ==========================================
-function triggerGameOver(level, kills, xp, killerName) {
+function triggerGameOver(arg1, arg2, arg3, arg4) {
     if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
 
     try {
-        const currentLevel = level || GameState.clientLevel || 1;
+        let currentLevel = GameState.clientLevel || 1;
+        let finalKiller = null;
+
+        // Quét toàn bộ dữ liệu mà network.js ném vào hàm này
+        const args = [arg1, arg2, arg3, arg4];
         
-        // --- XỬ LÝ LẤY TÊN TỪ BỘ ĐÁNH CHẶN ---
-        let finalKiller = "MỘT KẺ VÔ DANH"; // Mặc định nếu tự đâm vào tường/lỗi
-        
-        if (typeof killerName === 'string' && killerName.trim() !== '') {
-            finalKiller = killerName;
-        } else if (window.LAST_KILLER_NAME) {
-            finalKiller = window.LAST_KILLER_NAME;
-        } else if (typeof GameState.killerName === 'string' && GameState.killerName.trim() !== '') {
-            finalKiller = GameState.killerName;
-        } else if (localStorage.getItem('last_killer')) { 
-            finalKiller = localStorage.getItem('last_killer');
+        for (const arg of args) {
+            // Nếu là số nhỏ, đó là Cấp độ
+            if (typeof arg === 'number' && arg > 0 && arg < 100) {
+                currentLevel = arg;
+            }
+            // Nếu là Chuỗi ký tự (không phải số), đó chính là Tên kẻ địch!
+            else if (typeof arg === 'string' && isNaN(arg) && arg.trim() !== '') {
+                finalKiller = arg;
+            } 
+            // Nếu là một Object bọc kín, ta lôi tên ra từ trong Object đó
+            else if (typeof arg === 'object' && arg !== null) {
+                if (arg.killerName) finalKiller = arg.killerName;
+                else if (arg.killer) finalKiller = arg.killer;
+                else if (arg.name) finalKiller = arg.name;
+                else if (arg.killedBy) finalKiller = arg.killedBy;
+            }
         }
         
-        // Xóa dấu vết đợt trước để không bị trùng cho lượt chơi sau
-        window.LAST_KILLER_NAME = "";
-        localStorage.removeItem('last_killer');
+        // Nếu vẫn không thấy, tìm kiếm trong GameState
+        if (!finalKiller && typeof GameState.killerName === 'string') finalKiller = GameState.killerName;
+        // Mặc định cuối cùng
+        if (!finalKiller) finalKiller = "MỘT KẺ VÔ DANH";
         
+        // Cập nhật tên lên màn hình
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
+        // Tính toán cấp độ tiến hóa
         let nextLevel = currentLevel + 1;
         if (nextLevel > 40) nextLevel = 40; 
         const nextImgEl = document.getElementById('go-next-img');
@@ -114,7 +106,7 @@ function triggerGameOver(level, kills, xp, killerName) {
         if (uiLayer) uiLayer.style.display = 'block';
         if (gameOverScreen) gameOverScreen.style.display = 'flex'; 
 
-        // --- ĐẾM NGƯỢC 3 GIÂY ---
+        // Đếm ngược 3 giây
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
         
@@ -135,7 +127,7 @@ function triggerGameOver(level, kills, xp, killerName) {
         }, 1000);
 
     } catch (e) {
-        console.warn("Lỗi UI ẩn:", e);
+        console.warn("Lỗi UI:", e);
     }
 }
 
@@ -220,6 +212,7 @@ function main() {
         wasDead = true;
         setTimeout(() => {
             if (gameOverScreen && gameOverScreen.style.display === 'none' && lobbyScreen.style.display === 'none') {
+                // Gọi dự phòng
                 triggerGameOver(GameState.clientLevel, GameState.kills, GameState.score, GameState.killerName);
             }
         }, 200);
@@ -235,5 +228,20 @@ function main() {
     }
   }, CONFIG.UI_UPDATE_INTERVAL || 100);
 }
+
+// Bắt sự kiện nếu Network.js cố ghi vào các ID ẩn cũ bằng phương pháp DOM Event
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        const id = mutation.target.id || "";
+        if (id.toLowerCase().includes('killer') || id.toLowerCase().includes('death')) {
+            const val = mutation.target.innerText || mutation.target.textContent;
+            if (val && val.trim() !== "") {
+                const targetEl = document.getElementById('go-killer-name');
+                if (targetEl) targetEl.innerText = val;
+            }
+        }
+    });
+});
+observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 
 main();
