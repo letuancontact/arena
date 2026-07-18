@@ -11,6 +11,9 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 let respawnInterval = null; 
 
+// KHIÊN BẢO VỆ: Khóa trạng thái, đảm bảo chưa vào trận thì không hiện Game Over
+let isPlaying = false; 
+
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
@@ -48,6 +51,8 @@ function startGame() {
   gameOverScreen.style.display = 'none';
   statusText.innerText = "";
 
+  isPlaying = true; // XÁC NHẬN ĐÃ VÀO TRẬN (Mở khóa cho phép hiện Game Over nếu chết)
+
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
 }
 
@@ -61,6 +66,13 @@ nameInput.addEventListener("keypress", (e) => {
 // HÀM HIỂN THỊ GAME OVER BẤT TỬ
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
+    // --- BỘ LỌC CHỐNG LỖI MÀN HÌNH CHÍNH ---
+    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; // Đang ở sảnh -> Dừng
+    if (!isPlaying) return; // Chưa bấm nút Play -> Dừng
+    
+    isPlaying = false; // Đã chết -> Tắt cờ đi để tránh bị gọi lặp lại 2 lần
+    // ----------------------------------------
+
     try {
         const currentLevel = level || GameState.clientLevel || 1;
         const finalKiller = (killerName && killerName.trim() !== '') ? killerName : "MỘT KẺ VÔ DANH";
@@ -73,7 +85,7 @@ function triggerGameOver(level, kills, xp, killerName) {
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // ÉP CHÍN ĐỘ HIỂN THỊ (SÁNG 100%)
+        // ÉP HIỂN THỊ 100% SÁNG RÕ
         if (uiLayer) {
             uiLayer.style.display = 'block';
             uiLayer.style.opacity = '1';         
@@ -185,12 +197,13 @@ function main() {
   
   let wasDead = true; 
 
-  // VÒNG LẶP DỰ PHÒNG: Quét an toàn nếu gói tin mạng bị suy hao
+  // VÒNG LẶP DỰ PHÒNG: Quét an toàn
   setInterval(() => {
     if (GameState.isDead && !wasDead) {
         wasDead = true;
         setTimeout(() => {
-            if (gameOverScreen && gameOverScreen.style.display === 'none') {
+            // Yêu cầu phải đang trong game (isPlaying = true) mới hiển thị
+            if (gameOverScreen && gameOverScreen.style.display === 'none' && isPlaying) {
                 triggerGameOver(GameState.clientLevel, GameState.kills, GameState.clientXp, GameState.killerName);
             }
         }, 250);
