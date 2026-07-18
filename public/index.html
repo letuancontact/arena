@@ -64,15 +64,14 @@
         box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4);
         transition: transform 0.1s, box-shadow 0.1s; width: 100%; max-width: 250px;
       }
-      .action-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #550000, 0 3px 5px rgba(0,0,0,0.4); }
-      .action-btn:hover { filter: brightness(1.2); }
-      .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; border-color: #666; }
+      .action-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #550000, 0 3px 5px rgba(0,0,0,0.4); }
+      .action-btn:hover:not(:disabled) { filter: brightness(1.2); }
+      .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; border-color: #555; box-shadow: none; transform: none; opacity: 0.7;}
 
       /* === GAME OVER 3 CỘT === */
       #game-over-screen {
-        /* CSS gốc */
         background-image: none; 
-        background-color: rgba(5,5,5,0.8); 
+        background-color: rgba(5,5,5,0.85); 
         backdrop-filter: blur(8px);
         justify-content: center;
         align-items: center;
@@ -103,9 +102,9 @@
       .go-hints p { margin: 0 0 12px 0; }
       
       .go-title { font-size: 20px; color: #fff; font-weight: 900; margin-top: 25px; text-transform: uppercase; }
-      .go-killer { font-size: 22px; color: #ff3333; font-weight: 900; margin: 10px 0 25px 0; word-break: break-all; padding: 0 10px; text-align: center; }
+      .go-killer { font-size: 22px; color: #ff3333; font-weight: 900; margin: 10px 0 20px 0; word-break: break-all; padding: 0 10px; text-align: center; }
       .go-next-text { font-size: 14px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
-      .go-center img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 30px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
+      .go-center img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
       
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
       .go-ad img { width: 100%; border-radius: 8px; border: 1px solid #444; }
@@ -123,7 +122,6 @@
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
-        <!-- 1. MÀN HÌNH MENU -->
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
                 <div class="panel-section">
@@ -133,7 +131,7 @@
                 </div>
                 
                 <div class="logo-section">
-                    <img src="img/logo.png" alt="Logo">
+                    <img src="img/lv10.png" alt="Logo">
                 </div>
 
                 <div class="panel-section" style="margin-bottom: 0;">
@@ -145,8 +143,6 @@
             </div>
         </div>
 
-        <!-- 2. MÀN HÌNH GAME OVER -->
-        <!-- ĐÃ SỬA: Chặn cứng display: none trực tiếp trên thẻ HTML -->
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
                 
@@ -164,6 +160,10 @@
                     <div id="go-killer-name" class="go-killer">MỘT KẺ VÔ DANH</div>
                     <div class="go-next-text">TIẾN HÓA TIẾP THEO</div>
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
+                    
+                    <!-- ĐÃ THÊM: Chữ thông báo bộ đếm -->
+                    <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
+                    
                     <button id="respawn-btn" class="action-btn">CHƠI</button>
                 </div>
 
