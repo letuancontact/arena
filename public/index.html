@@ -6,9 +6,7 @@
     <title>EvoWar Arena</title>
     <link rel="stylesheet" href="style.css" />
     
-    <!-- CSS Giao diện -->
     <style>
-      /* Sửa lỗi Font: Dùng Google Font ổn định và thêm System-ui dự phòng */
       @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
 
       #ui-layer {
@@ -16,39 +14,42 @@
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
 
-      /* Nền tối có làm mờ nhẹ */
+      /* ĐÃ SỬA: Khôi phục ảnh nền Map, đè thêm lớp đen mờ để chống rối mắt */
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background-color: rgba(15, 15, 15, 0.5); /* Nền mờ */
-        backdrop-filter: blur(8px); /* ĐÃ TỐI ƯU: Làm mờ cảnh game phía sau */
+        background-image: url('img/mapbg.png'); 
+        background-size: 150px 150px; 
+        background-repeat: repeat;
+        background-color: rgba(15, 15, 15, 0.6); 
+        backdrop-filter: blur(5px);
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         transition: opacity 0.3s ease;
       }
 
-      /* === CSS CHO MENU ĐĂNG NHẬP === */
+      /* === CSS MENU ĐĂNG NHẬP (Tối ưu nhỏ gọn nhất có thể) === */
       .popup-panel {
-        background: rgba(10, 12, 16, 0.65); 
+        background: rgba(15, 18, 22, 0.9); 
         border-radius: 16px;
-        width: 85%; max-width: 420px;
-        padding: 20px 25px;
+        width: 85%; max-width: 380px; /* Thu nhỏ gọn tối đa */
+        padding: 18px 22px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        border: 2px solid rgba(255,255,255,0.1);
+        border: 2px solid rgba(255,255,255,0.08);
         text-align: center;
       }
       .panel-section {
-        background: rgba(0, 0, 0, 0.4);
-        border-radius: 12px; padding: 15px; margin-bottom: 15px;
-        border: 1px solid rgba(255,255,255,0.05);
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px; padding: 12px; margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.04);
       }
-      .popup-panel h1 { color: #ffffff; font-size: 28px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 2px; }
-      .popup-panel h2 { color: #aaaaaa; font-size: 14px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; }
-      .popup-panel p { color: #d0d0d0; font-size: 13px; margin: 0; line-height: 1.4; }
-      .logo-section { margin: 10px 0; }
-      .logo-section img { height: 90px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6)); }
+      .popup-panel h1 { color: #ffffff; font-size: 24px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 2px; }
+      .popup-panel h2 { color: #aaaaaa; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+      .popup-panel p { color: #d0d0d0; font-size: 12px; margin: 0; line-height: 1.4; }
+      .logo-section { margin: 8px 0; }
+      .logo-section img { height: 80px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6)); }
 
       #player-name {
         width: 100%; max-width: 250px; box-sizing: border-box;
-        padding: 12px 15px; margin-bottom: 12px;
+        padding: 10px 15px; margin-bottom: 12px;
         border-radius: 20px; border: 2px solid rgba(255,255,255,0.1);
         background: rgba(0,0,0,0.8); color: #fff; font-size: 16px;
         font-family: inherit; font-weight: bold; text-align: center;
@@ -59,23 +60,23 @@
       .action-btn {
         background: linear-gradient(to bottom, #ff3300, #aa0000);
         border: 3px solid #ff0000; border-radius: 10px;
-        padding: 12px 40px; color: white;
-        font-family: inherit; font-weight: 900; font-size: 24px;
+        padding: 10px 40px; color: white;
+        font-family: inherit; font-weight: 900; font-size: 22px;
         cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5);
-        box-shadow: 0 6px 0 #550000, 0 8px 10px rgba(0,0,0,0.4);
+        box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4);
         transition: transform 0.1s, box-shadow 0.1s; width: 100%; max-width: 250px;
       }
       .action-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #550000, 0 3px 5px rgba(0,0,0,0.4); }
       .action-btn:hover { filter: brightness(1.2); }
       .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; transform: none; box-shadow: none; border-color: #666; }
 
-      /* === CSS CHO GAME OVER (GIAO DIỆN 3 CỘT) === */
+      /* === CSS GAME OVER 3 CỘT === */
       .go-wrapper {
         display: flex; gap: 20px; align-items: stretch; justify-content: center;
         width: 90%; max-width: 900px;
       }
       .go-panel {
-        background: #0a0a0a;
+        background: rgba(10, 10, 10, 0.95);
         border: 4px solid #333333;
         border-radius: 12px;
         display: flex; flex-direction: column;
@@ -90,24 +91,20 @@
         border-bottom: 2px solid #333;
       }
       
-      /* Cột Trái: Gợi ý */
       .go-hints { padding: 15px; color: #ccc; font-size: 13px; line-height: 1.6; text-align: left; flex-grow: 1;}
       .go-hints p { margin: 0 0 10px 0; }
       
-      /* Cột Giữa: Main */
       .go-title { font-size: 22px; color: #fff; font-weight: 900; margin-top: 20px; }
-      .go-killer { font-size: 20px; color: #ff3333; font-weight: 900; margin: 5px 0 20px 0; word-break: break-all; padding: 0 10px;}
+      .go-killer { font-size: 20px; color: #ff3333; font-weight: 900; margin: 5px 0 20px 0; word-break: break-all; padding: 0 10px; text-align: center; }
       .go-next-text { font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 10px; }
       .go-center img { width: 100px; height: 100px; object-fit: contain; margin-bottom: 25px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
       
-      /* Cột Phải: Quảng cáo/Game khác */
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
       .go-ad img { width: 100%; border-radius: 8px; border: 1px solid #444; }
 
-      /* Đáp ứng giao diện điện thoại (Responsive) */
       @media (max-width: 768px) {
         .go-wrapper { flex-direction: column; align-items: center; gap: 10px; }
-        .go-side { display: none; /* Ẩn cột phụ trên Mobile cho đỡ chật */ }
+        .go-side { display: none; }
         .go-center { width: 90%; max-width: 350px; }
       }
     </style>
@@ -122,7 +119,7 @@
         <div id="lobby-screen" class="screen-container">
             <div class="popup-panel">
                 <div class="panel-section">
-                    <h1>EVO ARENA</h1>
+                    <h1>ARENA.IO</h1>
                     <h2>Fight! Kill! Evolve!</h2>
                     <p>Level up to evolve your character.<br>Bigger weapons, stronger armor!</p>
                 </div>
@@ -140,21 +137,19 @@
             </div>
         </div>
 
-        <!-- 2. MÀN HÌNH GAME OVER 3 CỘT MỚI -->
-        <div id="game-over-screen" class="screen-container" style="display: none;">
+        <!-- 2. MÀN HÌNH GAME OVER -->
+        <div id="game-over-screen" class="screen-container" style="display: none; background-image: none; background-color: rgba(5,5,5,0.85); backdrop-filter: blur(10px);">
             <div class="go-wrapper">
                 
-                <!-- Bảng Trái -->
                 <div class="go-panel go-side">
                     <div class="go-header">GỢI Ý</div>
                     <div class="go-hints">
                         <p>• Giết một kẻ thù lớn mang lại cho bạn rất nhiều kinh nghiệm!</p>
-                        <p>• Những quả cầu lớn mang lại cho bạn nhiều kinh nghiệm hơn những quả cầu nhỏ, nhưng việc giết đối thủ mang lại cho bạn nhiều kinh nghiệm nhất.</p>
+                        <p>• Những quả cầu lớn mang lại cho bạn nhiều kinh nghiệm hơn, nhưng hạ gục đối thủ mang lại nhiều kinh nghiệm nhất.</p>
                         <p>• Hãy cẩn thận với những kẻ thù nhỏ bé vì chúng di chuyển rất nhanh!</p>
                     </div>
                 </div>
 
-                <!-- Bảng Giữa (Chính) -->
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
                     <div id="go-killer-name" class="go-killer">KẺ THÙ ẨN DANH</div>
@@ -163,16 +158,19 @@
                     <button id="respawn-btn" class="action-btn">CHƠI</button>
                 </div>
 
-                <!-- Bảng Phải -->
                 <div class="go-panel go-side">
                     <div class="go-header">TRÒ CHƠI CỦA</div>
                     <div class="go-ad">
-                        <!-- Chèn 1 tấm ảnh quảng cáo giả lập -->
                         <img src="img/mapbg.png" style="height: 100px; object-fit: cover;" alt="Ads">
                         <p style="color: #888; font-size: 12px; margin-top: 10px;">More games coming soon...</p>
                     </div>
                 </div>
 
+            </div>
+
+            <!-- CHỐNG LỖI JS: Đặt các thẻ thống kê ẩn ở đây để JS cũ gọi không bị crash -->
+            <div style="display:none;">
+                <span id="go-level"></span><span id="go-kills"></span><span id="go-xp"></span>
             </div>
         </div>
     </div>
