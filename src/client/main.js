@@ -54,35 +54,24 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
-// ĐÃ SỬA: Bảo vệ hàm Game Over tuyệt đối chống crash ẩn bảng
+// Hàm hiển thị Bảng Game Over
 export function showGameOver(level, kills, xp, killerName = "KẺ THÙ ẨN DANH") {
     try {
-        const currentLevel = level || 1;
+        const currentLevel = level || GameState.clientLevel || 1;
         
-        // Gắn tên kẻ thù an toàn
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = killerName;
         
-        // Tính hình ảnh cấp độ tiếp theo
         let nextLevel = currentLevel + 1;
         if (nextLevel > 40) nextLevel = 40; 
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // Gắn các thông số cũ ẩn đi (Phòng hờ code khác sử dụng)
-        const elLevel = document.getElementById('go-level');
-        const elKills = document.getElementById('go-kills');
-        const elXp = document.getElementById('go-xp');
-        if (elLevel) elLevel.innerText = currentLevel;
-        if (elKills) elKills.innerText = kills || 0;
-        if (elXp) elXp.innerText = Math.floor(xp || 0);
-
-    } catch (e) {
-        console.warn("Lỗi nhẹ khi vẽ nội dung chữ, bỏ qua để hiện UI:", e);
-    } finally {
-        // LUÔN LUÔN ÉP HIỂN THỊ BẢNG
+        // ÉP BUỘC HIỂN THỊ
         if (uiLayer) uiLayer.style.display = 'block';
-        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        if (gameOverScreen) gameOverScreen.style.display = 'flex'; // Dùng flex để canh giữa 3 cột
+    } catch (e) {
+        console.warn("Lỗi UI:", e);
     }
 }
 
@@ -156,7 +145,22 @@ function main() {
   
   requestAnimationFrame(loop);
   
+  // ==========================================
+  // ĐÃ SỬA: RADAR TỰ ĐỘNG BẮT SỰ KIỆN CHẾT
+  // ==========================================
+  let wasDead = false;
   setInterval(() => {
+    // Nếu phát hiện nhân vật vừa chết
+    if (GameState.isDead && !wasDead) {
+        wasDead = true;
+        // Bắt buộc gọi hàm hiện bảng Game Over 3 cột
+        showGameOver(GameState.clientLevel, 0, 0, "KẺ THÙ ẨN DANH"); 
+    } 
+    // Nếu nhân vật hồi sinh
+    else if (!GameState.isDead && wasDead) {
+        wasDead = false;
+    }
+
     if (!GameState.isDead) Renderer.updateUI();
     if (GameState.clientXp <= 0 && GameState.rightMouseDown) { 
         GameState.rightMouseDown = false; 
