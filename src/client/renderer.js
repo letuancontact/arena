@@ -78,7 +78,6 @@ export const FX = {
       this.spawn(x, y, Math.cos(angle)*speed, Math.sin(angle)*speed, 0.3 + Math.random()*0.1, 2.5, "#ffcc00", 1);
     }
   },
-
   updateAndDraw(ctx, dtMultiplier, vLeft, vRight, vTop, vBottom) {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
@@ -86,7 +85,6 @@ export const FX = {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
         if (p.life <= 0) { p.active = false; continue; } 
         if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
-
         const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
         if (p.type === 1) { 
           const angle = Math.atan2(p.vy, p.vx); const speed = Math.hypot(p.vx, p.vy);
@@ -106,30 +104,48 @@ export const Renderer = {
   visualRadius: {},
   floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
-  
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
+  announcerDiv: null,
+  announcerTimeout: null,
+
   lastLeaderboardHeight: 0,
   lastHeightCheck: 0,
+
+  triggerAnnouncer(name, streak) {
+      let msg = "", color = "";
+      
+      // Map đúng với text của các file audio
+      if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
+      else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
+      else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
+      else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
+      else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
+      
+      if (!msg || !this.announcerDiv) return;
+
+      this.announcerDiv.innerHTML = `<div style="font-size:24px;color:#ddd;margin-bottom:-10px;">${name}</div><div style="font-size:56px;color:${color}">${msg}!</div>`;
+      
+      this.announcerDiv.style.opacity = "1";
+      this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1.3)";
+
+      setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.transform = "translate(-50%, -50%) scale(1)"; }, 150);
+
+      if (this.announcerTimeout) clearTimeout(this.announcerTimeout);
+      this.announcerTimeout = setTimeout(() => { if(this.announcerDiv) this.announcerDiv.style.opacity = "0"; }, 3000);
+  },
 
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
         if(!this.damageTexts[i].active) {
             const d = this.damageTexts[i]; 
-            d.x = x; d.y = y; d.amount = amount; 
-            d.vx = (Math.random() - 0.5) * 8; 
-            d.vy = -7 - Math.random() * 4;    
-            d.start = Date.now(); 
-            d.active = true; 
-            break;
+            d.x = x; d.y = y; d.amount = amount; d.vx = (Math.random() - 0.5) * 8; d.vy = -7 - Math.random() * 4; d.start = Date.now(); d.active = true; break;
         }
     }
   },
 
-  addHitFlash(id) {
-    this.hitFlashes[id] = Date.now();
-  },
+  addHitFlash(id) { this.hitFlashes[id] = Date.now(); },
 
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
@@ -192,6 +208,10 @@ export const Renderer = {
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
+
+    this.announcerDiv = document.createElement("div");
+    this.announcerDiv.style.cssText = `position:fixed;top:25%;left:50%;transform:translate(-50%, -50%);font-family:Arial,sans-serif;font-weight:900;text-align:center;pointer-events:none;z-index:2000;opacity:0;transition:opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-shadow: 0 0 15px rgba(0,0,0,0.8), 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;`;
+    document.body.appendChild(this.announcerDiv);
   },
   
   resizeCanvas() { 
@@ -366,34 +386,16 @@ export const Renderer = {
     }
 
     for (let i = GameState.magnetFoods.length - 1; i >= 0; i--) {
-      const mf = GameState.magnetFoods[i];
-      let tx = mf.x, ty = mf.y;
-      
-      if (mf.targetId === GameState.playerId) {
-        tx = GameState.clientX; ty = GameState.clientY;
-      } else {
-        const targetP = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find(p => p.id === mf.targetId);
-        if (targetP) { tx = targetP.x; ty = targetP.y; }
-      }
+      const mf = GameState.magnetFoods[i]; let tx = mf.x, ty = mf.y;
+      if (mf.targetId === GameState.playerId) { tx = GameState.clientX; ty = GameState.clientY; } 
+      else { const targetP = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find(p => p.id === mf.targetId); if (targetP) { tx = targetP.x; ty = targetP.y; } }
+      const dx = tx - mf.x; const dy = ty - mf.y; const dist = Math.hypot(dx, dy); const speed = 35 * dtMultiplier; 
 
-      const dx = tx - mf.x;
-      const dy = ty - mf.y;
-      const dist = Math.hypot(dx, dy);
-      const speed = 35 * dtMultiplier; 
-
-      if (dist < speed || mf.progress > 40) {
-        GameState.magnetFoods.splice(i, 1);
-      } else {
-        mf.x += (dx / dist) * speed;
-        mf.y += (dy / dist) * speed;
-        mf.progress += 1;
-
+      if (dist < speed || mf.progress > 40) { GameState.magnetFoods.splice(i, 1); } 
+      else {
+        mf.x += (dx / dist) * speed; mf.y += (dy / dist) * speed; mf.progress += 1;
         const img = Resources.foodImages[mf.type || 0];
-        if (img && img.complete) {
-          const scale = Math.max(0.1, 1 - (mf.progress / 50));
-          const size = mf.radius * 2 * scale;
-          ctx.drawImage(img, mf.x - size/2, mf.y - size/2, size, size);
-        }
+        if (img && img.complete) { const scale = Math.max(0.1, 1 - (mf.progress / 50)); const size = mf.radius * 2 * scale; ctx.drawImage(img, mf.x - size/2, mf.y - size/2, size, size); }
       }
     }
 
@@ -489,17 +491,11 @@ export const Renderer = {
             const elapsed = now - d.start;
             if (elapsed > 800) { d.active = false; }
             else {
-                d.x += d.vx * dtMultiplier;
-                d.y += d.vy * dtMultiplier;
-                d.vy += 0.5 * dtMultiplier; 
-
+                d.x += d.vx * dtMultiplier; d.y += d.vy * dtMultiplier; d.vy += 0.5 * dtMultiplier; 
                 if (d.x < viewportLeft || d.x > viewportRight || d.y < viewportTop || d.y > viewportBottom) continue;
-
                 const alpha = elapsed > 500 ? 1 - ((elapsed - 500) / 300) : 1;
                 const scale = elapsed < 100 ? 1 + (100 - elapsed)/100 * 0.5 : 1; 
-
-                ctx.save(); ctx.globalAlpha = alpha;
-                ctx.translate(d.x, d.y); ctx.scale(scale, scale);
+                ctx.save(); ctx.globalAlpha = alpha; ctx.translate(d.x, d.y); ctx.scale(scale, scale);
                 ctx.font = "900 28px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
                 ctx.lineWidth = 5; ctx.strokeStyle = "#440000"; ctx.fillStyle = "#ff2222";
                 ctx.strokeText(`-${d.amount}`, 0, 0); ctx.fillText(`-${d.amount}`, 0, 0);
@@ -513,14 +509,9 @@ export const Renderer = {
       if (e.active) {
         if (now - e.start >= 1500) { e.active = false; }
         else {
-          const t = (now - e.start) / 1500;
-          const alpha = 1 - Math.pow(t, 3); 
-          ctx.save();
-          ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
-          ctx.lineWidth = 8 * (1 - t); 
-          ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; 
-          ctx.stroke();
-          ctx.restore();
+          const t = (now - e.start) / 1500; const alpha = 1 - Math.pow(t, 3); 
+          ctx.save(); ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
+          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.stroke(); ctx.restore();
         }
       }
     }
@@ -530,22 +521,14 @@ export const Renderer = {
       if (e.active) {
         if (now - e.start >= 1000) { e.active = false; }
         else {
-          const t = (now - e.start) / 1000;
-          const floatY = e.y - (t * 50); 
-          
+          const t = (now - e.start) / 1000; const floatY = e.y - (t * 50); 
           if (e.x < viewportLeft || e.x > viewportRight || floatY < viewportTop || floatY > viewportBottom) continue;
-
           ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
-          ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          
-          ctx.lineWidth = 3; 
+          ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = 3; 
           if (e.text === "LEVEL UP!") { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; } 
           else if (e.text === "KILL!") { ctx.fillStyle = e.color; ctx.strokeStyle = "#990000"; } 
           else { ctx.fillStyle = e.color; ctx.strokeStyle = "#009944"; }
-
-          ctx.strokeText(e.text, e.x, floatY); 
-          ctx.fillText(e.text, e.x, floatY); 
-          ctx.restore();
+          ctx.strokeText(e.text, e.x, floatY); ctx.fillText(e.text, e.x, floatY); ctx.restore();
         }
       }
     }
@@ -560,17 +543,10 @@ export const Renderer = {
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const isMob = window.innerWidth <= 768;
-    const kfWidth = isMob ? 135 : 220;    
-    const kfHeight = isMob ? 18 : 26;     
-    const kfFontSize = isMob ? 9 : 13;    
-    
+    const isMob = window.innerWidth <= 768; const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
     let killFeedStartY = isMob ? 120 : 190; 
     if (this.leaderboardDiv) {
-      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) {
-        this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight;
-        this.lastHeightCheck = now;
-      }
+      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) { this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight; this.lastHeightCheck = now; }
       killFeedStartY = this.leaderboardDiv.offsetTop + this.lastLeaderboardHeight + 10;
     }
     
@@ -578,26 +554,18 @@ export const Renderer = {
     for (let i = 0; i < this.killFeeds.length; i++) {
       const kf = this.killFeeds[i];
       if (kf.active) {
-        const elapsed = now - kf.start;
-        if (elapsed > 3000) { kf.active = false; continue; }
-        
+        const elapsed = now - kf.start; if (elapsed > 3000) { kf.active = false; continue; }
         let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500);
         let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3);
-        
         const yPos = killFeedStartY + (activeKillFeeds * (kfHeight + 5));
         
         ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
-        
-        ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)";
-        ctx.fillRect(0, 0, kfWidth, kfHeight);
-        
+        ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, kfWidth, kfHeight);
         ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
         ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
         ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", kfWidth / 2, kfHeight / 2);
         ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, kfWidth - 6, kfHeight / 2);
-        
-        ctx.restore();
-        activeKillFeeds++;
+        ctx.restore(); activeKillFeeds++;
       }
     }
     
@@ -608,21 +576,14 @@ export const Renderer = {
         if (nowKillXp - e.start >= 1000) { e.active = false; } 
         else {
           const t = (nowKillXp - e.start) / 1000;
-          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
-          ctx.globalAlpha = 1 - t; 
-          ctx.font = "bold 20px Arial"; 
-          ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3;
-          ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-          const floatY = 100 - t * 40;
-          ctx.strokeText(`+${e.amount} XP`, winW / 2, floatY); 
-          ctx.fillText(`+${e.amount} XP`, winW / 2, floatY); 
-          ctx.restore(); 
+          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1 - t; ctx.font = "bold 20px Arial"; 
+          ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          const floatY = 100 - t * 40; ctx.strokeText(`+${e.amount} XP`, winW / 2, floatY); ctx.fillText(`+${e.amount} XP`, winW / 2, floatY); ctx.restore(); 
         }
       }
     }
 
     ctx.restore();
-
     if (GameState.isTouch) this.drawMobileUI();
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     this.updateLeaderboard(allPlayersArr);
