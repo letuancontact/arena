@@ -4,6 +4,7 @@ import { Camera, FX, Renderer } from './renderer.js';
 import { Sound } from './audio.js';
 
 const CONFIG = window.GAME_CONFIG;
+let uiHideTimeout = null; // BỘ KHÓA: Giữ lại ID của lệnh ẩn màn hình
 
 export const Network = {
   ws: null,
@@ -74,7 +75,6 @@ export const Network = {
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       const uiLayer = document.getElementById("ui-layer"); 
-      
       const speakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']");
 
       if (me) {
@@ -87,27 +87,28 @@ export const Network = {
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          uiLayer.style.opacity = "0"; uiLayer.style.transform = "scale(1.05)"; setTimeout(() => uiLayer.style.display = "none", 400); 
+          
+          if (uiHideTimeout) clearTimeout(uiHideTimeout); // Dọn dẹp lệnh ẩn trước đó
+          uiLayer.style.opacity = "0"; 
+          uiLayer.style.transform = "scale(1.05)"; 
+          uiHideTimeout = setTimeout(() => uiLayer.style.display = "none", 400); 
+          
           if (speakerIcon) speakerIcon.style.display = "block";
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
-        // ========================================================
-        // ĐÃ SỬA: LOGIC KHI BẠN BỊ CHẾT CHÍNH XÁC 100%
-        // ========================================================
         if (!prevDead && me.isDead) {
+          if (uiHideTimeout) clearTimeout(uiHideTimeout); // XÓA LỆNH ẨN NẾU NGƯỜI CHƠI CHẾT
           if (speakerIcon) speakerIcon.style.display = "none";
           
-          // 1. Tìm kẻ đã giết bạn bằng killerId
+          // Lấy ID người giết để dò ra tên chính xác
           const killer = (data.players || []).find(k => k.id === me.killerId);
           const finalKillerName = killer ? (killer.name || "MỘT KẺ VÔ DANH") : "MỘT KẺ VÔ DANH";
 
-          // 2. GỌI TRỰC TIẾP HÀM GAME OVER Ở MAIN.JS
           if (window.showGameOver) {
               window.showGameOver(me.level, 0, me.xp, finalKillerName);
           }
         }
-        // ========================================================
       }
       
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
