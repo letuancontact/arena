@@ -127,18 +127,24 @@ export const Renderer = {
       if (!msg || !this.announcerDiv) return;
 
       const isMob = window.innerWidth <= 768;
+      // ĐÃ SỬA: Đẩy tụt hẳn xuống (100px - 150px) để không bao giờ đè Leaderboard
+      const targetTop = isMob ? "100px" : "150px"; 
+      const hideTop = isMob ? "80px" : "130px";
       
-      // ĐÃ SỬA: Thiết kế gọn gàng, font Arial, giống hệt khung Kill Feed
-      this.announcerDiv.innerHTML = `<span style="color:#ffffff;">${name}</span> <span style="color:${color};">⚔️ ${msg}</span>`;
+      const newHTML = `<span style="color:#ffffff;">${name}</span> <span style="color:${color};">⚔️ ${msg}</span>`;
       
+      // ĐÃ SỬA: Chống lag UI bằng cách chặn render đè liên tục
+      if (this.announcerDiv.innerHTML === newHTML && this.announcerDiv.style.opacity === "1") return;
+
+      this.announcerDiv.innerHTML = newHTML;
       this.announcerDiv.style.opacity = "1";
-      this.announcerDiv.style.top = isMob ? "75px" : "95px"; // Trượt nhẹ xuống
+      this.announcerDiv.style.top = targetTop;
 
       if (this.announcerTimeout) clearTimeout(this.announcerTimeout);
       this.announcerTimeout = setTimeout(() => { 
         if(this.announcerDiv) {
             this.announcerDiv.style.opacity = "0"; 
-            this.announcerDiv.style.top = isMob ? "60px" : "80px"; // Trượt ngược lên
+            this.announcerDiv.style.top = hideTop;
         }
       }, 3000);
   },
@@ -206,7 +212,6 @@ export const Renderer = {
   },
 
   setupUI() {
-    // ĐÃ SỬA: Ép ẩn icon loa NGAY LẬP TỨC bằng JS khi load game
     const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
     if (speakerIcon) speakerIcon.style.display = "none";
 
@@ -221,9 +226,9 @@ export const Renderer = {
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
 
-    // CSS Mới: Box đen mờ, bo góc nhẹ, font Arial như Kill Feed
+    // ĐÃ SỬA: Hình dáng "Pill" xịn xò, thêm phần cứng đồ họa (will-change) để chống giật
     this.announcerDiv = document.createElement("div");
-    this.announcerDiv.style.cssText = `position:fixed; top:${isMob ? '60px' : '80px'}; left:50%; transform:translateX(-50%); font-family:Arial, sans-serif; font-weight:bold; font-size:${isMob ? '12px' : '14px'}; text-align:center; pointer-events:none; z-index:2000; opacity:0; transition:all 0.25s ease-out; background:rgba(0,0,0,0.5); padding:${isMob ? '4px 12px' : '6px 16px'}; border-radius:4px; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow: 0 2px 5px rgba(0,0,0,0.4);`;
+    this.announcerDiv.style.cssText = `position:fixed; top:${isMob ? '80px' : '130px'}; left:50%; transform:translateX(-50%); font-family:Arial, sans-serif; font-weight:bold; font-size:${isMob ? '13px' : '15px'}; text-align:center; pointer-events:none; z-index:2000; opacity:0; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); background:rgba(20,20,20,0.75); padding:${isMob ? '6px 16px' : '8px 20px'}; border-radius:30px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); will-change: opacity, top;`;
     document.body.appendChild(this.announcerDiv);
   },
   
