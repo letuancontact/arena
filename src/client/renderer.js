@@ -107,16 +107,13 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  announcerDiv: null,
-  announcerTimeout: null,
-
   lastLeaderboardHeight: 0,
   lastHeightCheck: 0,
 
-  triggerAnnouncer(name, streak) {
-      const uiLayer = document.getElementById("ui-layer");
-      if (uiLayer && uiLayer.style.display !== "none") return;
+  // ĐÃ SỬA: Chuyển Announcer thành dạng Object Canvas để không dùng DOM HTML nữa
+  activeAnnouncer: { active: false, name: "", msg: "", color: "", start: 0 },
 
+  triggerAnnouncer(name, streak) {
       let msg = "", color = "";
       if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
       else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
@@ -124,29 +121,16 @@ export const Renderer = {
       else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
       else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
       
-      if (!msg || !this.announcerDiv) return;
+      if (!msg) return;
 
-      const isMob = window.innerWidth <= 768;
-      // ĐÃ SỬA: Đẩy tụt hẳn xuống (100px - 150px) để không bao giờ đè Leaderboard
-      const targetTop = isMob ? "100px" : "150px"; 
-      const hideTop = isMob ? "80px" : "130px";
-      
-      const newHTML = `<span style="color:#ffffff;">${name}</span> <span style="color:${color};">⚔️ ${msg}</span>`;
-      
-      // ĐÃ SỬA: Chống lag UI bằng cách chặn render đè liên tục
-      if (this.announcerDiv.innerHTML === newHTML && this.announcerDiv.style.opacity === "1") return;
-
-      this.announcerDiv.innerHTML = newHTML;
-      this.announcerDiv.style.opacity = "1";
-      this.announcerDiv.style.top = targetTop;
-
-      if (this.announcerTimeout) clearTimeout(this.announcerTimeout);
-      this.announcerTimeout = setTimeout(() => { 
-        if(this.announcerDiv) {
-            this.announcerDiv.style.opacity = "0"; 
-            this.announcerDiv.style.top = hideTop;
-        }
-      }, 3000);
+      // Lưu vào state để vẽ trên Canvas
+      this.activeAnnouncer = {
+          active: true,
+          name: String(name).substring(0, 15),
+          msg: msg,
+          color: color,
+          start: Date.now()
+      };
   },
 
   addDamageText(x, y, amount) {
@@ -225,11 +209,6 @@ export const Renderer = {
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
     this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
-
-    // ĐÃ SỬA: Hình dáng "Pill" xịn xò, thêm phần cứng đồ họa (will-change) để chống giật
-    this.announcerDiv = document.createElement("div");
-    this.announcerDiv.style.cssText = `position:fixed; top:${isMob ? '80px' : '130px'}; left:50%; transform:translateX(-50%); font-family:Arial, sans-serif; font-weight:bold; font-size:${isMob ? '13px' : '15px'}; text-align:center; pointer-events:none; z-index:2000; opacity:0; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); background:rgba(20,20,20,0.75); padding:${isMob ? '6px 16px' : '8px 20px'}; border-radius:30px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); will-change: opacity, top;`;
-    document.body.appendChild(this.announcerDiv);
   },
   
   resizeCanvas() { 
@@ -559,9 +538,47 @@ export const Renderer = {
       ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
     }
 
+    // VẼ CÁC THÀNH PHẦN UI CỐ ĐỊNH TRÊN MÀN HÌNH BẰNG CANVAS (Giảm lag 100%)
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const isMob = window.innerWidth <= 768; 
 
-    const isMob = window.innerWidth <= 768; const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
+    // --- VẼ ANNOUNCER (VIÊN THUỐC ĐEN) GIỮA MÀN HÌNH ---
+    if (this.activeAnnouncer && this.activeAnnouncer.active) {
+      const elapsed = now - this.activeAnnouncer.start;
+      if (elapsed > 3000) { 
+          this.activeAnnouncer.active = false; 
+      } else {
+          let alpha = 1; 
+          if (elapsed < 200) alpha = elapsed / 200; 
+          else if (elapsed > 2700) alpha = 1 - (elapsed - 2700) / 300;
+          
+          let yOffset = 0; 
+          if (elapsed < 200) yOffset = -15 * (1 - elapsed / 200);
+
+          ctx.save(); ctx.globalAlpha = alpha;
+          const cx = winW / 2; const cy = (isMob ? 45 : 55) + yOffset;
+          ctx.font = `bold ${isMob ? 11 : 13}px Arial`;
+          
+          const nW = ctx.measureText(this.activeAnnouncer.name).width;
+          const mW = ctx.measureText(` ⚔️ ${this.activeAnnouncer.msg}`).width;
+          const tW = nW + mW + 24; const h = isMob ? 22 : 26;
+          
+          // Vẽ nền đen mờ bo tròn
+          ctx.fillStyle = "rgba(0, 0, 0, 0.55)"; ctx.beginPath();
+          ctx.arc(cx - tW/2 + h/2, cy, h/2, Math.PI/2, Math.PI*1.5);
+          ctx.arc(cx + tW/2 - h/2, cy, h/2, Math.PI*1.5, Math.PI/2);
+          ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.stroke();
+          
+          // In chữ
+          ctx.textAlign = "left"; ctx.textBaseline = "middle";
+          ctx.fillStyle = "#fff"; ctx.fillText(this.activeAnnouncer.name, cx - tW/2 + 12, cy + 1);
+          ctx.fillStyle = this.activeAnnouncer.color; ctx.fillText(` ⚔️ ${this.activeAnnouncer.msg}`, cx - tW/2 + 12 + nW, cy + 1);
+          ctx.restore();
+      }
+    }
+    // ----------------------------------------------------
+
+    const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
     let killFeedStartY = isMob ? 120 : 190; 
     if (this.leaderboardDiv) {
       if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) { this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight; this.lastHeightCheck = now; }
