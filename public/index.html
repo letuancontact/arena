@@ -68,19 +68,25 @@
       .action-btn:hover:not(:disabled) { filter: brightness(1.2); }
       .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; border-color: #555; box-shadow: none; transform: none; opacity: 0.7;}
 
-      /* === GAME OVER 3 CỘT === */
+      /* === GAME OVER 3 CỘT NẰM NGANG CHUYÊN CHO MOBILE === */
       #game-over-screen {
         background-image: none; 
         background-color: rgba(5,5,5,0.85); 
         backdrop-filter: blur(8px);
         justify-content: center;
         align-items: center;
+        overflow: hidden;
       }
 
       .go-wrapper {
-        display: flex; gap: 20px; align-items: stretch; justify-content: center;
-        width: 90%; max-width: 950px;
+        display: flex; gap: 20px; justify-content: center; align-items: stretch;
+        
+        /* KHÓA CỨNG: Luôn trải ngang với độ rộng cố định */
+        width: 900px; 
+        flex-direction: row !important; 
+        transform-origin: center center;
       }
+
       .go-panel {
         background: #0d0d0d;
         border: 2px solid #333333;
@@ -89,8 +95,8 @@
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(0,0,0,0.9);
       }
-      .go-side { width: 260px; }
-      .go-center { width: 340px; align-items: center; padding-bottom: 25px; }
+      .go-side { width: 260px; flex-shrink: 0; }
+      .go-center { width: 340px; align-items: center; padding-bottom: 25px; flex-shrink: 0; }
       
       .go-header {
         font-size: 16px; font-weight: bold; color: #fff; text-transform: uppercase;
@@ -109,34 +115,14 @@
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
       .go-ad img { width: 100%; border-radius: 8px; border: 1px solid #444; }
 
-      /* === ĐÃ SỬA: ĐÁP ỨNG GIAO DIỆN MOBILE 100% === */
-      @media (max-width: 950px) {
-        .go-wrapper {
-            transform: scale(0.85); /* Thu nhỏ nếu màn hình iPad/Tablet */
-        }
-      }
-      @media (max-width: 768px) {
-        #game-over-screen {
-            align-items: flex-start; /* Cho phép cuộn mượt từ trên xuống */
-            overflow-y: auto;        /* Bật thanh cuộn nếu màn hình quá lùn */
-            padding: 30px 0;
-        }
-        .go-wrapper { 
-            flex-direction: column; /* Xếp dọc 3 cột thay vì nằm ngang */
-            align-items: center; 
-            gap: 15px; 
-            transform: scale(0.95); /* Tinh chỉnh độ thu nhỏ vừa màn hình */
-            margin: auto;
-        }
-        .go-side { 
-            display: flex; /* Bật lại cột 2 bên (Bỏ display: none) */
-            width: 90%; max-width: 350px; 
-        }
-        .go-center { 
-            width: 90%; max-width: 350px; padding-bottom: 20px; 
-        }
-        .go-title { margin-top: 15px; }
-      }
+      /* TỰ ĐỘNG THU NHỎ NHƯ BỨC ẢNH THEO KÍCH THƯỚC MÀN HÌNH MÁY */
+      @media (max-width: 950px) { .go-wrapper { transform: scale(0.85); } }
+      @media (max-width: 800px) { .go-wrapper { transform: scale(0.75); } }
+      @media (max-width: 700px) { .go-wrapper { transform: scale(0.65); } }
+      @media (max-width: 600px) { .go-wrapper { transform: scale(0.55); } }
+      @media (max-width: 500px) { .go-wrapper { transform: scale(0.45); } }
+      @media (max-width: 420px) { .go-wrapper { transform: scale(0.38); } }
+      @media (max-width: 360px) { .go-wrapper { transform: scale(0.32); } }
     </style>
   </head>
   <body>
@@ -180,7 +166,8 @@
 
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
-                    <div id="go-killer-name" class="go-killer">MỘT KẺ VÔ DANH</div>
+                    <!-- Tên người giết -->
+                    <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
                     <div class="go-next-text">TIẾN HÓA TIẾP THEO</div>
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
                     
@@ -199,6 +186,11 @@
 
             </div>
         </div>
+    </div>
+
+    <!-- Hỗ trợ bắt ID ẩn từ code cũ -->
+    <div style="display: none;">
+        <div id="killerName"></div><div id="killer-name"></div><div id="killedBy"></div><div id="death-name"></div>
     </div>
 
     <script src="/shared/constants.js"></script>
