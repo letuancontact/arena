@@ -58,7 +58,7 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// HÀM HIỂN THỊ GAME OVER (ĐÃ FIX LỖI OPACITY)
+// HÀM HIỂN THỊ GAME OVER BẤT TỬ
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
     try {
@@ -73,18 +73,17 @@ function triggerGameOver(level, kills, xp, killerName) {
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
 
-        // --- ĐIỂM SỬA CHỮA CHÍNH TẠI ĐÂY ---
+        // ÉP CHÍN ĐỘ HIỂN THỊ (SÁNG 100%)
         if (uiLayer) {
             uiLayer.style.display = 'block';
-            uiLayer.style.opacity = '1';         // Bắt buộc loại bỏ tàng hình
-            uiLayer.style.transform = 'scale(1)'; // Trả lại kích thước gốc
+            uiLayer.style.opacity = '1';         
+            uiLayer.style.transform = 'scale(1)'; 
         }
         if (lobbyScreen) lobbyScreen.style.display = 'none';
         if (gameOverScreen) {
             gameOverScreen.style.display = 'flex'; 
             gameOverScreen.style.opacity = '1';
         }
-        // ------------------------------------
 
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
@@ -186,7 +185,7 @@ function main() {
   
   let wasDead = true; 
 
-  // KHÔI PHỤC VÒNG LẶP DỰ PHÒNG: Bắt mọi trường hợp lỡ nhịp từ Server
+  // VÒNG LẶP DỰ PHÒNG: Quét an toàn nếu gói tin mạng bị suy hao
   setInterval(() => {
     if (GameState.isDead && !wasDead) {
         wasDead = true;
