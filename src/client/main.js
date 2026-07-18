@@ -10,12 +10,18 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 
-// Gắn sự kiện cho Menu UI
+// Gắn sự kiện cho UI mới
+const gameUiLayer = document.getElementById("game-ui-layer");
+const lobbyScreen = document.getElementById("lobby-screen");
+const gameOverScreen = document.getElementById("game-over-screen");
 const playBtn = document.getElementById("play-btn");
-const nameInput = document.getElementById("name-input");
+const respawnBtn = document.getElementById("respawn-btn");
+const nameInput = document.getElementById("player-name");
 const muteBtn = document.getElementById("mute-btn");
+const statusText = document.getElementById("status-text");
 
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+respawnBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
 
@@ -26,15 +32,49 @@ muteBtn.addEventListener("click", () => {
     if (!muted) Sound.play('click');
 });
 
+// Lấy tên cũ đã lưu
 nameInput.value = localStorage.getItem("evowar_name") || "";
-playBtn.addEventListener("click", () => {
+
+// Hàm bắt đầu/hồi sinh game
+function startGame() {
   Sound.init(); Sound.play('click');
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
+  
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
+  
+  // Ẩn bảng UI
+  lobbyScreen.style.display = 'none';
+  gameOverScreen.style.display = 'none';
+  gameUiLayer.style.pointerEvents = 'none';
+  statusText.innerText = "";
+
+  // Gửi lệnh spawn
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
-  playBtn.innerText = "ĐANG VÀO..."; playBtn.disabled = true;
+}
+
+playBtn.addEventListener("click", startGame);
+respawnBtn.addEventListener("click", startGame);
+nameInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") startGame();
 });
+
+// HÀM HIỂN THỊ GAME OVER (Export để gọi từ network.js)
+export function showGameOver(level, kills, xp) {
+    document.getElementById('go-level').innerText = level || 1;
+    document.getElementById('go-kills').innerText = kills || 0;
+    document.getElementById('go-xp').innerText = Math.floor(xp || 0);
+    
+    gameOverScreen.style.display = 'flex';
+    gameUiLayer.style.pointerEvents = 'auto';
+}
+
+// Hàm vô hiệu hóa nút Play khi chưa kết nối xong mạng (Tùy chọn)
+export function enablePlayButton() {
+    playBtn.disabled = false;
+    statusText.innerText = "SẴN SÀNG!";
+    setTimeout(() => { statusText.innerText = ""; }, 1500);
+}
 
 // Nội suy Vật lý Client-side
 function updatePhysics(dtMultiplier) {
