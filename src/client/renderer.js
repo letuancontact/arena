@@ -84,6 +84,7 @@ export const FX = {
       if (p.active) {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
         if (p.life <= 0) { p.active = false; continue; } 
+        // [CULLING] Không vẽ hiệu ứng nếu ở ngoài màn hình
         if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
         const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
         if (p.type === 1) { 
@@ -110,7 +111,6 @@ export const Renderer = {
   lastLeaderboardHeight: 0,
   lastHeightCheck: 0,
 
-  // ĐÃ SỬA: Chuyển Announcer thành dạng Object Canvas để không dùng DOM HTML nữa
   activeAnnouncer: { active: false, name: "", msg: "", color: "", start: 0 },
 
   triggerAnnouncer(name, streak) {
@@ -123,7 +123,6 @@ export const Renderer = {
       
       if (!msg) return;
 
-      // Lưu vào state để vẽ trên Canvas
       this.activeAnnouncer = {
           active: true,
           name: String(name).substring(0, 15),
@@ -159,13 +158,6 @@ export const Renderer = {
     }
     this.killFeeds[0].killer = String(killer).substring(0, 15); this.killFeeds[0].victim = String(victim).substring(0, 15);
     this.killFeeds[0].isMe = isMe; this.killFeeds[0].start = Date.now(); this.killFeeds[0].active = true;
-  },
-
-  drawFastGlow(x, y, radius, isFood = true) {
-    ctx.save(); ctx.globalCompositeOperation = "screen"; 
-    const img = isFood ? Resources.foodGlowCanvas : Resources.playerGlowCanvas;
-    if (img) ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
-    ctx.restore();
   },
 
   addLevelUpEffect(x, y, radius) {
@@ -272,7 +264,6 @@ export const Renderer = {
 
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
-  lerpAngle(a, b, t) { let diff = b - a; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; return a + diff * t; },
   
   getInterpolatedState() {
     const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
@@ -358,13 +349,19 @@ export const Renderer = {
     else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
     ctx.strokeStyle = "#222"; ctx.lineWidth = 8 / Camera.currentZoom; ctx.strokeRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
     
+    // ==========================================
+    // TỐI ƯU CULLING: XÁC ĐỊNH VÙNG MÀN HÌNH (VIEWPORT)
+    // ==========================================
     const { interpPlayers } = this.getInterpolatedState();
-    const margin = 100 / Camera.currentZoom;
-    const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin, viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
-    const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin, viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
+    const margin = 150 / Camera.currentZoom;
+    const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin;
+    const viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
+    const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin;
+    const viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
     const foodByType = {};
     for (const f of GameState.food) {
+      // [CULLING] Chỉ phân loại và vẽ những hạt lọt vào màn hình
       if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) {
         const type = f.type || 0;
         if (!foodByType[type]) foodByType[type] = [];
@@ -382,25 +379,13 @@ export const Renderer = {
       }
     }
 
-    for (let i = GameState.magnetFoods.length - 1; i >= 0; i--) {
-      const mf = GameState.magnetFoods[i]; let tx = mf.x, ty = mf.y;
-      if (mf.targetId === GameState.playerId) { tx = GameState.clientX; ty = GameState.clientY; } 
-      else { const targetP = (GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || []).find(p => p.id === mf.targetId); if (targetP) { tx = targetP.x; ty = targetP.y; } }
-      const dx = tx - mf.x; const dy = ty - mf.y; const dist = Math.hypot(dx, dy); const speed = 35 * dtMultiplier; 
-
-      if (dist < speed || mf.progress > 40) { GameState.magnetFoods.splice(i, 1); } 
-      else {
-        mf.x += (dx / dist) * speed; mf.y += (dy / dist) * speed; mf.progress += 1;
-        const img = Resources.foodImages[mf.type || 0];
-        if (img && img.complete) { const scale = Math.max(0.1, 1 - (mf.progress / 50)); const size = mf.radius * 2 * scale; ctx.drawImage(img, mf.x - size/2, mf.y - size/2, size, size); }
-      }
-    }
-
+    // [CULLING] Cập nhật mảng trails (dấu vết di chuyển)
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
       if (t.active) {
         if (now - t.time >= 200) { t.active = false; } 
         else {
+          if (t.x < viewportLeft || t.x > viewportRight || t.y < viewportTop || t.y > viewportBottom) continue;
           const img = Resources.getPlayerImage(t.level || 1);
           if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
         }
@@ -409,9 +394,12 @@ export const Renderer = {
     
     FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
 
+    // [CULLING] Vẽ người chơi khác
     for (const id in interpPlayers) {
       const p = interpPlayers[id];
       if (p.isDead) continue;
+      
+      // Chỉ vẽ nếu đối thủ nằm trong màn hình
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
         if (!this.visualRadius[id]) this.visualRadius[id] = p.radius;
         this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier;
@@ -443,6 +431,7 @@ export const Renderer = {
       }
     }
     
+    // Vẽ chính mình (Luôn nằm trong màn hình, không cần lọc Culling)
     const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
@@ -482,6 +471,7 @@ export const Renderer = {
       }
     }
 
+    // Cập nhật mảng Damage Texts
     for (let i = 0; i < this.damageTexts.length; i++) {
         const d = this.damageTexts[i];
         if (d.active) {
@@ -501,11 +491,13 @@ export const Renderer = {
         }
     }
 
+    // Cập nhật mảng Level Up Effect
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
         if (now - e.start >= 1500) { e.active = false; }
         else {
+          if (e.x < viewportLeft || e.x > viewportRight || e.y < viewportTop || e.y > viewportBottom) continue;
           const t = (now - e.start) / 1500; const alpha = 1 - Math.pow(t, 3); 
           ctx.save(); ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
           ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.stroke(); ctx.restore();
@@ -513,6 +505,7 @@ export const Renderer = {
       }
     }
 
+    // Cập nhật mảng Floating Texts
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
@@ -538,11 +531,10 @@ export const Renderer = {
       ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
     }
 
-    // VẼ CÁC THÀNH PHẦN UI CỐ ĐỊNH TRÊN MÀN HÌNH BẰNG CANVAS (Giảm lag 100%)
+    // UI tĩnh không thay đổi gì
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const isMob = window.innerWidth <= 768; 
 
-    // --- VẼ ANNOUNCER (VIÊN THUỐC ĐEN) GIỮA MÀN HÌNH ---
     if (this.activeAnnouncer && this.activeAnnouncer.active) {
       const elapsed = now - this.activeAnnouncer.start;
       if (elapsed > 3000) { 
@@ -563,20 +555,17 @@ export const Renderer = {
           const mW = ctx.measureText(` ⚔️ ${this.activeAnnouncer.msg}`).width;
           const tW = nW + mW + 24; const h = isMob ? 22 : 26;
           
-          // Vẽ nền đen mờ bo tròn
           ctx.fillStyle = "rgba(0, 0, 0, 0.55)"; ctx.beginPath();
           ctx.arc(cx - tW/2 + h/2, cy, h/2, Math.PI/2, Math.PI*1.5);
           ctx.arc(cx + tW/2 - h/2, cy, h/2, Math.PI*1.5, Math.PI/2);
           ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.stroke();
           
-          // In chữ
           ctx.textAlign = "left"; ctx.textBaseline = "middle";
           ctx.fillStyle = "#fff"; ctx.fillText(this.activeAnnouncer.name, cx - tW/2 + 12, cy + 1);
           ctx.fillStyle = this.activeAnnouncer.color; ctx.fillText(` ⚔️ ${this.activeAnnouncer.msg}`, cx - tW/2 + 12 + nW, cy + 1);
           ctx.restore();
       }
     }
-    // ----------------------------------------------------
 
     const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
     let killFeedStartY = isMob ? 120 : 190; 
