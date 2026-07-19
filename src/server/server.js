@@ -43,14 +43,21 @@ function getSafeSpawn(activePlayers, mapW, mapH) {
   return bestPos;
 }
 
+// Hàm hỗ trợ gom nhanh dữ liệu không tạo rác bộ nhớ 
+function getActiveEntities() {
+    const arr = [];
+    for (const p of players.values()) arr.push(p);
+    for (const b of bots.values()) arr.push(b);
+    return arr;
+}
+
 function heartbeat() { this.isAlive = true; }
 
 wss.on("connection", (ws) => {
   ws.isAlive = true; ws.on('pong', heartbeat);
   const p = playerLib.createPlayer(ws);
-  const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+  const safePos = getSafeSpawn(getActiveEntities(), CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
   
-  // KHỞI TẠO BIẾN AFK
   p.x = safePos.x; p.y = safePos.y; p.isDead = true; p.killStreak = 0; p.lastActiveTime = Date.now(); 
   players.set(p.id, p);
 
@@ -60,14 +67,13 @@ wss.on("connection", (ws) => {
     try {
       const data = JSON.parse(msg); const player = players.get(p.id); if (!player) return;
       
-      // CẬP NHẬT THỜI GIAN HOẠT ĐỘNG MỖI KHI CÓ TƯƠNG TÁC
       player.lastActiveTime = Date.now();
 
       if (data.type === "join") {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          const safePos = getSafeSpawn(getActiveEntities(), CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           player.x = safePos.x; player.y = safePos.y; player.killStreak = 0;
         }
       }
@@ -79,14 +85,10 @@ wss.on("connection", (ws) => {
   ws.on("close", () => { players.delete(p.id); });
 });
 
-// Bộ đếm xử lý đứt kết nối mạng đột ngột (giữ nguyên gốc)
 const interval = setInterval(function ping() { wss.clients.forEach(function each(ws) { if (ws.isAlive === false) return ws.terminate(); ws.isAlive = false; ws.ping(); }); }, 30000); 
 wss.on('close', function close() { clearInterval(interval); });
 
-// ==========================================
-// HỆ THỐNG AUTO-KICK AFK (Chống treo máy ngốn CPU)
-// ==========================================
-const AFK_TIMEOUT = 3 * 60 * 1000; // 3 phút
+const AFK_TIMEOUT = 3 * 60 * 1000;
 setInterval(() => {
     const now = Date.now();
     for (const [id, p] of players) {
@@ -99,8 +101,7 @@ setInterval(() => {
             console.log(`[Hệ thống] Đã ngắt kết nối player ${id} do AFK.`);
         }
     }
-}, 10000); // Kiểm tra 10 giây một lần
-// ==========================================
+}, 10000); 
 
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
@@ -123,7 +124,10 @@ setInterval(() => {
   if (newlySpawned.length > 0) { foodAdded.push(...newlySpawned); foodTree = spatialIndex.buildFoodIndex(food); } 
   else if (!foodTree) { foodTree = spatialIndex.buildFoodIndex(food); }
 
-  const playerArray = [...players.values(), ...bots.values()].filter(e => !e.isDead);
+  // ĐÃ TỐI ƯU HÓA: Dùng `push` trực tiếp thay vì `[...players, ...bots].filter()` để chống Garbage Collection
+  const playerArray = [];
+  for (const p of players.values()) { if (!p.isDead) playerArray.push(p); }
+  for (const b of bots.values()) { if (!b.isDead) playerArray.push(b); }
 
   for (const p of playerArray) {
     const nearbyFood = spatialIndex.searchNearbyFood(foodTree, p.x, p.y, p.radius + 24);
@@ -187,13 +191,20 @@ setInterval(() => {
 
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
     lastBroadcast = now;
-    const allPlayers = [...players.values(), ...bots.values()].map(p => ({
-      id: p.id, x: Math.round(p.x), y: Math.round(p.y), radius: p.radius, level: p.level || 1, xp: p.xp || 0,
-      xpToNext: playerLib.getXpToNext(p.level || 1), rightMouseDown: !!p.rightMouseDown, angle: p.angle || 0,
-      name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
-      lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
-      deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
-    }));
+    
+    // ĐÃ TỐI ƯU HÓA: Gom mảng gửi dữ liệu không rác
+    const allPlayers = [];
+    const pushPlayerState = (p) => {
+        allPlayers.push({
+            id: p.id, x: Math.round(p.x), y: Math.round(p.y), radius: p.radius, level: p.level || 1, xp: p.xp || 0,
+            xpToNext: playerLib.getXpToNext(p.level || 1), rightMouseDown: !!p.rightMouseDown, angle: p.angle || 0,
+            name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
+            lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
+            deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
+        });
+    };
+    for (const p of players.values()) pushPlayerState(p);
+    for (const b of bots.values()) pushPlayerState(b);
     
     const statePayload = JSON.stringify({ 
         type: "state", players: allPlayers, 
@@ -210,11 +221,15 @@ setInterval(() => {
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
-    for (const entity of [...players.values(), ...bots.values()]) {
+    
+    // ĐÃ TỐI ƯU HÓA: Tạo mảng một lần cho Heavy Tick
+    const allEntities = getActiveEntities();
+    
+    for (const entity of allEntities) {
       if (entity.isDead && now - entity.deadTime >= CONFIG.RESPAWN_TIME) {
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
+          const safePos = getSafeSpawn(allEntities, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           entity.x = safePos.x; entity.y = safePos.y; entity.angle = Math.random() * Math.PI * 2; entity.killerId = null; entity.killStreak = 0;
         }
       }
@@ -224,7 +239,10 @@ setInterval(() => {
     if (botCount < botTarget) { 
       for (let i = botCount; i < botTarget; i++) {
         const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.killStreak = 0;
-        const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.x = safePos.x; bot.y = safePos.y; bots.set(bot.id, bot); 
+        const safePos = getSafeSpawn(allEntities, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); 
+        bot.x = safePos.x; bot.y = safePos.y; 
+        bots.set(bot.id, bot); 
+        allEntities.push(bot); // Cập nhật ngay mảng để bot tiếp theo sinh ra không đè lên nhau
       }
     } 
     else if (botCount > botTarget) { let removeCount = botCount - botTarget; for (const [id, bot] of bots) { bots.delete(id); if (--removeCount <= 0) break; } }
