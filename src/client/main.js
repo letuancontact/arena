@@ -138,40 +138,56 @@ export function enablePlayButton() {
     setTimeout(() => { statusText.innerText = ""; }, 1500);
 }
 
+// ==========================================
+// TỐI ƯU HÓA CHUYỂN ĐỘNG: FIX DELAY VÀ KHỰNG HÌNH
+// ==========================================
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   
+  // Tăng tốc độ quay chuột (0.15 -> 0.6) để triệt tiêu delay
   let diff = GameState.targetMouseAngle - GameState.mouseAngle;
-  while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
-  GameState.mouseAngle += diff * 0.15 * dtMultiplier;
+  while (diff > Math.PI) diff -= 2 * Math.PI; 
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  GameState.mouseAngle += diff * 0.6 * dtMultiplier;
   
   const attackDuration = CONFIG.BASE_ATTACK_DURATION + (GameState.clientLevel * CONFIG.ATTACK_DURATION_PER_LEVEL);
   
+  let speed = 0;
   if (GameState.isAttacking && Date.now() - GameState.attackTime < attackDuration) {
-      const speed = GameState.getSpeedByLevel(GameState.clientLevel) * 0.3;
+      speed = GameState.getSpeedByLevel(GameState.clientLevel) * 0.3;
+  } else if (GameState.isMoving) {
+      speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
+  }
+
+  // Dự đoán di chuyển (Client Prediction)
+  if (speed > 0) {
       GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
       GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
-  } else if (GameState.isMoving) {
-    const speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
-    GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
-    GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
   }
   
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
+  // Triệt tiêu rung giật bằng cách nới lỏng sai số (Vùng an toàn > 10)
   if (GameState.serverX != null && GameState.serverY != null) {
-    const dx = GameState.clientX - GameState.serverX, dy = GameState.clientY - GameState.serverY;
+    const dx = GameState.serverX - GameState.clientX;
+    const dy = GameState.serverY - GameState.clientY;
     const dist = Math.hypot(dx, dy);
-    if (dist > 150) { GameState.clientX = GameState.serverX; GameState.clientY = GameState.serverY; } 
-    else if (dist > 1) { 
-      const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); 
-      GameState.clientX -= dx * lerpFactor; GameState.clientY -= dy * lerpFactor; 
+
+    if (dist > 150) { 
+        GameState.clientX = GameState.serverX; 
+        GameState.clientY = GameState.serverY; 
+    } 
+    else if (dist > 10) { 
+        const lerpFactor = 1 - Math.pow(0.85, dtMultiplier); 
+        GameState.clientX += dx * lerpFactor; 
+        GameState.clientY += dy * lerpFactor; 
     }
   }
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
 }
+// ==========================================
 
 let lastFrameTime = null;
 function loop(currentTime) {
