@@ -52,46 +52,81 @@ export const Network = {
       }
 
       // ==========================================
-      // THÔNG BÁO KILL STREAK (GIỮ NGUYÊN NỘI DUNG, ĐỔI HIỆU ỨNG HTML)
+      // GIAO DIỆN KILL STREAK GỌN NHẸ (BẢN GỐC)
       // ==========================================
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
-            // 1. Vẫn phát âm thanh như cũ
             if (ann.streak === 2) Sound.play("doublekill");
             else if (ann.streak === 3) Sound.play("triplekill");
             else if (ann.streak === 5) Sound.play("quadkill");
             else if (ann.streak === 7) Sound.play("megakill");
             else if (ann.streak >= 10) Sound.play("legendary");
 
-            // 2. Tạo popup thông báo
             const container = document.getElementById('streak-announcer-container');
             if (container) {
                 const popup = document.createElement('div');
                 popup.className = 'streak-popup';
                 
-                // GIỮ NGUYÊN TEXT GỐC BAO GỒM TÊN VÀ SỐ KILL
-                popup.innerText = `${ann.name} ĐANG THỐNG TRỊ! (${ann.streak} KILL)`;
+                // GIỮ NGUYÊN BẢN GỐC: [Tên] ⚔ [Số mạng]
+                popup.innerHTML = `
+                    <span>${ann.name || "Khách"}</span>
+                    <img src="img/sword-icon.png" style="height: 12px; width: 12px; object-fit: contain; margin-top: -1px;" alt="⚔️" onerror="this.outerHTML='⚔️'">
+                    <span style="color: #ffcc00; font-weight: 900;">${ann.streak}</span>
+                `;
                 
                 container.appendChild(popup);
-                
-                // Xóa popup sau 3.1 giây
-                setTimeout(() => {
-                    if (popup.parentNode) popup.remove();
-                }, 3100);
+                setTimeout(() => { if (popup.parentNode) popup.remove(); }, 3100);
             }
           }
         }
       }
       
+      // ==========================================
+      // FIX LỖI DELAY HIỂN THỊ GAME OVER
+      // ==========================================
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
-      
+      // Nếu server không gửi data player (vì đã chết), tự động hiểu là Đã chết để mở form ngay
+      const isCurrentlyDead = me ? me.isDead : true; 
+
       if (!cachedUiLayer) cachedUiLayer = document.getElementById("ui-layer");
       if (cachedSpeakerIcon === undefined) {
          cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
       }
 
+      // 1. SỐNG LẠI (HỒI SINH)
+      if (prevDead && !isCurrentlyDead) { 
+        if (me) {
+            GameState.clientX = GameState.serverX = me.x; 
+            GameState.clientY = GameState.serverY = me.y; 
+        }
+        if (uiHideTimeout) clearTimeout(uiHideTimeout); 
+        if (cachedUiLayer) {
+            cachedUiLayer.style.opacity = "0"; 
+            cachedUiLayer.style.transform = "scale(1.05)"; 
+            uiHideTimeout = setTimeout(() => cachedUiLayer.style.display = "none", 400); 
+        }
+        if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
+      } 
+
+      // 2. VỪA BỊ GIẾT -> HIỆN GAME OVER LẬP TỨC
+      if (!prevDead && isCurrentlyDead) {
+        if (uiHideTimeout) clearTimeout(uiHideTimeout); 
+        if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
+        
+        let finalKillerName = "MỘT KẺ VÔ DANH";
+        if (me) {
+            const killer = (data.players || []).find(k => k.id === me.killerId);
+            if (killer) finalKillerName = killer.name || "MỘT KẺ VÔ DANH";
+        }
+
+        if (window.showGameOver) {
+            window.showGameOver(GameState.clientLevel, 0, GameState.clientXp, finalKillerName);
+        }
+      }
+
+      // 3. CẬP NHẬT CHỈ SỐ NHÂN VẬT NẾU CÒN SỐNG
       if (me) {
         const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
@@ -100,36 +135,14 @@ export const Network = {
         if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; Camera.flashColor = "255, 255, 255"; } 
         if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
-        if (prevDead && !me.isDead) { 
-          GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          
-          if (uiHideTimeout) clearTimeout(uiHideTimeout); 
-          if (cachedUiLayer) {
-              cachedUiLayer.style.opacity = "0"; 
-              cachedUiLayer.style.transform = "scale(1.05)"; 
-              uiHideTimeout = setTimeout(() => cachedUiLayer.style.display = "none", 400); 
-          }
-          
-          if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
-        } 
-        else { GameState.serverX = me.x; GameState.serverY = me.y; }
-
-        if (!prevDead && me.isDead) {
-          if (uiHideTimeout) clearTimeout(uiHideTimeout); 
-          if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
-          
-          const killer = (data.players || []).find(k => k.id === me.killerId);
-          const finalKillerName = killer ? (killer.name || "MỘT KẺ VÔ DANH") : "MỘT KẺ VÔ DANH";
-
-          if (window.showGameOver) {
-              window.showGameOver(me.level, 0, me.xp, finalKillerName);
-          }
+        if (!me.isDead) {
+            GameState.serverX = me.x; GameState.serverY = me.y;
         }
       }
       
-      GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
+      GameState.isDead = isCurrentlyDead; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
-      if (prevDead && me && me.isDead && cachedSpeakerIcon && cachedUiLayer && cachedUiLayer.style.display !== "none") {
+      if (prevDead && isCurrentlyDead && cachedSpeakerIcon && cachedUiLayer && cachedUiLayer.style.display !== "none") {
           cachedSpeakerIcon.style.display = "none";
       }
 
@@ -166,7 +179,7 @@ export const Network = {
     const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse; const movingChanged = GameState.isMoving !== GameState.lastMoving;
     
     if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
-      this.ws.send(JSON.stringify({ type: "move", angle: GameState.mouseAngle, rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, isMoving: GameState.isMoving }));
+      this.ws.send(JSON.stringify({ type: "move", angle: GameState.mouseAngle, rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, is moving: GameState.isMoving }));
       GameState.lastSentTime = Date.now(); GameState.lastSentAngle = GameState.mouseAngle; GameState.lastRightMouse = GameState.rightMouseDown; GameState.lastMoving = GameState.isMoving;
     }
   }
