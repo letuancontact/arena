@@ -14,25 +14,30 @@
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
 
-      /* Làm tối nhẹ cảnh game đằng sau để tôn lên Popup ở giữa */
+      /* ĐÃ KHÔI PHỤC BACKGROUND GỐC CỦA BẠN */
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background-color: rgba(0, 0, 0, 0.35); 
+        background-image: url('img/mapbg.png'); 
+        background-size: 150px 150px; 
+        background-repeat: repeat;
+        background-color: rgba(15, 15, 15, 0.6); 
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         display: flex; flex-direction: column; justify-content: center; align-items: center;
       }
 
       /* =========================================
-         MENU ĐĂNG NHẬP (Siêu gọn & Kính mờ chuẩn)
+         MENU ĐĂNG NHẬP (Nhỏ gọn, kính mờ, có giới thiệu)
          ========================================= */
       .popup-panel {
         /* Nền mờ ảo, trong suốt (Glassmorphism) */
-        background: rgba(20, 25, 30, 0.4); 
+        background: rgba(20, 25, 30, 0.45); 
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
         
-        border-radius: 24px; /* Bo góc tròn mềm mại */
+        border-radius: 20px;
         width: 85%; 
-        max-width: 270px; /* Thu thật gọn kích thước */
+        max-width: 300px; /* Thu gọn vừa đủ để hiện text đẹp */
         padding: 25px 20px;
         
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -41,34 +46,34 @@
         display: flex; flex-direction: column; align-items: center;
       }
       
-      /* Xóa bỏ các viền hình hộp thô kệch bên trong */
       .panel-section { width: 100%; margin: 0; padding: 0; border: none; background: transparent; }
       
-      .popup-panel h1 { color: #ffffff; font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+      .popup-panel h1 { color: #ffffff; font-size: 22px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
       
-      /* Ẩn bớt text dài dòng để popup thật nhỏ gọn */
-      .popup-panel h2, .popup-panel p { display: none; } 
+      /* ĐÃ KHÔI PHỤC TEXT GIỚI THIỆU & CĂN CHỈNH CHO GỌN GÀNG */
+      .popup-panel h2 { color: #ffaa00; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+      .popup-panel p { color: #cccccc; font-size: 12px; margin: 0; line-height: 1.4; }
       
       .logo-section { margin: 15px 0 20px 0; }
-      .logo-section img { height: 65px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
+      .logo-section img { height: 70px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
 
       #player-name {
         width: 100%; box-sizing: border-box;
         padding: 12px 15px; margin-bottom: 15px;
-        border-radius: 20px; /* Chuyển thành dạng viên thuốc */
+        border-radius: 20px; 
         border: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 15px;
+        background: rgba(0, 0, 0, 0.4); color: #fff; font-size: 15px;
         font-family: inherit; font-weight: bold; text-align: center;
         outline: none; transition: all 0.3s ease;
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
       }
       
       #player-name::placeholder { color: #aaa; font-weight: normal; }
-      #player-name:focus { border-color: #ffaa00; background: rgba(0, 0, 0, 0.5); box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); }
+      #player-name:focus { border-color: #ffaa00; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); }
 
       #play-btn {
-        background: linear-gradient(135deg, #ff6a00, #ee0979);
-        border: none; border-radius: 20px; /* Form viên thuốc đồng bộ */
+        background: linear-gradient(135deg, #ff6a00, #d62800);
+        border: none; border-radius: 20px;
         padding: 12px; color: white;
         font-family: inherit; font-weight: 900; font-size: 16px; letter-spacing: 1px;
         cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -83,7 +88,7 @@
       #status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
 
       /* =========================================
-         GAME OVER 3 CỘT NẰM NGANG (Của bạn)
+         GAME OVER 3 CỘT NẰM NGANG
          ========================================= */
       #game-over-screen {
         background-image: none; 
@@ -146,15 +151,18 @@
   <body>
     <canvas id="game"></canvas>
 
-    <!-- TRẢ LẠI ICON LOA NHƯ GỐC -->
+    <!-- NÚT LOA Ở VỊ TRÍ GỐC (Chỉnh css trong style.css của bạn) -->
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
-        <!-- MÀN HÌNH CHÍNH (Đã đập đi xây lại: Siêu gọn & Kính mờ) -->
+        <!-- MÀN HÌNH CHÍNH -->
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
                 <div class="panel-section">
                     <h1>ARENA.IO</h1>
+                    <!-- ĐÃ KHÔI PHỤC GIỚI THIỆU -->
+                    <h2>Fight! Kill! Evolve!</h2>
+                    <p>Level up to evolve your character.<br>Bigger weapons, stronger armor!</p>
                 </div>
                 
                 <div class="logo-section">
@@ -162,8 +170,8 @@
                 </div>
 
                 <div class="panel-section">
-                    <input type="text" id="player-name" placeholder="Tên của bạn..." maxlength="15" autocomplete="off" spellcheck="false">
-                    <button id="play-btn">CHƠI NGAY</button>
+                    <input type="text" id="player-name" placeholder="Enter your name..." maxlength="15" autocomplete="off" spellcheck="false">
+                    <button id="play-btn">PLAY</button>
                     <div id="status-text"></div>
                 </div>
             </div>
@@ -191,7 +199,6 @@
                     
                     <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
                     
-                    <!-- Nút CHƠI LẠI sử dụng class custom để không ảnh hưởng css mới -->
                     <button id="respawn-btn" style="background: linear-gradient(to bottom, #ff3300, #aa0000); border: 3px solid #ff0000; border-radius: 10px; padding: 10px 40px; color: white; font-weight: 900; font-size: 22px; cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5); box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4); width: 85%;">CHƠI LẠI</button>
                 </div>
 
