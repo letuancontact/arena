@@ -8,7 +8,6 @@ let uiHideTimeout = null;
 
 // ==========================================
 // TỐI ƯU HÓA: LƯU BỘ NHỚ TẠM (CACHE DOM)
-// Đảm bảo trình duyệt chỉ quét tìm 1 lần duy nhất, không quét lại mỗi khung hình
 // ==========================================
 let cachedUiLayer = null;
 let cachedSpeakerIcon = undefined; 
@@ -41,20 +40,12 @@ export const Network = {
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
+      
+      // ==========================================
+      // FIX LỖI LAG: Đã xóa hoàn toàn logic vòng lặp tính khoảng cách "hút hạt" (magnetFoods) gây sụt FPS
+      // ==========================================
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
-        const latestPlayers = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
-        for (const f of GameState.food) {
-          if (removedSet.has(f.id)) {
-            let nearestP = null; let minDist = Infinity;
-            const distToMe = Math.hypot(GameState.clientX - f.x, GameState.clientY - f.y);
-            if (!GameState.isDead && distToMe < minDist) { minDist = distToMe; nearestP = { id: GameState.playerId, x: GameState.clientX, y: GameState.clientY }; }
-            for (const p of latestPlayers) {
-              if (p.isDead) continue; const dist = Math.hypot(p.x - f.x, p.y - f.y); if (dist < minDist) { minDist = dist; nearestP = p; }
-            }
-            if (nearestP && minDist < 300) { GameState.magnetFoods.push({ ...f, targetId: nearestP.id, progress: 0 }); }
-          }
-        }
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
       }
 
@@ -82,7 +73,6 @@ export const Network = {
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       
-      // XUẤT XƯỞNG BỘ NHỚ TẠM (Chỉ quét lần đầu)
       if (!cachedUiLayer) cachedUiLayer = document.getElementById("ui-layer");
       if (cachedSpeakerIcon === undefined) {
          cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
