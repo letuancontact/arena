@@ -38,7 +38,6 @@ export const Network = {
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
       
-      // --- ĐÃ BỎ VÒNG LẶP MAGNET CHỐNG LAG ---
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
@@ -52,15 +51,32 @@ export const Network = {
         }
       }
 
+      // ==========================================
+      // THÔNG BÁO SỐ LẦN GIẾT (KILL STREAK) TRƯỢT NGANG
+      // ==========================================
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
-            Renderer.triggerAnnouncer(ann.name, ann.streak);
-            if (ann.streak === 2) Sound.play("doublekill");
-            else if (ann.streak === 3) Sound.play("triplekill");
-            else if (ann.streak === 5) Sound.play("quadkill");
-            else if (ann.streak === 7) Sound.play("megakill");
-            else if (ann.streak >= 10) Sound.play("legendary");
+            const container = document.getElementById('streak-announcer-container');
+            if (container) {
+                const popup = document.createElement('div');
+                popup.className = 'streak-popup';
+                
+                let text = `${ann.name} ĐANG THỐNG TRỊ! (${ann.streak} KILL)`;
+                if (ann.streak === 2) { text = `DOUBLE KILL!`; Sound.play("doublekill"); }
+                else if (ann.streak === 3) { text = `TRIPLE KILL!`; Sound.play("triplekill"); }
+                else if (ann.streak === 5) { text = `QUAD KILL!`; Sound.play("quadkill"); }
+                else if (ann.streak === 7) { text = `MEGA KILL!`; Sound.play("megakill"); }
+                else if (ann.streak >= 10) { text = `LEGENDARY!`; Sound.play("legendary"); }
+                
+                popup.innerText = text;
+                container.appendChild(popup);
+                
+                // Xóa thẻ sau 3.1 giây (đủ thời gian cho animation chạy)
+                setTimeout(() => {
+                    if (popup.parentNode) popup.remove();
+                }, 3100);
+            }
           }
         }
       }
@@ -118,33 +134,15 @@ export const Network = {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
           const killer = (data.players || []).find(k => k.id === p.killerId);
+          
+          // ==========================================
+          // GIỮ NGUYÊN BẢN GỐC: AI GIẾT AI (KILLFEED)
+          // ==========================================
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
-            
-            // --- TÍCH HỢP KILLFEED BẰNG HTML CSS ---
-            const kName = killer.name || "Khách";
-            const vName = p.name || "Khách";
-
-            const feedContainer = document.getElementById('killfeed-container');
-            if (feedContainer) {
-                const popup = document.createElement('div');
-                popup.className = `kill-popup ${isMe ? 'is-me' : ''}`;
-                
-                popup.innerHTML = `
-                    <span style="color: ${isMe ? '#00ff66' : '#ffaa00'}">${kName}</span> 
-                    <img src="img/sword-icon.png" style="height:14px; width:14px;" alt="⚔️" onerror="this.outerHTML='⚔️'"> 
-                    <span style="color: #ccc">${vName}</span>
-                `;
-                
-                feedContainer.appendChild(popup);
-
-                setTimeout(() => {
-                    popup.style.animation = 'slideOutLeft 0.3s ease-in forwards';
-                    setTimeout(() => popup.remove(), 300);
-                }, 3000);
-            }
-            // ----------------------------------------
+            Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
+
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
