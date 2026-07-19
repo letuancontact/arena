@@ -79,42 +79,46 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 }
 
 /* ========================================== */
-/* THÔNG BÁO ĐẾM SỐ LẦN GIẾT (KILL STREAK)    */
+/* BỐ CỤC CHÍNH GIỮA CHO KILL STREAK          */
 /* ========================================== */
 #streak-announcer-container {
     position: fixed;
-    top: 25%;
-    left: 20px;
+    top: 15%; /* Cách đỉnh màn hình 15%, nằm ngay chính giữa */
+    left: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
+    align-items: center; /* Đảm bảo mọi dòng chữ canh giữa */
     gap: 15px;
     pointer-events: none;
     z-index: 1000;
 }
 
 .streak-popup {
-    background: linear-gradient(90deg, rgba(200, 20, 20, 0.85) 0%, rgba(80, 10, 10, 0.6) 100%);
+    background: linear-gradient(90deg, rgba(180, 20, 20, 0.9) 0%, rgba(80, 10, 10, 0.7) 100%);
     border-left: 5px solid #ffcc00;
     color: #fff;
-    padding: 12px 25px;
+    padding: 10px 30px;
     font-family: "Segoe UI", Tahoma, sans-serif;
     font-size: 20px;
     font-weight: 900;
-    border-radius: 4px 25px 25px 4px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    /* KHÔNG dùng viên thuốc nữa (border-radius lớn), mà dùng góc bo nhẹ hiện đại */
+    border-radius: 4px 12px 12px 4px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    /* Trượt vào 0.3s, giữ nguyên 2.5s, mờ dần 0.5s */
-    animation: slideInLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards, fadeOutRight 0.5s ease-in 2.5s forwards;
+    letter-spacing: 1.5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    /* Animation: Trượt nhẹ từ phía bên trái vào giữa, giữ lại rồi trượt ngang mờ dần */
+    animation: slideInCenter 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards, 
+               fadeOutCenter 0.5s ease-in 2.5s forwards;
 }
 
-@keyframes slideInLeft {
-    0% { transform: translateX(-150%); opacity: 0; }
+@keyframes slideInCenter {
+    0% { transform: translateX(-60px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
 
-@keyframes fadeOutRight {
+@keyframes fadeOutCenter {
     0% { opacity: 1; transform: translateX(0); }
     100% { opacity: 0; transform: translateX(40px); }
 }
