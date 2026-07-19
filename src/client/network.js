@@ -82,12 +82,8 @@ export const Network = {
         }
       }
       
-      // ==========================================
-      // FIX LỖI DELAY HIỂN THỊ GAME OVER
-      // ==========================================
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
-      // Nếu server không gửi data player (vì đã chết), tự động hiểu là Đã chết để mở form ngay
       const isCurrentlyDead = me ? me.isDead : true; 
 
       if (!cachedUiLayer) cachedUiLayer = document.getElementById("ui-layer");
@@ -95,7 +91,6 @@ export const Network = {
          cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
       }
 
-      // 1. SỐNG LẠI (HỒI SINH)
       if (prevDead && !isCurrentlyDead) { 
         if (me) {
             GameState.clientX = GameState.serverX = me.x; 
@@ -110,7 +105,6 @@ export const Network = {
         if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
       } 
 
-      // 2. VỪA BỊ GIẾT -> HIỆN GAME OVER LẬP TỨC
       if (!prevDead && isCurrentlyDead) {
         if (uiHideTimeout) clearTimeout(uiHideTimeout); 
         if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
@@ -126,7 +120,6 @@ export const Network = {
         }
       }
 
-      // 3. CẬP NHẬT CHỈ SỐ NHÂN VẬT NẾU CÒN SỐNG
       if (me) {
         const oldLevel = GameState.clientLevel;
         GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
@@ -176,11 +169,21 @@ export const Network = {
     if (!forceUpdate && Date.now() - GameState.lastSentTime < CONFIG.CLIENT_SEND_INTERVAL) return;
     
     const dAngle = Math.abs(GameState.mouseAngle - GameState.lastSentAngle);
-    const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse; const movingChanged = GameState.isMoving !== GameState.lastMoving;
+    const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse; 
+    const movingChanged = GameState.isMoving !== GameState.lastMoving;
     
     if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
-      this.ws.send(JSON.stringify({ type: "move", angle: GameState.mouseAngle, rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, is moving: GameState.isMoving }));
-      GameState.lastSentTime = Date.now(); GameState.lastSentAngle = GameState.mouseAngle; GameState.lastRightMouse = GameState.rightMouseDown; GameState.lastMoving = GameState.isMoving;
+      // ĐÃ FIX LỖI "is moving" THÀNH "isMoving" TẠI ĐÂY
+      this.ws.send(JSON.stringify({ 
+          type: "move", 
+          angle: GameState.mouseAngle, 
+          rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, 
+          isMoving: GameState.isMoving 
+      }));
+      GameState.lastSentTime = Date.now(); 
+      GameState.lastSentAngle = GameState.mouseAngle; 
+      GameState.lastRightMouse = GameState.rightMouseDown; 
+      GameState.lastMoving = GameState.isMoving;
     }
   }
 };
