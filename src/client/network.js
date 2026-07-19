@@ -38,6 +38,7 @@ export const Network = {
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
       
+      // Đã loại bỏ vòng lặp hút hạt (lag fix)
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
@@ -51,14 +52,11 @@ export const Network = {
         }
       }
 
-      // ==========================================
-      // TRẢ LẠI 100% NGUYÊN BẢN GỐC (DÙNG CANVAS RENDERER)
-      // ==========================================
+      // TRẢ LẠI HIỂN THỊ KILL STREAK NGUYÊN BẢN (CANVAS)
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
             Renderer.triggerAnnouncer(ann.name, ann.streak);
-            
             if (ann.streak === 2) Sound.play("doublekill");
             else if (ann.streak === 3) Sound.play("triplekill");
             else if (ann.streak === 5) Sound.play("quadkill");
@@ -77,20 +75,29 @@ export const Network = {
          cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
       }
 
-      if (prevDead && !isCurrentlyDead) { 
-        if (me) {
-            GameState.clientX = GameState.serverX = me.x; 
-            GameState.clientY = GameState.serverY = me.y; 
-        }
-        if (uiHideTimeout) clearTimeout(uiHideTimeout); 
-        if (cachedUiLayer) {
-            cachedUiLayer.style.opacity = "0"; 
-            cachedUiLayer.style.transform = "scale(1.05)"; 
-            uiHideTimeout = setTimeout(() => cachedUiLayer.style.display = "none", 400); 
-        }
-        if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
-      } 
+      if (me) {
+        const oldLevel = GameState.clientLevel;
+        GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
+        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel); GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
+        
+        if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; Camera.flashColor = "255, 255, 255"; } 
+        if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
 
+        if (prevDead && !me.isDead) { 
+          GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
+          
+          if (uiHideTimeout) clearTimeout(uiHideTimeout); 
+          if (cachedUiLayer) {
+              cachedUiLayer.style.opacity = "0"; 
+              cachedUiLayer.style.transform = "scale(1.05)"; 
+              uiHideTimeout = setTimeout(() => cachedUiLayer.style.display = "none", 400); 
+          }
+          if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
+        } 
+        else { GameState.serverX = me.x; GameState.serverY = me.y; }
+      }
+      
+      // FIX LỖI DELAY GAME OVER
       if (!prevDead && isCurrentlyDead) {
         if (uiHideTimeout) clearTimeout(uiHideTimeout); 
         if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
@@ -106,19 +113,6 @@ export const Network = {
         }
       }
 
-      if (me) {
-        const oldLevel = GameState.clientLevel;
-        GameState.clientLevel = me.level || 1; GameState.clientXp = me.xp || 0; 
-        GameState.clientXpToNext = me.xpToNext || GameState.getXpToNext(GameState.clientLevel); GameState.clientRadius = GameState.getRadiusByLevel(GameState.clientLevel);
-        
-        if (GameState.clientLevel > oldLevel) { Sound.play('levelUp'); Camera.screenFlash = 1.0; Camera.flashColor = "255, 255, 255"; } 
-        if (oldLevel !== GameState.clientLevel) Camera.targetZoom = Camera.getZoomByLevel(GameState.clientLevel);
-
-        if (!me.isDead) {
-            GameState.serverX = me.x; GameState.serverY = me.y;
-        }
-      }
-      
       GameState.isDead = isCurrentlyDead; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
 
       if (prevDead && isCurrentlyDead && cachedSpeakerIcon && cachedUiLayer && cachedUiLayer.style.display !== "none") {
@@ -129,10 +123,13 @@ export const Network = {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
           const killer = (data.players || []).find(k => k.id === p.killerId);
+          
+          // TRẢ LẠI HIỂN THỊ KILLFEED NGUYÊN BẢN (CANVAS)
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
             Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
+
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
@@ -155,20 +152,11 @@ export const Network = {
     if (!forceUpdate && Date.now() - GameState.lastSentTime < CONFIG.CLIENT_SEND_INTERVAL) return;
     
     const dAngle = Math.abs(GameState.mouseAngle - GameState.lastSentAngle);
-    const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse; 
-    const movingChanged = GameState.isMoving !== GameState.lastMoving;
+    const rightMouseChanged = GameState.rightMouseDown !== GameState.lastRightMouse; const movingChanged = GameState.isMoving !== GameState.lastMoving;
     
     if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
-      this.ws.send(JSON.stringify({ 
-          type: "move", 
-          angle: GameState.mouseAngle, 
-          rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, 
-          isMoving: GameState.isMoving 
-      }));
-      GameState.lastSentTime = Date.now(); 
-      GameState.lastSentAngle = GameState.mouseAngle; 
-      GameState.lastRightMouse = GameState.rightMouseDown; 
-      GameState.lastMoving = GameState.isMoving;
+      this.ws.send(JSON.stringify({ type: "move", angle: GameState.mouseAngle, rightMouseDown: GameState.rightMouseDown && GameState.clientXp > 0, isMoving: GameState.isMoving }));
+      GameState.lastSentTime = Date.now(); GameState.lastSentAngle = GameState.mouseAngle; GameState.lastRightMouse = GameState.rightMouseDown; GameState.lastMoving = GameState.isMoving;
     }
   }
 };
