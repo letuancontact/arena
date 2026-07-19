@@ -80,10 +80,16 @@ function triggerGameOver(level, kills, xp, killerName) {
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
-        let nextLevel = currentLevel + 1;
-        if (nextLevel > 40) nextLevel = 40; 
+        // ==========================================
+        // ĐÃ FIX: CHỈ HIỂN THỊ ĐÚNG MỐC TIẾN HÓA TIẾP THEO
+        // ==========================================
+        const evolutionMilestones = [1, 2, 6, 10, 15, 21, 28, 36, 45]; // Các mốc tiến hóa của game
+        let nextEvolutionLevel = evolutionMilestones.find(m => m > currentLevel); // Tìm mốc lớn hơn cấp hiện tại
+        if (!nextEvolutionLevel) nextEvolutionLevel = 45; // Nếu đã đạt cấp tối đa
+        
         const nextImgEl = document.getElementById('go-next-img');
-        if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
+        if (nextImgEl) nextImgEl.src = `img/lv${nextEvolutionLevel}.png`;
+        // ==========================================
 
         // ÉP HIỂN THỊ 100% SÁNG RÕ
         if (uiLayer) {
