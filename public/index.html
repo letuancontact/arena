@@ -14,7 +14,6 @@
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
 
-      /* BACKGROUND GỐC */
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-image: url('img/mapbg.png'); 
@@ -27,7 +26,7 @@
       }
 
       /* =========================================
-         MENU ĐĂNG NHẬP (Nhỏ gọn, kính mờ)
+         MENU ĐĂNG NHẬP
          ========================================= */
       .popup-panel {
         background: rgba(20, 25, 30, 0.45); 
@@ -85,7 +84,7 @@
       #status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
 
       /* =========================================
-         GAME OVER - 3 CỘT (Có tính năng Vuốt trên Mobile)
+         GAME OVER - 3 CỘT (Swipe Mobile)
          ========================================= */
       #game-over-screen {
         background-image: none; 
@@ -111,10 +110,9 @@
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(0,0,0,0.9);
         backdrop-filter: blur(5px);
-        flex-shrink: 0; /* Khóa không cho bóp méo khung khi nằm ngang */
+        flex-shrink: 0; 
       }
       
-      /* Kích thước chuẩn trên màn hình máy tính */
       .go-side { width: 260px; }
       .go-center { width: 340px; align-items: center; padding-bottom: 25px; padding-top: 15px;}
       
@@ -138,26 +136,25 @@
       /* BẬT TÍNH NĂNG VUỐT NGANG (CAROUSEL) CHO MOBILE & TABLET */
       @media (max-width: 950px) { 
         .go-wrapper { 
-          justify-content: flex-start; /* Để các khung bắt đầu từ mép trái */
-          overflow-x: auto; /* Bật thanh cuộn ngang */
-          scroll-snap-type: x mandatory; /* Hiệu ứng hút dính khi vuốt (như Tiktok/Tinder) */
-          -ms-overflow-style: none; /* Ẩn thanh cuộn thừa trên IE */
-          scrollbar-width: none; /* Ẩn thanh cuộn thừa trên Firefox */
-          padding-bottom: 30px; /* Chừa viền đổ bóng bên dưới */
+          justify-content: flex-start;
+          overflow-x: auto; 
+          scroll-snap-type: x mandatory; 
+          -ms-overflow-style: none; 
+          scrollbar-width: none; 
+          padding-bottom: 30px; 
+          padding-left: 50vw; /* Padding ảo để có thể vuốt đến tận cùng */
+          padding-right: 50vw;
         }
         
-        .go-wrapper::-webkit-scrollbar { display: none; } /* Ẩn thanh cuộn trên Chrome/Safari/Mobile */
+        .go-wrapper::-webkit-scrollbar { display: none; } 
         
         .go-panel {
-          scroll-snap-align: center; /* Luôn dừng vuốt ở giữa màn hình */
-          width: 82vw; /* Mỗi cột chiếm 82% màn hình để lòi một chút cột bên cạnh, gợi ý người chơi vuốt tiếp */
+          scroll-snap-align: center; 
+          width: 82vw; 
           max-width: 340px;
         }
-
-        /* TỐI ƯU UX CỰC HAY: Đẩy khung "CHƠI LẠI" lên đầu tiên trên Mobile */
-        .go-center { order: 1; } 
-        #go-side-hints { order: 2; } /* Vuốt sang phải sẽ thấy Gợi ý */
-        #go-side-ads { order: 3; } /* Vuốt sang phải tiếp sẽ thấy Quảng cáo */
+        
+        /* Bỏ thay đổi vị trí, giữ đúng nguyên bản: Gợi ý -> Chơi lại -> Quảng cáo */
       }
       
       #game { display: block; width: 100vw; height: 100vh; }
@@ -166,7 +163,6 @@
   <body>
     <canvas id="game"></canvas>
 
-    <!-- NÚT LOA Ở VỊ TRÍ GỐC -->
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
@@ -195,7 +191,7 @@
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
                 
-                <!-- ID go-side-hints được gắn để CSS dễ dàng sắp xếp thứ tự vuốt -->
+                <!-- Bảng Trái: Gợi ý -->
                 <div id="go-side-hints" class="go-panel go-side">
                     <div class="go-header">GỢI Ý</div>
                     <div class="go-hints">
@@ -205,6 +201,7 @@
                     </div>
                 </div>
 
+                <!-- Bảng Giữa: Chơi lại -->
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
                     <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
@@ -216,7 +213,7 @@
                     <button id="respawn-btn" style="background: linear-gradient(to bottom, #ff3300, #aa0000); border: 3px solid #ff0000; border-radius: 10px; padding: 10px 40px; color: white; font-weight: 900; font-size: 22px; cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5); box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4); width: 85%;">CHƠI LẠI</button>
                 </div>
 
-                <!-- ID go-side-ads -->
+                <!-- Bảng Phải: Quảng cáo -->
                 <div id="go-side-ads" class="go-panel go-side">
                     <div class="go-header">TRÒ CHƠI CỦA</div>
                     <div class="go-ad">
@@ -232,6 +229,28 @@
     <div style="display: none;">
         <div id="killerName"></div><div id="killer-name"></div><div id="killedBy"></div><div id="death-name"></div>
     </div>
+
+    <!-- Script Tự động trượt bảng "Chơi lại" vào giữa màn hình khi ở trên Mobile -->
+    <script>
+      const goScreen = document.getElementById('game-over-screen');
+      const goWrapper = document.querySelector('.go-wrapper');
+      const goCenter = document.querySelector('.go-center');
+
+      if (goScreen && goWrapper && goCenter) {
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (goScreen.style.display !== 'none' && window.innerWidth <= 950) {
+              // Chờ DOM hiển thị xong mới thực hiện cuộn
+              setTimeout(() => {
+                const centerPos = goCenter.offsetLeft - (goWrapper.clientWidth / 2) + (goCenter.clientWidth / 2);
+                goWrapper.scrollTo({ left: centerPos, behavior: 'smooth' });
+              }, 50);
+            }
+          });
+        });
+        observer.observe(goScreen, { attributes: true, attributeFilter: ['style'] });
+      }
+    </script>
 
     <script src="/shared/constants.js"></script>
     <script type="module" src="main.js"></script>
