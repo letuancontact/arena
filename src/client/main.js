@@ -51,7 +51,7 @@ function startGame() {
   gameOverScreen.style.display = 'none';
   statusText.innerText = "";
 
-  isPlaying = true; // XÁC NHẬN ĐÃ VÀO TRẬN (Mở khóa cho phép hiện Game Over nếu chết)
+  isPlaying = true; 
 
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
 }
@@ -63,15 +63,13 @@ nameInput.addEventListener("keypress", (e) => {
 });
 
 // ==========================================
-// HÀM HIỂN THỊ GAME OVER BẤT TỬ
+// HÀM HIỂN THỊ GAME OVER ĐÃ CẬP NHẬT 
 // ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
-    // --- BỘ LỌC CHỐNG LỖI MÀN HÌNH CHÍNH ---
-    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; // Đang ở sảnh -> Dừng
-    if (!isPlaying) return; // Chưa bấm nút Play -> Dừng
+    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
+    if (!isPlaying) return; 
     
-    isPlaying = false; // Đã chết -> Tắt cờ đi để tránh bị gọi lặp lại 2 lần
-    // ----------------------------------------
+    isPlaying = false; 
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
@@ -80,12 +78,20 @@ function triggerGameOver(level, kills, xp, killerName) {
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
-        let nextLevel = currentLevel + 1;
-        if (nextLevel > 40) nextLevel = 40; 
-        const nextImgEl = document.getElementById('go-next-img');
-        if (nextImgEl) nextImgEl.src = `img/lv${nextLevel}.png`;
+        // --- SỬA LỖI HIỂN THỊ HÌNH ẢNH TIẾN HÓA ---
+        const evolutionMilestones = [1, 2, 6, 10, 15, 21, 28, 36, 45];
+        let nextEvolutionLevel = evolutionMilestones.find(m => m > currentLevel);
 
-        // ÉP HIỂN THỊ 100% SÁNG RÕ
+        if (!nextEvolutionLevel) {
+            nextEvolutionLevel = "MAX"; 
+        }
+
+        const nextImgEl = document.getElementById('go-next-img');
+        if (nextImgEl) {
+            nextImgEl.src = nextEvolutionLevel !== "MAX" ? `img/lv${nextEvolutionLevel}.png` : `img/lv45.png`;
+        }
+        // ------------------------------------------
+
         if (uiLayer) {
             uiLayer.style.display = 'block';
             uiLayer.style.opacity = '1';         
@@ -197,12 +203,10 @@ function main() {
   
   let wasDead = true; 
 
-  // VÒNG LẶP DỰ PHÒNG: Quét an toàn
   setInterval(() => {
     if (GameState.isDead && !wasDead) {
         wasDead = true;
         setTimeout(() => {
-            // Yêu cầu phải đang trong game (isPlaying = true) mới hiển thị
             if (gameOverScreen && gameOverScreen.style.display === 'none' && isPlaying) {
                 triggerGameOver(GameState.clientLevel, GameState.kills, GameState.clientXp, GameState.killerName);
             }
