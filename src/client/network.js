@@ -51,9 +51,6 @@ export const Network = {
         }
       }
 
-      // ==========================================
-      // GIAO DIỆN KILL STREAK GỌN NHẸ (BẢN GỐC)
-      // ==========================================
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
@@ -68,7 +65,6 @@ export const Network = {
                 const popup = document.createElement('div');
                 popup.className = 'streak-popup';
                 
-                // GIỮ NGUYÊN BẢN GỐC: [Tên] ⚔ [Số mạng]
                 popup.innerHTML = `
                     <span>${ann.name || "Khách"}</span>
                     <img src="img/sword-icon.png" style="height: 12px; width: 12px; object-fit: contain; margin-top: -1px;" alt="⚔️" onerror="this.outerHTML='⚔️'">
@@ -173,7 +169,6 @@ export const Network = {
     const movingChanged = GameState.isMoving !== GameState.lastMoving;
     
     if (forceUpdate || dAngle > CONFIG.ANGLE_SEND_THRESHOLD || rightMouseChanged || movingChanged) {
-      // ĐÃ FIX LỖI "is moving" THÀNH "isMoving" TẠI ĐÂY
       this.ws.send(JSON.stringify({ 
           type: "move", 
           angle: GameState.mouseAngle, 
