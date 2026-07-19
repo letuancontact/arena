@@ -61,9 +61,6 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled && !playBtn.hasAttribute("disabled")) startGame();
 });
 
-// ==========================================
-// HÀM HIỂN THỊ GAME OVER ĐÃ CẬP NHẬT
-// ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
     if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
     if (!isPlaying) return; 
@@ -77,19 +74,15 @@ function triggerGameOver(level, kills, xp, killerName) {
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
+        // --- FIX TIẾN HÓA ---
         const evolutionMilestones = [1, 2, 6, 10, 15, 21, 28, 36, 45];
         let nextEvolutionLevel = evolutionMilestones.find(m => m > currentLevel);
-
-        if (!nextEvolutionLevel) {
-            nextEvolutionLevel = "MAX"; 
-        }
+        if (!nextEvolutionLevel) nextEvolutionLevel = "MAX"; 
 
         const nextImgEl = document.getElementById('go-next-img');
-        if (nextImgEl) {
-            nextImgEl.src = nextEvolutionLevel !== "MAX" ? `img/lv${nextEvolutionLevel}.png` : `img/lv45.png`;
-        }
+        if (nextImgEl) nextImgEl.src = nextEvolutionLevel !== "MAX" ? `img/lv${nextEvolutionLevel}.png` : `img/lv45.png`;
+        // --------------------
 
-        // --- TẮT HIỆU ỨNG CHỜ, CHO BẬT LÊN LUÔN ---
         if (uiLayer) {
             uiLayer.style.transition = 'none'; 
             uiLayer.style.display = 'flex';    
@@ -121,7 +114,7 @@ function triggerGameOver(level, kills, xp, killerName) {
                 if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
             } else {
                 clearInterval(respawnInterval);
-                if (timerEl) timerEl.innerText = "ĐĐ SẴN SÀNG!";
+                if (timerEl) timerEl.innerText = "ĐÃ SẴN SÀNG!"; // Đã sửa lỗi chữ ĐĐ
                 if (respawnBtn) respawnBtn.disabled = false;
             }
         }, 1000);
@@ -133,7 +126,6 @@ function triggerGameOver(level, kills, xp, killerName) {
 
 export const showGameOver = triggerGameOver;
 window.showGameOver = triggerGameOver; 
-// ==========================================
 
 export function enablePlayButton() {
     playBtn.disabled = false;
