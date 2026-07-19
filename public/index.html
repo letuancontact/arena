@@ -21,58 +21,74 @@
         background-repeat: repeat;
         background-color: rgba(15, 15, 15, 0.6); 
         backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         display: flex; flex-direction: column; justify-content: center; align-items: center;
       }
 
-      /* === MENU ĐĂNG NHẬP === */
+      /* =========================================
+         MENU ĐĂNG NHẬP (Tối ưu Glassmorphism) 
+         ========================================= */
       .popup-panel {
-        background: rgba(15, 18, 22, 0.9); 
+        /* Hiệu ứng nền trong suốt mờ */
+        background: rgba(15, 20, 25, 0.65); 
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        
         border-radius: 16px;
-        width: 85%; max-width: 380px; 
-        padding: 18px 22px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        border: 2px solid rgba(255,255,255,0.08);
-        text-align: center;
+        width: 90%; 
+        max-width: 320px; /* Thu nhỏ kích thước tối đa của khung */
+        padding: 25px 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.15); /* Viền mờ ảo */
+        
+        display: flex; flex-direction: column; align-items: center; text-align: center;
       }
+      
       .panel-section {
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 12px; padding: 12px; margin-bottom: 12px;
-        border: 1px solid rgba(255,255,255,0.04);
+        width: 100%;
+        margin-bottom: 12px;
       }
-      .popup-panel h1 { color: #ffffff; font-size: 24px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 2px; }
-      .popup-panel h2 { color: #aaaaaa; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
-      .popup-panel p { color: #d0d0d0; font-size: 12px; margin: 0; line-height: 1.4; }
-      .logo-section { margin: 8px 0; }
-      .logo-section img { height: 80px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6)); }
+      
+      .popup-panel h1 { color: #ffffff; font-size: 24px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 1px; }
+      .popup-panel h2 { color: #aaaaaa; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; display: none; } /* Ẩn bớt để gọn hơn */
+      .popup-panel p { color: #cccccc; font-size: 13px; margin: 0; line-height: 1.4; }
+      
+      .logo-section { margin: 10px 0 20px 0; }
+      .logo-section img { height: 75px; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6)); }
 
       #player-name {
-        width: 100%; max-width: 250px; box-sizing: border-box;
-        padding: 10px 15px; margin-bottom: 12px;
-        border-radius: 20px; border: 2px solid rgba(255,255,255,0.1);
-        background: rgba(0,0,0,0.8); color: #fff; font-size: 16px;
+        width: 100%; box-sizing: border-box;
+        padding: 10px 15px; margin-bottom: 15px;
+        border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.4); color: #fff; font-size: 15px;
         font-family: inherit; font-weight: bold; text-align: center;
-        outline: none; transition: all 0.2s;
+        outline: none; transition: all 0.3s ease;
       }
-      #player-name:focus { border-color: #ffaa00; box-shadow: 0 0 10px rgba(255,170,0,0.3); }
+      
+      #player-name::placeholder { color: #888; font-weight: normal; }
+      #player-name:focus { border-color: #ff6a00; background: rgba(0, 0, 0, 0.6); }
 
       .action-btn {
-        background: linear-gradient(to bottom, #ff3300, #aa0000);
-        border: 3px solid #ff0000; border-radius: 10px;
-        padding: 10px 40px; color: white;
-        font-family: inherit; font-weight: 900; font-size: 22px;
-        cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5);
-        box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4);
-        transition: transform 0.1s, box-shadow 0.1s; width: 100%; max-width: 250px;
+        background: linear-gradient(to bottom, #ff6a00, #d62800);
+        border: none; border-radius: 8px;
+        padding: 12px; color: white;
+        font-family: inherit; font-weight: 900; font-size: 16px;
+        cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 15px rgba(255, 106, 0, 0.3);
+        transition: transform 0.1s, filter 0.2s; width: 100%; 
       }
-      .action-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #550000, 0 3px 5px rgba(0,0,0,0.4); }
-      .action-btn:hover:not(:disabled) { filter: brightness(1.2); }
-      .action-btn:disabled { filter: grayscale(1); cursor: not-allowed; border-color: #555; box-shadow: none; transform: none; opacity: 0.7;}
+      .action-btn:active:not(:disabled) { transform: scale(0.96); box-shadow: 0 2px 8px rgba(255, 106, 0, 0.3); }
+      .action-btn:hover:not(:disabled) { filter: brightness(1.15); }
+      .action-btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
 
-      /* === GAME OVER 3 CỘT NẰM NGANG CHUYÊN CHO MOBILE === */
+      /* =========================================
+         GAME OVER 3 CỘT NẰM NGANG (Mobile Tối Ưu)
+         ========================================= */
       #game-over-screen {
         background-image: none; 
         background-color: rgba(5,5,5,0.85); 
         backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         justify-content: center;
         align-items: center;
         overflow: hidden;
@@ -80,40 +96,39 @@
 
       .go-wrapper {
         display: flex; gap: 20px; justify-content: center; align-items: stretch;
-        
-        /* KHÓA CỨNG: Luôn trải ngang với độ rộng cố định */
         width: 900px; 
         flex-direction: row !important; 
         transform-origin: center center;
       }
 
       .go-panel {
-        background: #0d0d0d;
-        border: 2px solid #333333;
+        background: rgba(13, 13, 13, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
         display: flex; flex-direction: column;
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+        backdrop-filter: blur(5px);
       }
       .go-side { width: 260px; flex-shrink: 0; }
-      .go-center { width: 340px; align-items: center; padding-bottom: 25px; flex-shrink: 0; }
+      .go-center { width: 340px; align-items: center; padding-bottom: 25px; flex-shrink: 0; padding-top: 15px;}
       
       .go-header {
         font-size: 16px; font-weight: bold; color: #fff; text-transform: uppercase;
         padding: 15px; text-align: center; width: 100%; box-sizing: border-box;
-        border-bottom: 2px solid #333; letter-spacing: 1px;
+        border-bottom: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px;
       }
       
       .go-hints { padding: 18px; color: #b3b3b3; font-size: 13px; line-height: 1.6; text-align: left; flex-grow: 1;}
       .go-hints p { margin: 0 0 12px 0; }
       
-      .go-title { font-size: 20px; color: #fff; font-weight: 900; margin-top: 25px; text-transform: uppercase; }
+      .go-title { font-size: 18px; color: #fff; font-weight: 900; margin-top: 10px; text-transform: uppercase; }
       .go-killer { font-size: 22px; color: #ff3333; font-weight: 900; margin: 10px 0 20px 0; word-break: break-all; padding: 0 10px; text-align: center; }
-      .go-next-text { font-size: 14px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+      .go-next-text { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
       .go-center img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
       
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
-      .go-ad img { width: 100%; border-radius: 8px; border: 1px solid #444; }
+      .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
 
       /* TỰ ĐỘNG THU NHỎ NHƯ BỨC ẢNH THEO KÍCH THƯỚC MÀN HÌNH MÁY */
       @media (max-width: 950px) { .go-wrapper { transform: scale(0.85); } }
@@ -123,6 +138,15 @@
       @media (max-width: 500px) { .go-wrapper { transform: scale(0.45); } }
       @media (max-width: 420px) { .go-wrapper { transform: scale(0.38); } }
       @media (max-width: 360px) { .go-wrapper { transform: scale(0.32); } }
+      
+      /* Ẩn bớt góc của canvas để không bị viền trắng ở điện thoại */
+      #game { display: block; width: 100vw; height: 100vh; }
+      #mute-btn {
+          position: fixed; top: 15px; left: 15px; z-index: 10000;
+          background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
+          cursor: pointer; color: white; backdrop-filter: blur(5px);
+      }
     </style>
   </head>
   <body>
@@ -131,27 +155,27 @@
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
+        <!-- MÀN HÌNH CHÍNH (Đã áp dụng nền mờ & thu gọn) -->
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
                 <div class="panel-section">
-                    <h1>ARENA.IO</h1>
-                    <h2>Fight! Kill! Evolve!</h2>
+                    <h1>EVO ARENA</h1>
                     <p>Level up to evolve your character.<br>Bigger weapons, stronger armor!</p>
                 </div>
                 
                 <div class="logo-section">
-                    <img src="img/lv10.png" alt="Logo">
+                    <img src="img/logo.png" alt="Logo">
                 </div>
 
                 <div class="panel-section" style="margin-bottom: 0;">
                     <input type="text" id="player-name" placeholder="Enter your name..." maxlength="15" autocomplete="off" spellcheck="false">
-                    <br>
-                    <button id="play-btn" class="action-btn" style="background: linear-gradient(to bottom, #ff6a00, #d62800); border-color: #ffcc00; box-shadow: 0 6px 0 #8a1900;">PLAY</button>
-                    <div id="status-text" style="color: #ffaa00; margin-top: 10px; font-weight: bold; font-size: 13px;"></div>
+                    <button id="play-btn" class="action-btn">PLAY</button>
+                    <div id="status-text" style="color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px;"></div>
                 </div>
             </div>
         </div>
 
+        <!-- MÀN HÌNH GAME OVER -->
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
                 
@@ -173,7 +197,7 @@
                     
                     <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
                     
-                    <button id="respawn-btn" class="action-btn">CHƠI</button>
+                    <button id="respawn-btn" class="action-btn" style="width: 85%;">CHƠI LẠI</button>
                 </div>
 
                 <div class="go-panel go-side">
