@@ -84,7 +84,6 @@ export const FX = {
       if (p.active) {
         p.x += p.vx * dtMultiplier; p.y += p.vy * dtMultiplier; p.life -= 0.016 * dtMultiplier; p.vx *= 0.92; p.vy *= 0.92; 
         if (p.life <= 0) { p.active = false; continue; } 
-        // [CULLING] Không vẽ hiệu ứng nếu ở ngoài màn hình
         if (p.x < vLeft || p.x > vRight || p.y < vTop || p.y > vBottom) continue;
         const ratio = p.life / p.maxLife; ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, ratio)); ctx.fillStyle = p.color;
         if (p.type === 1) { 
@@ -298,9 +297,12 @@ export const Renderer = {
         if (t > 0.1 && t < 0.9) {
           ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
           ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
-          const grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + weaponHeadOffset * 2);
-          grad.addColorStop(0, "rgba(255, 255, 255, 0)"); grad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * (1-t)})`); grad.addColorStop(1, "rgba(255, 255, 255, 0)");
-          ctx.strokeStyle = grad; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+          
+          // ĐÃ TỐI ƯU HÓA: Thay radial gradient bằng RGBA tĩnh siêu nhẹ (tránh GPU bị nghẽn)
+          ctx.strokeStyle = `rgba(200, 230, 255, ${0.4 * (1-t)})`; 
+          ctx.lineCap = "round"; 
+          ctx.stroke(); 
+          ctx.restore();
         }
       }
       
@@ -349,9 +351,6 @@ export const Renderer = {
     else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
     ctx.strokeStyle = "#222"; ctx.lineWidth = 8 / Camera.currentZoom; ctx.strokeRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
     
-    // ==========================================
-    // TỐI ƯU CULLING: XÁC ĐỊNH VÙNG MÀN HÌNH (VIEWPORT)
-    // ==========================================
     const { interpPlayers } = this.getInterpolatedState();
     const margin = 150 / Camera.currentZoom;
     const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin;
@@ -361,7 +360,6 @@ export const Renderer = {
     
     const foodByType = {};
     for (const f of GameState.food) {
-      // [CULLING] Chỉ phân loại và vẽ những hạt lọt vào màn hình
       if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) {
         const type = f.type || 0;
         if (!foodByType[type]) foodByType[type] = [];
@@ -379,7 +377,6 @@ export const Renderer = {
       }
     }
 
-    // [CULLING] Cập nhật mảng trails (dấu vết di chuyển)
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
       if (t.active) {
@@ -394,12 +391,10 @@ export const Renderer = {
     
     FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
 
-    // [CULLING] Vẽ người chơi khác
     for (const id in interpPlayers) {
       const p = interpPlayers[id];
       if (p.isDead) continue;
       
-      // Chỉ vẽ nếu đối thủ nằm trong màn hình
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
         if (!this.visualRadius[id]) this.visualRadius[id] = p.radius;
         this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier;
@@ -431,7 +426,6 @@ export const Renderer = {
       }
     }
     
-    // Vẽ chính mình (Luôn nằm trong màn hình, không cần lọc Culling)
     const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
     const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     
@@ -471,7 +465,6 @@ export const Renderer = {
       }
     }
 
-    // Cập nhật mảng Damage Texts
     for (let i = 0; i < this.damageTexts.length; i++) {
         const d = this.damageTexts[i];
         if (d.active) {
@@ -491,7 +484,6 @@ export const Renderer = {
         }
     }
 
-    // Cập nhật mảng Level Up Effect
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
@@ -505,7 +497,6 @@ export const Renderer = {
       }
     }
 
-    // Cập nhật mảng Floating Texts
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
@@ -531,7 +522,6 @@ export const Renderer = {
       ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
     }
 
-    // UI tĩnh không thay đổi gì
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const isMob = window.innerWidth <= 768; 
 
