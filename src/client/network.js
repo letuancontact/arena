@@ -39,10 +39,25 @@ export const Network = {
       GameState.stateBuffer.push({ time: Date.now(), players: data.players || [] });
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
-      if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
+      // ==========================================
+      // FIX LỖI MEMORY LEAK: Lọc trùng lặp & Giới hạn số lượng hiển thị
+      // ==========================================
+      if (data.foodAdded && data.foodAdded.length > 0) {
+        // Tạo một Set chứa các ID hiện có để truy xuất siêu tốc (O(1))
+        const existingIds = new Set(GameState.food.map(f => f.id));
+        
+        // Chỉ thêm những hạt thức ăn chưa tồn tại
+        const newFoods = data.foodAdded.filter(f => !existingIds.has(f.id));
+        GameState.food.push(...newFoods);
+        
+        // Khóa an toàn: Chặn mảng phình to quá giới hạn 2000 phần tử
+        if (GameState.food.length > 2000) {
+            GameState.food = GameState.food.slice(-2000);
+        }
+      }
       
       // ==========================================
-      // FIX LỖI LAG: Đã xóa hoàn toàn logic vòng lặp tính khoảng cách "hút hạt" (magnetFoods) gây sụt FPS
+      // Lọc xóa thức ăn mượt mà
       // ==========================================
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
