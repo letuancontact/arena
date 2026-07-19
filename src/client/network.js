@@ -51,29 +51,19 @@ export const Network = {
         }
       }
 
+      // ==========================================
+      // TRẢ LẠI 100% NGUYÊN BẢN GỐC (DÙNG CANVAS RENDERER)
+      // ==========================================
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
+            Renderer.triggerAnnouncer(ann.name, ann.streak);
+            
             if (ann.streak === 2) Sound.play("doublekill");
             else if (ann.streak === 3) Sound.play("triplekill");
             else if (ann.streak === 5) Sound.play("quadkill");
             else if (ann.streak === 7) Sound.play("megakill");
             else if (ann.streak >= 10) Sound.play("legendary");
-
-            const container = document.getElementById('streak-announcer-container');
-            if (container) {
-                const popup = document.createElement('div');
-                popup.className = 'streak-popup';
-                
-                popup.innerHTML = `
-                    <span>${ann.name || "Khách"}</span>
-                    <img src="img/sword-icon.png" style="height: 12px; width: 12px; object-fit: contain; margin-top: -1px;" alt="⚔️" onerror="this.outerHTML='⚔️'">
-                    <span style="color: #ffcc00; font-weight: 900;">${ann.streak}</span>
-                `;
-                
-                container.appendChild(popup);
-                setTimeout(() => { if (popup.parentNode) popup.remove(); }, 3100);
-            }
           }
         }
       }
