@@ -14,7 +14,7 @@
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
 
-      /* ĐÃ KHÔI PHỤC BACKGROUND GỐC CỦA BẠN */
+      /* BACKGROUND GỐC */
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-image: url('img/mapbg.png'); 
@@ -27,17 +27,16 @@
       }
 
       /* =========================================
-         MENU ĐĂNG NHẬP (Nhỏ gọn, kính mờ, có giới thiệu)
+         MENU ĐĂNG NHẬP (Nhỏ gọn, kính mờ)
          ========================================= */
       .popup-panel {
-        /* Nền mờ ảo, trong suốt (Glassmorphism) */
         background: rgba(20, 25, 30, 0.45); 
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
         
         border-radius: 20px;
         width: 85%; 
-        max-width: 300px; /* Thu gọn vừa đủ để hiện text đẹp */
+        max-width: 300px;
         padding: 25px 20px;
         
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -49,8 +48,6 @@
       .panel-section { width: 100%; margin: 0; padding: 0; border: none; background: transparent; }
       
       .popup-panel h1 { color: #ffffff; font-size: 22px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-      
-      /* ĐÃ KHÔI PHỤC TEXT GIỚI THIỆU & CĂN CHỈNH CHO GỌN GÀNG */
       .popup-panel h2 { color: #ffaa00; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
       .popup-panel p { color: #cccccc; font-size: 12px; margin: 0; line-height: 1.4; }
       
@@ -88,7 +85,7 @@
       #status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
 
       /* =========================================
-         GAME OVER 3 CỘT NẰM NGANG
+         GAME OVER - 3 CỘT (Có tính năng Vuốt trên Mobile)
          ========================================= */
       #game-over-screen {
         background-image: none; 
@@ -102,9 +99,8 @@
 
       .go-wrapper {
         display: flex; gap: 20px; justify-content: center; align-items: stretch;
-        width: 900px; 
-        flex-direction: row !important; 
-        transform-origin: center center;
+        width: 100%; max-width: 950px; 
+        padding: 20px; box-sizing: border-box;
       }
 
       .go-panel {
@@ -115,9 +111,12 @@
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(0,0,0,0.9);
         backdrop-filter: blur(5px);
+        flex-shrink: 0; /* Khóa không cho bóp méo khung khi nằm ngang */
       }
-      .go-side { width: 260px; flex-shrink: 0; }
-      .go-center { width: 340px; align-items: center; padding-bottom: 25px; flex-shrink: 0; padding-top: 15px;}
+      
+      /* Kích thước chuẩn trên màn hình máy tính */
+      .go-side { width: 260px; }
+      .go-center { width: 340px; align-items: center; padding-bottom: 25px; padding-top: 15px;}
       
       .go-header {
         font-size: 16px; font-weight: bold; color: #fff; text-transform: uppercase;
@@ -128,22 +127,38 @@
       .go-hints { padding: 18px; color: #b3b3b3; font-size: 13px; line-height: 1.6; text-align: left; flex-grow: 1;}
       .go-hints p { margin: 0 0 12px 0; }
       
-      .go-title { font-size: 18px; color: #fff; font-weight: 900; margin-top: 10px; text-transform: uppercase; }
+      .go-title { font-size: 18px; color: #fff; font-weight: 900; margin-top: 10px; text-transform: uppercase; text-align: center;}
       .go-killer { font-size: 22px; color: #ff3333; font-weight: 900; margin: 10px 0 20px 0; word-break: break-all; padding: 0 10px; text-align: center; }
-      .go-next-text { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+      .go-next-text { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; text-align: center;}
       .go-center img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
       
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
       .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
 
-      /* Đáp ứng Mobile */
-      @media (max-width: 950px) { .go-wrapper { transform: scale(0.85); } }
-      @media (max-width: 800px) { .go-wrapper { transform: scale(0.75); } }
-      @media (max-width: 700px) { .go-wrapper { transform: scale(0.65); } }
-      @media (max-width: 600px) { .go-wrapper { transform: scale(0.55); } }
-      @media (max-width: 500px) { .go-wrapper { transform: scale(0.45); } }
-      @media (max-width: 420px) { .go-wrapper { transform: scale(0.38); } }
-      @media (max-width: 360px) { .go-wrapper { transform: scale(0.32); } }
+      /* BẬT TÍNH NĂNG VUỐT NGANG (CAROUSEL) CHO MOBILE & TABLET */
+      @media (max-width: 950px) { 
+        .go-wrapper { 
+          justify-content: flex-start; /* Để các khung bắt đầu từ mép trái */
+          overflow-x: auto; /* Bật thanh cuộn ngang */
+          scroll-snap-type: x mandatory; /* Hiệu ứng hút dính khi vuốt (như Tiktok/Tinder) */
+          -ms-overflow-style: none; /* Ẩn thanh cuộn thừa trên IE */
+          scrollbar-width: none; /* Ẩn thanh cuộn thừa trên Firefox */
+          padding-bottom: 30px; /* Chừa viền đổ bóng bên dưới */
+        }
+        
+        .go-wrapper::-webkit-scrollbar { display: none; } /* Ẩn thanh cuộn trên Chrome/Safari/Mobile */
+        
+        .go-panel {
+          scroll-snap-align: center; /* Luôn dừng vuốt ở giữa màn hình */
+          width: 82vw; /* Mỗi cột chiếm 82% màn hình để lòi một chút cột bên cạnh, gợi ý người chơi vuốt tiếp */
+          max-width: 340px;
+        }
+
+        /* TỐI ƯU UX CỰC HAY: Đẩy khung "CHƠI LẠI" lên đầu tiên trên Mobile */
+        .go-center { order: 1; } 
+        #go-side-hints { order: 2; } /* Vuốt sang phải sẽ thấy Gợi ý */
+        #go-side-ads { order: 3; } /* Vuốt sang phải tiếp sẽ thấy Quảng cáo */
+      }
       
       #game { display: block; width: 100vw; height: 100vh; }
     </style>
@@ -151,7 +166,7 @@
   <body>
     <canvas id="game"></canvas>
 
-    <!-- NÚT LOA Ở VỊ TRÍ GỐC (Chỉnh css trong style.css của bạn) -->
+    <!-- NÚT LOA Ở VỊ TRÍ GỐC -->
     <button id="mute-btn">🔊</button>
 
     <div id="ui-layer">
@@ -160,7 +175,6 @@
             <div class="popup-panel">
                 <div class="panel-section">
                     <h1>ARENA.IO</h1>
-                    <!-- ĐÃ KHÔI PHỤC GIỚI THIỆU -->
                     <h2>Fight! Kill! Evolve!</h2>
                     <p>Level up to evolve your character.<br>Bigger weapons, stronger armor!</p>
                 </div>
@@ -181,7 +195,8 @@
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
                 
-                <div class="go-panel go-side">
+                <!-- ID go-side-hints được gắn để CSS dễ dàng sắp xếp thứ tự vuốt -->
+                <div id="go-side-hints" class="go-panel go-side">
                     <div class="go-header">GỢI Ý</div>
                     <div class="go-hints">
                         <p>• Giết một kẻ thù lớn mang lại cho bạn rất nhiều kinh nghiệm!</p>
@@ -192,7 +207,6 @@
 
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
-                    <!-- Tên người giết -->
                     <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
                     <div class="go-next-text">TIẾN HÓA TIẾP THEO</div>
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
@@ -202,7 +216,8 @@
                     <button id="respawn-btn" style="background: linear-gradient(to bottom, #ff3300, #aa0000); border: 3px solid #ff0000; border-radius: 10px; padding: 10px 40px; color: white; font-weight: 900; font-size: 22px; cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5); box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4); width: 85%;">CHƠI LẠI</button>
                 </div>
 
-                <div class="go-panel go-side">
+                <!-- ID go-side-ads -->
+                <div id="go-side-ads" class="go-panel go-side">
                     <div class="go-header">TRÒ CHƠI CỦA</div>
                     <div class="go-ad">
                         <img src="img/mapbg.png" style="height: 100px; object-fit: cover;" alt="Ads">
@@ -214,7 +229,6 @@
         </div>
     </div>
 
-    <!-- Hỗ trợ bắt ID ẩn từ code cũ -->
     <div style="display: none;">
         <div id="killerName"></div><div id="killer-name"></div><div id="killedBy"></div><div id="death-name"></div>
     </div>
