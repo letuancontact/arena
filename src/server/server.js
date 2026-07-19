@@ -49,7 +49,9 @@ wss.on("connection", (ws) => {
   ws.isAlive = true; ws.on('pong', heartbeat);
   const p = playerLib.createPlayer(ws);
   const safePos = getSafeSpawn([...players.values(), ...bots.values()], CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-  p.x = safePos.x; p.y = safePos.y; p.isDead = true; p.killStreak = 0;
+  
+  // KHỞI TẠO BIẾN AFK
+  p.x = safePos.x; p.y = safePos.y; p.isDead = true; p.killStreak = 0; p.lastActiveTime = Date.now(); 
   players.set(p.id, p);
 
   ws.send(JSON.stringify({ type: "init", id: p.id, mapWidth: CONFIG.MAP_WIDTH, mapHeight: CONFIG.MAP_HEIGHT, food: food }));
@@ -57,6 +59,10 @@ wss.on("connection", (ws) => {
   ws.on("message", (msg) => {
     try {
       const data = JSON.parse(msg); const player = players.get(p.id); if (!player) return;
+      
+      // CẬP NHẬT THỜI GIAN HOẠT ĐỘNG MỖI KHI CÓ TƯƠNG TÁC
+      player.lastActiveTime = Date.now();
+
       if (data.type === "join") {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
@@ -73,8 +79,28 @@ wss.on("connection", (ws) => {
   ws.on("close", () => { players.delete(p.id); });
 });
 
+// Bộ đếm xử lý đứt kết nối mạng đột ngột (giữ nguyên gốc)
 const interval = setInterval(function ping() { wss.clients.forEach(function each(ws) { if (ws.isAlive === false) return ws.terminate(); ws.isAlive = false; ws.ping(); }); }, 30000); 
 wss.on('close', function close() { clearInterval(interval); });
+
+// ==========================================
+// HỆ THỐNG AUTO-KICK AFK (Chống treo máy ngốn CPU)
+// ==========================================
+const AFK_TIMEOUT = 3 * 60 * 1000; // 3 phút
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, p] of players) {
+        if (p.lastActiveTime && (now - p.lastActiveTime > AFK_TIMEOUT)) {
+            if (p.ws && p.ws.readyState === 1) { 
+                p.ws.send(JSON.stringify({ type: "kicked", reason: "Treo máy quá lâu (AFK)" }));
+                p.ws.close();
+            }
+            players.delete(id);
+            console.log(`[Hệ thống] Đã ngắt kết nối player ${id} do AFK.`);
+        }
+    }
+}, 10000); // Kiểm tra 10 giây một lần
+// ==========================================
 
 let lastBroadcast = Date.now();
 let lastHeavyTick = Date.now();
