@@ -52,27 +52,30 @@ export const Network = {
       }
 
       // ==========================================
-      // THÔNG BÁO SỐ LẦN GIẾT (KILL STREAK) TRƯỢT NGANG
+      // THÔNG BÁO KILL STREAK (GIỮ NGUYÊN NỘI DUNG, ĐỔI HIỆU ỨNG HTML)
       // ==========================================
       if (data.announcements && data.announcements.length > 0) {
         for (const ann of data.announcements) {
           if (ann.type === "killstreak") {
+            // 1. Vẫn phát âm thanh như cũ
+            if (ann.streak === 2) Sound.play("doublekill");
+            else if (ann.streak === 3) Sound.play("triplekill");
+            else if (ann.streak === 5) Sound.play("quadkill");
+            else if (ann.streak === 7) Sound.play("megakill");
+            else if (ann.streak >= 10) Sound.play("legendary");
+
+            // 2. Tạo popup thông báo
             const container = document.getElementById('streak-announcer-container');
             if (container) {
                 const popup = document.createElement('div');
                 popup.className = 'streak-popup';
                 
-                let text = `${ann.name} ĐANG THỐNG TRỊ! (${ann.streak} KILL)`;
-                if (ann.streak === 2) { text = `DOUBLE KILL!`; Sound.play("doublekill"); }
-                else if (ann.streak === 3) { text = `TRIPLE KILL!`; Sound.play("triplekill"); }
-                else if (ann.streak === 5) { text = `QUAD KILL!`; Sound.play("quadkill"); }
-                else if (ann.streak === 7) { text = `MEGA KILL!`; Sound.play("megakill"); }
-                else if (ann.streak >= 10) { text = `LEGENDARY!`; Sound.play("legendary"); }
+                // GIỮ NGUYÊN TEXT GỐC BAO GỒM TÊN VÀ SỐ KILL
+                popup.innerText = `${ann.name} ĐANG THỐNG TRỊ! (${ann.streak} KILL)`;
                 
-                popup.innerText = text;
                 container.appendChild(popup);
                 
-                // Xóa thẻ sau 3.1 giây (đủ thời gian cho animation chạy)
+                // Xóa popup sau 3.1 giây
                 setTimeout(() => {
                     if (popup.parentNode) popup.remove();
                 }, 3100);
@@ -134,15 +137,10 @@ export const Network = {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
           Renderer.addDeathParticles(p.x, p.y, p.radius);
           const killer = (data.players || []).find(k => k.id === p.killerId);
-          
-          // ==========================================
-          // GIỮ NGUYÊN BẢN GỐC: AI GIẾT AI (KILLFEED)
-          // ==========================================
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
             Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
-
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
