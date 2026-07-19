@@ -14,6 +14,7 @@
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
 
+      /* BACKGROUND */
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-image: url('img/mapbg.png'); 
@@ -67,24 +68,28 @@
       #player-name::placeholder { color: #aaa; font-weight: normal; }
       #player-name:focus { border-color: #ffaa00; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); }
 
-      #play-btn {
+      /* Nút PLAY và Nút CHƠI LẠI dùng chung style cho đồng bộ, sang chảnh */
+      #play-btn, #respawn-btn {
         background: linear-gradient(135deg, #ff6a00, #d62800);
         border: none; border-radius: 20px;
         padding: 12px; color: white;
         font-family: inherit; font-weight: 900; font-size: 16px; letter-spacing: 1px;
         cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
-        transition: transform 0.1s, filter 0.2s; width: 100%; 
+        transition: transform 0.1s, filter 0.2s; 
+        width: 100%; 
       }
       
-      #play-btn:active:not(:disabled) { transform: scale(0.95); }
-      #play-btn:hover:not(:disabled) { filter: brightness(1.15); }
-      #play-btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
+      #respawn-btn { width: 85%; } /* Nút chơi lại bé lại 1 chút cho cân đối với cột */
+
+      #play-btn:active:not(:disabled), #respawn-btn:active:not(:disabled) { transform: scale(0.95); }
+      #play-btn:hover:not(:disabled), #respawn-btn:hover:not(:disabled) { filter: brightness(1.15); }
+      #play-btn:disabled, #respawn-btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
 
       #status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
 
       /* =========================================
-         GAME OVER - 3 CỘT (Swipe Mobile)
+         GAME OVER - 3 CỘT (Tinh tế, mượt mà hơn)
          ========================================= */
       #game-over-screen {
         background-image: none; 
@@ -97,43 +102,51 @@
       }
 
       .go-wrapper {
-        display: flex; gap: 20px; justify-content: center; align-items: stretch;
-        width: 100%; max-width: 950px; 
+        display: flex; gap: 15px; /* Thu hẹp khoảng cách giữa các cột */
+        justify-content: center; align-items: stretch;
+        width: 100%; max-width: 850px; /* Tổng chiều ngang gọn lại */
         padding: 20px; box-sizing: border-box;
       }
 
       .go-panel {
-        background: rgba(13, 13, 13, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
+        /* Đồng bộ mờ kính với khung đăng nhập */
+        background: rgba(20, 25, 30, 0.45); 
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 20px; /* Bo góc mềm mại hơn */
+        
         display: flex; flex-direction: column;
         overflow: hidden;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.9);
-        backdrop-filter: blur(5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5); /* Giảm độ gắt của bóng */
         flex-shrink: 0; 
       }
       
-      .go-side { width: 260px; }
-      .go-center { width: 340px; align-items: center; padding-bottom: 25px; padding-top: 15px;}
+      /* Cân đối lại kích thước các cột cho thanh thoát */
+      .go-side { width: 220px; }
+      .go-center { width: 280px; align-items: center; padding-bottom: 20px; padding-top: 15px;}
       
       .go-header {
-        font-size: 16px; font-weight: bold; color: #fff; text-transform: uppercase;
-        padding: 15px; text-align: center; width: 100%; box-sizing: border-box;
+        font-size: 14px; /* Chữ nhỏ gọn lại */
+        font-weight: bold; color: #ccc; text-transform: uppercase;
+        padding: 12px; text-align: center; width: 100%; box-sizing: border-box;
         border-bottom: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px;
       }
       
-      .go-hints { padding: 18px; color: #b3b3b3; font-size: 13px; line-height: 1.6; text-align: left; flex-grow: 1;}
-      .go-hints p { margin: 0 0 12px 0; }
+      .go-hints { padding: 15px; color: #b3b3b3; font-size: 12px; line-height: 1.5; text-align: left; flex-grow: 1;}
+      .go-hints p { margin: 0 0 10px 0; }
       
-      .go-title { font-size: 18px; color: #fff; font-weight: 900; margin-top: 10px; text-transform: uppercase; text-align: center;}
-      .go-killer { font-size: 22px; color: #ff3333; font-weight: 900; margin: 10px 0 20px 0; word-break: break-all; padding: 0 10px; text-align: center; }
-      .go-next-text { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; text-align: center;}
-      .go-center img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));}
+      .go-title { font-size: 15px; color: #ddd; font-weight: 900; margin-top: 5px; text-transform: uppercase; text-align: center;}
+      .go-killer { font-size: 18px; color: #ff4a4a; font-weight: 900; margin: 8px 0 15px 0; word-break: break-all; padding: 0 10px; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+      .go-next-text { font-size: 12px; color: #aaa; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
+      
+      /* Thu nhỏ hình ảnh nhân vật */
+      .go-center img { width: 85px; height: 85px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));}
       
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
-      .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); }
+      .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
 
-      /* BẬT TÍNH NĂNG VUỐT NGANG (CAROUSEL) CHO MOBILE & TABLET */
+      /* BẬT TÍNH NĂNG VUỐT NGANG CHO MOBILE & TABLET */
       @media (max-width: 950px) { 
         .go-wrapper { 
           justify-content: flex-start;
@@ -141,20 +154,16 @@
           scroll-snap-type: x mandatory; 
           -ms-overflow-style: none; 
           scrollbar-width: none; 
-          padding-bottom: 30px; 
-          padding-left: 50vw; /* Padding ảo để có thể vuốt đến tận cùng */
-          padding-right: 50vw;
+          padding: 20px 50vw; /* Tạo khoảng trống 2 bên để vuốt thoải mái */
         }
         
         .go-wrapper::-webkit-scrollbar { display: none; } 
         
         .go-panel {
           scroll-snap-align: center; 
-          width: 82vw; 
-          max-width: 340px;
+          width: 75vw; /* Thu nhỏ bớt trên đt để thấy rõ cạnh của bảng bên kia */
+          max-width: 280px;
         }
-        
-        /* Bỏ thay đổi vị trí, giữ đúng nguyên bản: Gợi ý -> Chơi lại -> Quảng cáo */
       }
       
       #game { display: block; width: 100vw; height: 100vh; }
@@ -170,9 +179,9 @@
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
                 <div class="panel-section">
-                    <h1>ARENA.IO</h1>
-                    <h2>Fight! Kill! Evolve!</h2>
-                    <p>Level up to evolve your character.<br>Bigger weapons, stronger armor!</p>
+                    <h1>ARENA.TOP</h1>
+                    <h2>Chiến đấu - Giết chóc -  Tiến hóa</h2>
+                    <p>Nâng cấp để phát triển nhân vật của bạn.<br>Vũ khí lớn hơn, giáp mạnh hơn!</p>
                 </div>
                 
                 <div class="logo-section">
@@ -180,7 +189,7 @@
                 </div>
 
                 <div class="panel-section">
-                    <input type="text" id="player-name" placeholder="Enter your name..." maxlength="15" autocomplete="off" spellcheck="false">
+                    <input type="text" id="player-name" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false">
                     <button id="play-btn">PLAY</button>
                     <div id="status-text"></div>
                 </div>
@@ -201,7 +210,7 @@
                     </div>
                 </div>
 
-                <!-- Bảng Giữa: Chơi lại -->
+                <!-- Bảng Giữa: Chơi lại (Đã thay bằng nút thanh thoát hơn) -->
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
                     <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
@@ -210,15 +219,15 @@
                     
                     <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
                     
-                    <button id="respawn-btn" style="background: linear-gradient(to bottom, #ff3300, #aa0000); border: 3px solid #ff0000; border-radius: 10px; padding: 10px 40px; color: white; font-weight: 900; font-size: 22px; cursor: pointer; text-shadow: 0 2px 3px rgba(0,0,0,0.5); box-shadow: 0 5px 0 #550000, 0 8px 10px rgba(0,0,0,0.4); width: 85%;">CHƠI LẠI</button>
+                    <button id="respawn-btn">CHƠI LẠI</button>
                 </div>
 
                 <!-- Bảng Phải: Quảng cáo -->
                 <div id="go-side-ads" class="go-panel go-side">
                     <div class="go-header">TRÒ CHƠI CỦA</div>
                     <div class="go-ad">
-                        <img src="img/mapbg.png" style="height: 100px; object-fit: cover;" alt="Ads">
-                        <p style="color: #888; font-size: 12px; margin-top: 10px;">More games coming soon...</p>
+                        <img src="img/mapbg.png" style="height: 90px; object-fit: cover;" alt="Ads">
+                        <p style="color: #888; font-size: 11px; margin-top: 10px;">More games coming soon...</p>
                     </div>
                 </div>
 
@@ -230,7 +239,7 @@
         <div id="killerName"></div><div id="killer-name"></div><div id="killedBy"></div><div id="death-name"></div>
     </div>
 
-    <!-- Script Tự động trượt bảng "Chơi lại" vào giữa màn hình khi ở trên Mobile -->
+    <!-- Script tự động trượt chính giữa cho Mobile -->
     <script>
       const goScreen = document.getElementById('game-over-screen');
       const goWrapper = document.querySelector('.go-wrapper');
@@ -240,7 +249,6 @@
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
             if (goScreen.style.display !== 'none' && window.innerWidth <= 950) {
-              // Chờ DOM hiển thị xong mới thực hiện cuộn
               setTimeout(() => {
                 const centerPos = goCenter.offsetLeft - (goWrapper.clientWidth / 2) + (goCenter.clientWidth / 2);
                 goWrapper.scrollTo({ left: centerPos, behavior: 'smooth' });
