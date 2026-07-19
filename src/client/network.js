@@ -6,10 +6,6 @@ import { Sound } from './audio.js';
 const CONFIG = window.GAME_CONFIG;
 let uiHideTimeout = null; 
 
-// ==========================================
-// TỐI ƯU HÓA: LƯU BỘ NHỚ TẠM (CACHE DOM)
-// Đảm bảo trình duyệt chỉ quét tìm 1 lần duy nhất, không quét lại mỗi khung hình
-// ==========================================
 let cachedUiLayer = null;
 let cachedSpeakerIcon = undefined; 
 
@@ -41,20 +37,10 @@ export const Network = {
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
       if (data.foodAdded && data.foodAdded.length > 0) GameState.food.push(...data.foodAdded);
+      
+      // --- ĐÃ BỎ VÒNG LẶP MAGNET CHỐNG LAG ---
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
-        const latestPlayers = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
-        for (const f of GameState.food) {
-          if (removedSet.has(f.id)) {
-            let nearestP = null; let minDist = Infinity;
-            const distToMe = Math.hypot(GameState.clientX - f.x, GameState.clientY - f.y);
-            if (!GameState.isDead && distToMe < minDist) { minDist = distToMe; nearestP = { id: GameState.playerId, x: GameState.clientX, y: GameState.clientY }; }
-            for (const p of latestPlayers) {
-              if (p.isDead) continue; const dist = Math.hypot(p.x - f.x, p.y - f.y); if (dist < minDist) { minDist = dist; nearestP = p; }
-            }
-            if (nearestP && minDist < 300) { GameState.magnetFoods.push({ ...f, targetId: nearestP.id, progress: 0 }); }
-          }
-        }
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
       }
 
@@ -82,7 +68,6 @@ export const Network = {
       const prevDead = GameState.isDead ?? true; 
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       
-      // XUẤT XƯỞNG BỘ NHỚ TẠM (Chỉ quét lần đầu)
       if (!cachedUiLayer) cachedUiLayer = document.getElementById("ui-layer");
       if (cachedSpeakerIcon === undefined) {
          cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
@@ -135,7 +120,30 @@ export const Network = {
           const killer = (data.players || []).find(k => k.id === p.killerId);
           if (killer) {
             const isMe = (killer.id === GameState.playerId) || (p.id === GameState.playerId);
-            Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
+            
+            // --- TÍCH HỢP KILLFEED BẰNG HTML CSS ---
+            const kName = killer.name || "Khách";
+            const vName = p.name || "Khách";
+
+            const feedContainer = document.getElementById('killfeed-container');
+            if (feedContainer) {
+                const popup = document.createElement('div');
+                popup.className = `kill-popup ${isMe ? 'is-me' : ''}`;
+                
+                popup.innerHTML = `
+                    <span style="color: ${isMe ? '#00ff66' : '#ffaa00'}">${kName}</span> 
+                    <img src="img/sword-icon.png" style="height:14px; width:14px;" alt="⚔️" onerror="this.outerHTML='⚔️'"> 
+                    <span style="color: #ccc">${vName}</span>
+                `;
+                
+                feedContainer.appendChild(popup);
+
+                setTimeout(() => {
+                    popup.style.animation = 'slideOutLeft 0.3s ease-in forwards';
+                    setTimeout(() => popup.remove(), 300);
+                }, 3000);
+            }
+            // ----------------------------------------
           }
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
