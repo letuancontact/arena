@@ -77,3 +77,126 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
   #play-btn { padding: 11px 35px; font-size: 16px; }
   #mute-btn { top: 8px; right: 102px; width: 28px; height: 28px; font-size: 13px; }
 }
+
+/* =========================================
+   HỆ THỐNG HUD (Fantasy RPG, Hiệu năng cao)
+   ========================================= */
+
+#game-hud {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none; 
+    z-index: 100;
+    font-family: 'Nunito', sans-serif;
+}
+
+.hud-safe-area {
+    position: relative; width: 100%; height: 100%;
+    padding: max(10px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 10px max(15px, env(safe-area-inset-left));
+    box-sizing: border-box;
+    display: flex; justify-content: space-between; align-items: flex-start;
+}
+
+.hud-panel {
+    background: rgba(30, 34, 45, 0.85);
+    border: 1.5px solid rgba(100, 110, 130, 0.5);
+    border-radius: 12px;
+    pointer-events: auto; 
+}
+
+/* 1. PLAYER INFO */
+#hud-player-info {
+    display: flex; align-items: center; padding: 6px 12px 6px 6px;
+    gap: 10px; max-width: 280px;
+}
+
+.avatar-container { position: relative; width: 48px; height: 48px; }
+
+/* CSS Mới cho Avatar sử dụng thẻ img */
+#player-avatar {
+    width: 100%; height: 100%; border-radius: 10px;
+    background-color: #1a2530; border: 2px solid #5a6b8c;
+    object-fit: contain; box-sizing: border-box;
+}
+
+#player-level-badge {
+    position: absolute; bottom: -5px; left: -5px;
+    background: #4a235a; border: 2px solid #9b59b6;
+    color: white; font-size: 11px; font-weight: 900;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+}
+
+.stats-container { display: flex; flex-direction: column; gap: 4px; width: 140px; }
+.name-row { display: flex; justify-content: space-between; align-items: flex-end; }
+#hud-player-name { color: #fdfdfd; font-size: 14px; font-weight: 900; text-shadow: 1px 1px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px;}
+#hud-player-level-text { color: #aab7c4; font-size: 11px; font-weight: 700; }
+
+.bar-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.bar-label { font-size: 10px; font-weight: 900; width: 22px; text-align: right; letter-spacing: 0.5px; }
+
+.bar-bg {
+    flex-grow: 1; height: 12px; background: #0b0c10;
+    border-radius: 6px; border: 1px solid #3a4252;
+    position: relative; overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%; width: 100%; border-radius: 4px;
+    transform-origin: left; transform: scaleX(1);
+    will-change: transform; transition: transform 0.2s ease-out; 
+}
+.hp-fill { background: linear-gradient(90deg, #2ecc71, #f1c40f); }
+.exp-fill { background: linear-gradient(90deg, #9b59b6, #e056fd); }
+.bar-text {
+    position: absolute; top: -1px; left: 0; width: 100%; text-align: center;
+    font-size: 9px; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000;
+}
+
+/* 2. TOP BAR (Dùng Emoji) */
+#hud-top-bar {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; padding: 5px 15px; gap: 12px;
+    border-radius: 20px;
+}
+.top-stat { display: flex; align-items: center; gap: 5px; color: #fff; font-size: 14px; font-weight: bold; }
+.emoji-icon { font-size: 15px; line-height: 1; margin-right: 2px; }
+.divider { width: 1px; height: 18px; background: rgba(255,255,255,0.2); }
+.settings-btn { 
+    background: none; border: none; color: white; font-size: 18px; 
+    cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.1s; 
+}
+.settings-btn:active { transform: scale(0.9); }
+
+/* 3. LEADERBOARD */
+#hud-leaderboard {
+    width: 180px; padding: 10px; display: flex; flex-direction: column; gap: 5px;
+    background: rgba(30, 34, 45, 0.75); 
+}
+.lb-header {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: #8892b0; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 2px;
+}
+#lb-pool-container {
+    display: flex; flex-direction: column; gap: 4px;
+    max-height: 150px; overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: none; 
+}
+#lb-pool-container::-webkit-scrollbar { display: none; } 
+
+.lb-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; font-weight: 700; color: #ccd6f6;
+    padding: 2px 4px; border-radius: 4px;
+}
+.lb-row.rank-1 { color: #f1c40f; background: rgba(241, 196, 15, 0.1); }
+.lb-row.rank-2 { color: #e0e0e0; }
+.lb-row.rank-3 { color: #cd7f32; }
+
+.lb-rank-name { display: flex; gap: 8px; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-score { font-size: 11px; color: #aab7c4; font-weight: bold;}
+
+@media (max-width: 700px) {
+    #hud-top-bar { top: 65px; }
+    #hud-leaderboard { transform: scale(0.85); transform-origin: top right; }
+}
