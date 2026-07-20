@@ -12,7 +12,7 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 let respawnInterval = null; 
 let isPlaying = false; 
-let goAutoScroll = null; // Quản lý vòng lặp tự động nhảy thẻ ở Game Over
+let goAutoScroll = null; 
 
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
@@ -28,18 +28,14 @@ const closeSettingsBtn = document.getElementById("close-settings-btn");
 const volumeSlider = document.getElementById("volume-slider");
 const languageSelect = document.getElementById("language-select");
 
-// === FIX 2: CHẶN ÂM THANH IN-GAME KHI CHƯA BẤM PLAY ===
 const originalSoundPlay = Sound.play;
 Sound.play = function(...args) {
     const soundName = args[0];
-    // Khóa mọi âm thanh (combo, kill, levelup...) nếu chưa vào game
-    // Chỉ cho phép âm thanh tương tác UI (click, hover)
     if (!isPlaying && soundName !== 'click' && soundName !== 'hover') {
         return; 
     }
     if (originalSoundPlay) originalSoundPlay.apply(Sound, args);
 };
-// =======================================================
 
 if (settingsBtn) {
     settingsBtn.addEventListener("click", () => {
@@ -61,27 +57,25 @@ if (volumeSlider) {
     });
 }
 
-// === FIX 1: QUẢN LÝ THAO TÁC VUỐT TRÊN MOBILE ===
 if (uiLayer) {
     uiLayer.addEventListener('touchmove', (e) => {
-        // BỎ KHÓA vuốt cho thanh âm lượng VÀ khu vực bảng Game Over
         if (e.target.type === 'range' || e.target.closest('.go-wrapper')) {
             return; 
         }
-        // Khóa các vị trí còn lại để tránh Safari bị Load lại trang
         e.preventDefault();
     }, { passive: false });
 }
 document.addEventListener('contextmenu', e => e.preventDefault());
-// =================================================
 
 if(playBtn) playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 if(respawnBtn) respawnBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
+
+// === TỐI ƯU HÓA: XÓA SỰ KIỆN GÂY LAG Ô NHẬP TÊN ===
 if(nameInput) {
-    nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
-    nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
+    // Đã gỡ bỏ lệnh Sound.init() ở đây. Việc gọi hàm Audio khi gõ chữ làm gián đoạn DOM gây trễ phím.
     nameInput.value = localStorage.getItem("evowar_name") || "";
 }
+// =================================================
 
 function startGame() {
   if (isPlaying) return; 
@@ -102,7 +96,7 @@ function startGame() {
       respawnInterval = null;
   }
   if (goAutoScroll) {
-      clearInterval(goAutoScroll); // Dừng tự động nhảy khi vào game
+      clearInterval(goAutoScroll); 
       goAutoScroll = null;
   }
   
@@ -168,13 +162,12 @@ function triggerGameOver(level, kills, xp, killerName) {
             gameOverScreen.style.opacity = '1';
         }
 
-        // TỰ ĐỘNG NHẢY CÁC THẺ TRÊN ĐIỆN THOẠI SAU MỖI 3.5 GIÂY
         if (goAutoScroll) clearInterval(goAutoScroll);
         setTimeout(() => {
             const goWrapper = document.querySelector('.go-wrapper');
             const panels = document.querySelectorAll('.go-panel');
             if (goWrapper && window.innerWidth <= 950 && panels.length > 0) {
-                let currentIndex = 1; // Ưu tiên hiện bảng giữa (Thông tin Kẻ hạ gục)
+                let currentIndex = 1; 
                 
                 if (panels[currentIndex]) {
                     panels[currentIndex].scrollIntoView({ behavior: 'smooth', inline: 'center' });
@@ -188,7 +181,7 @@ function triggerGameOver(level, kills, xp, killerName) {
                     if (panels[currentIndex]) {
                         panels[currentIndex].scrollIntoView({ behavior: 'smooth', inline: 'center' });
                     }
-                }, 3500); // 3.5 giây lướt thẻ 1 lần
+                }, 3500);
             }
         }, 150);
 
@@ -281,14 +274,30 @@ function updatePhysics(dtMultiplier) {
 }
 
 let lastFrameTime = null;
+let lastLobbyDrawTime = 0; // Biến giới hạn FPS sảnh
+
 function loop(currentTime) {
   if (Date.now() < GameState.freezeUntil) { requestAnimationFrame(loop); return; }
   if (!lastFrameTime) lastFrameTime = currentTime;
   const dtMultiplier = Math.min((currentTime - lastFrameTime) / 1000, 0.05) * 60; 
   lastFrameTime = currentTime;
   
+  // Vẫn ngầm tải dữ liệu mạng/vật lý để đảm bảo dữ liệu chạy đúng
   updatePhysics(dtMultiplier); 
-  Renderer.draw(dtMultiplier); 
+  
+  // === TỐI ƯU HÓA RENDER (CHỐNG LAG SẢNH CHỜ) ===
+  if (isPlaying) {
+      // Đang trong trận: Render mượt mà 60 FPS
+      Renderer.draw(dtMultiplier); 
+  } else {
+      // Ngoài sảnh chờ: Giới hạn chỉ vẽ Canvas nền ở mức ~15 FPS
+      // Giải phóng tài nguyên để trình duyệt ưu tiên xử lý thao tác gõ chữ trên DOM
+      if (currentTime - lastLobbyDrawTime > 66) { 
+          Renderer.draw(dtMultiplier); 
+          lastLobbyDrawTime = currentTime;
+      }
+  }
+  // ===============================================
   
   requestAnimationFrame(loop);
 }
