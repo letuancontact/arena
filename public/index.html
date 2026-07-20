@@ -37,6 +37,12 @@
       .go-killer { font-size: 18px; color: #ff4a4a; font-weight: 900; margin: 8px 0 15px 0; word-break: break-all; padding: 0 10px; text-align: center; }
       .go-next-text { font-size: 12px; color: #aaa; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
       .go-center img { width: 85px; height: 85px; object-fit: contain; margin-bottom: 10px;}
+      
+      /* Cột Quảng cáo / Trò chơi mới */
+      .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
+      .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; cursor: pointer;}
+      .go-ad img:hover { transform: scale(1.03); }
+
       @media (max-width: 950px) { .go-wrapper { justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; -ms-overflow-style: none; scrollbar-width: none; padding: 20px 50vw; } .go-wrapper::-webkit-scrollbar { display: none; } .go-panel { scroll-snap-align: center; width: 75vw; max-width: 280px; } }
       #game { display: block; width: 100vw; height: 100vh; }
     </style>
@@ -48,7 +54,7 @@
     <div id="game-hud" style="display: none;">
         <div class="hud-safe-area">
             
-            <!-- CỘT TRÁI (Đã tự động thu nhỏ theo màn hình) -->
+            <!-- CỘT TRÁI -->
             <div class="hud-left-column">
                 <div id="hud-player-info" class="hud-panel">
                     <div class="avatar-container">
@@ -86,7 +92,7 @@
                 </div>
             </div>
 
-            <!-- TOP BAR (Căn giữa tuyệt đối, không đè) -->
+            <!-- TOP BAR -->
             <div id="hud-top-bar" class="hud-panel">
                 <div class="top-stat"><span class="emoji-icon">🪙</span><span id="hud-gold">0</span></div>
                 <div class="top-stat"><span class="emoji-icon">💎</span><span id="hud-diamond">0</span></div>
@@ -97,7 +103,7 @@
                 <button id="hud-settings-btn" class="settings-btn">⚙️</button>
             </div>
 
-            <!-- KHUNG THÔNG BÁO COMBO KILL (Thay thế Kill Feed) -->
+            <!-- KHUNG THÔNG BÁO COMBO KILL -->
             <div id="combo-announcement"></div>
 
         </div>
@@ -128,6 +134,7 @@
                 <div class="panel-section">
                     <h1>ARENA.TOP</h1>
                     <h2>Chiến đấu - Giết chóc -  Tiến hóa</h2>
+                    <p>Nâng cấp để phát triển nhân vật của bạn.<br>Vũ khí lớn hơn, giáp mạnh hơn!</p>
                 </div>
                 <div class="logo-section">
                     <img src="img/logo.png" alt="Logo">
@@ -142,6 +149,7 @@
 
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
+                <!-- Cột 1: Gợi ý -->
                 <div id="go-side-hints" class="go-panel go-side">
                     <div class="go-header">GỢI Ý</div>
                     <div class="go-hints">
@@ -149,6 +157,7 @@
                         <p>• Hãy cẩn thận với những kẻ thù nhỏ bé vì chúng di chuyển rất nhanh!</p>
                     </div>
                 </div>
+                <!-- Cột 2: Thông tin chết -->
                 <div class="go-panel go-center">
                     <div class="go-title">ĐÃ HẠ GỤC BỞI</div>
                     <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
@@ -156,6 +165,16 @@
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
                     <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
                     <button id="respawn-btn">CHƠI LẠI</button>
+                </div>
+                <!-- Cột 3: Quảng cáo / Trò chơi mới -->
+                <div id="go-side-ad" class="go-panel go-side">
+                    <div class="go-header">TRÒ CHƠI MỚI</div>
+                    <div class="go-ad">
+                        <a href="#" target="_blank">
+                            <!-- Sửa lại đường dẫn ảnh trò chơi mới của bạn ở đây -->
+                            <img src="img/lv5.png" alt="Trò chơi mới">
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
