@@ -43,7 +43,6 @@ function getSafeSpawn(activePlayers, mapW, mapH) {
   return bestPos;
 }
 
-// Hàm hỗ trợ gom nhanh dữ liệu không tạo rác bộ nhớ 
 function getActiveEntities() {
     const arr = [];
     for (const p of players.values()) arr.push(p);
@@ -124,7 +123,6 @@ setInterval(() => {
   if (newlySpawned.length > 0) { foodAdded.push(...newlySpawned); foodTree = spatialIndex.buildFoodIndex(food); } 
   else if (!foodTree) { foodTree = spatialIndex.buildFoodIndex(food); }
 
-  // ĐÃ TỐI ƯU HÓA: Dùng `push` trực tiếp thay vì `[...players, ...bots].filter()` để chống Garbage Collection
   const playerArray = [];
   for (const p of players.values()) { if (!p.isDead) playerArray.push(p); }
   for (const b of bots.values()) { if (!b.isDead) playerArray.push(b); }
@@ -192,7 +190,6 @@ setInterval(() => {
   if (now - lastBroadcast >= CONFIG.SERVER_BROADCAST_RATE) {
     lastBroadcast = now;
     
-    // ĐÃ TỐI ƯU HÓA: Gom mảng gửi dữ liệu không rác
     const allPlayers = [];
     const pushPlayerState = (p) => {
         allPlayers.push({
@@ -201,6 +198,9 @@ setInterval(() => {
             name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
             lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
             deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
+            
+            // --- THÊM DÒNG NÀY ĐỂ GỬI DỮ LIỆU CHUỖI HẠ GỤC VỀ CLIENT ---
+            killStreak: p.killStreak || 0 
         });
     };
     for (const p of players.values()) pushPlayerState(p);
@@ -222,7 +222,6 @@ setInterval(() => {
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
     
-    // ĐÃ TỐI ƯU HÓA: Tạo mảng một lần cho Heavy Tick
     const allEntities = getActiveEntities();
     
     for (const entity of allEntities) {
@@ -242,7 +241,7 @@ setInterval(() => {
         const safePos = getSafeSpawn(allEntities, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); 
         bot.x = safePos.x; bot.y = safePos.y; 
         bots.set(bot.id, bot); 
-        allEntities.push(bot); // Cập nhật ngay mảng để bot tiếp theo sinh ra không đè lên nhau
+        allEntities.push(bot); 
       }
     } 
     else if (botCount > botTarget) { let removeCount = botCount - botTarget; for (const [id, bot] of bots) { bots.delete(id); if (--removeCount <= 0) break; } }
