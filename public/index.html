@@ -48,7 +48,7 @@
     <div id="game-hud" style="display: none;">
         <div class="hud-safe-area">
             
-            <!-- CỘT TRÁI (Đã thu nhỏ) -->
+            <!-- CỘT TRÁI (Đã tự động thu nhỏ theo màn hình) -->
             <div class="hud-left-column">
                 <div id="hud-player-info" class="hud-panel">
                     <div class="avatar-container">
@@ -86,7 +86,7 @@
                 </div>
             </div>
 
-            <!-- TOP BAR (Căn giữa, độc lập) -->
+            <!-- TOP BAR (Căn giữa tuyệt đối, không đè) -->
             <div id="hud-top-bar" class="hud-panel">
                 <div class="top-stat"><span class="emoji-icon">🪙</span><span id="hud-gold">0</span></div>
                 <div class="top-stat"><span class="emoji-icon">💎</span><span id="hud-diamond">0</span></div>
@@ -97,8 +97,8 @@
                 <button id="hud-settings-btn" class="settings-btn">⚙️</button>
             </div>
 
-            <!-- KILL FEED (Nằm dưới Mini Map) -->
-            <div id="kill-feed"></div>
+            <!-- KHUNG THÔNG BÁO COMBO KILL (Thay thế Kill Feed) -->
+            <div id="combo-announcement"></div>
 
         </div>
     </div>
