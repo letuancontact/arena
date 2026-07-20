@@ -41,17 +41,29 @@ closeSettingsBtn.addEventListener("click", () => {
 volumeSlider.addEventListener("input", (e) => {
     const volume = parseFloat(e.target.value);
     if (Sound.setVolume) {
-        Sound.setVolume(volume); // Nếu file audio.js của bạn có hàm setVolume
+        Sound.setVolume(volume);
     }
-    // Logic fallback nếu bạn chỉ dùng cờ isMuted
     if (volume === 0) { Sound.isMuted = true; } 
     else { Sound.isMuted = false; }
 });
 
 languageSelect.addEventListener("change", (e) => {
-    // Để sẵn bộ khung, sau này làm hệ thống dịch thuật sẽ tích hợp vào đây
     console.log("Language changed to:", e.target.value);
 });
+// ==============================
+
+// === FIX: KHÓA TRIỆT ĐỂ PULL-TO-REFRESH TRÊN MOBILE ===
+if (uiLayer) {
+    uiLayer.addEventListener('touchmove', (e) => {
+        // Chỉ cho phép thao tác vuốt nếu đang kéo thanh âm lượng
+        if (e.target.type !== 'range') {
+            e.preventDefault();
+        }
+    }, { passive: false });
+}
+
+// Khóa luôn menu chuột phải để game giống App Native
+document.addEventListener('contextmenu', e => e.preventDefault());
 // ==============================
 
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
@@ -62,13 +74,19 @@ nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); }
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
 function startGame() {
+  if (playBtn.disabled && this === playBtn) return;
+  if (respawnBtn.disabled && this === respawnBtn) return;
+
   Sound.init(); Sound.play('click');
   if (!Network.ws || Network.ws.readyState !== WebSocket.OPEN) return;
   
   const name = nameInput.value.trim() || "Khách"; 
   localStorage.setItem("evowar_name", name);
   
-  if (respawnInterval) clearInterval(respawnInterval);
+  if (respawnInterval) {
+      clearInterval(respawnInterval);
+      respawnInterval = null;
+  }
   
   uiLayer.style.display = 'none';
   lobbyScreen.style.display = 'none';
@@ -84,7 +102,7 @@ function startGame() {
 playBtn.addEventListener("click", startGame);
 respawnBtn.addEventListener("click", startGame);
 nameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter" && !playBtn.disabled && !playBtn.hasAttribute("disabled")) startGame();
+    if (e.key === "Enter" && !playBtn.disabled) startGame();
 });
 
 function triggerGameOver(level, kills, xp, killerName) {
@@ -93,7 +111,7 @@ function triggerGameOver(level, kills, xp, killerName) {
     
     isPlaying = false; 
     HUD.showHUD(false); 
-    settingsModal.style.display = 'none'; // Ẩn settings nếu đang mở lúc chết
+    settingsModal.style.display = 'none'; 
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
@@ -123,7 +141,10 @@ function triggerGameOver(level, kills, xp, killerName) {
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
         
-        if (respawnBtn) respawnBtn.disabled = true; 
+        if (respawnBtn) {
+            respawnBtn.disabled = true; 
+            respawnBtn.style.pointerEvents = 'none'; // Đóng băng chuột
+        }
         if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
         
         if (respawnInterval) clearInterval(respawnInterval);
@@ -134,8 +155,12 @@ function triggerGameOver(level, kills, xp, killerName) {
                 if (timerEl) timerEl.innerText = `HỒI SINH SAU: ${countdown}s`;
             } else {
                 clearInterval(respawnInterval);
+                respawnInterval = null;
                 if (timerEl) timerEl.innerText = "ĐÃ SẴN SÀNG!";
-                if (respawnBtn) respawnBtn.disabled = false;
+                if (respawnBtn) {
+                    respawnBtn.disabled = false;
+                    respawnBtn.style.pointerEvents = 'auto'; // Mở khóa chuột
+                }
             }
         }, 1000);
 
