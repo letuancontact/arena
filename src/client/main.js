@@ -12,6 +12,7 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 let respawnInterval = null; 
 let isPlaying = false; 
+let goAutoScroll = null; // Quản lý vòng lặp tự động nhảy thẻ ở Game Over
 
 const uiLayer = document.getElementById("ui-layer");
 const lobbyScreen = document.getElementById("lobby-screen");
@@ -26,6 +27,19 @@ const settingsModal = document.getElementById("settings-modal");
 const closeSettingsBtn = document.getElementById("close-settings-btn");
 const volumeSlider = document.getElementById("volume-slider");
 const languageSelect = document.getElementById("language-select");
+
+// === FIX 2: CHẶN ÂM THANH IN-GAME KHI CHƯA BẤM PLAY ===
+const originalSoundPlay = Sound.play;
+Sound.play = function(...args) {
+    const soundName = args[0];
+    // Khóa mọi âm thanh (combo, kill, levelup...) nếu chưa vào game
+    // Chỉ cho phép âm thanh tương tác UI (click, hover)
+    if (!isPlaying && soundName !== 'click' && soundName !== 'hover') {
+        return; 
+    }
+    if (originalSoundPlay) originalSoundPlay.apply(Sound, args);
+};
+// =======================================================
 
 if (settingsBtn) {
     settingsBtn.addEventListener("click", () => {
@@ -47,14 +61,19 @@ if (volumeSlider) {
     });
 }
 
-// === KHÓA KÉO TRÌNH DUYỆT (PULL-TO-REFRESH) TRÊN ĐIỆN THOẠI ===
+// === FIX 1: QUẢN LÝ THAO TÁC VUỐT TRÊN MOBILE ===
 if (uiLayer) {
     uiLayer.addEventListener('touchmove', (e) => {
-        if (e.target.type !== 'range') e.preventDefault();
+        // BỎ KHÓA vuốt cho thanh âm lượng VÀ khu vực bảng Game Over
+        if (e.target.type === 'range' || e.target.closest('.go-wrapper')) {
+            return; 
+        }
+        // Khóa các vị trí còn lại để tránh Safari bị Load lại trang
+        e.preventDefault();
     }, { passive: false });
 }
 document.addEventListener('contextmenu', e => e.preventDefault());
-// ==============================================================
+// =================================================
 
 if(playBtn) playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 if(respawnBtn) respawnBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
@@ -65,7 +84,7 @@ if(nameInput) {
 }
 
 function startGame() {
-  if (isPlaying) return; // Chặn spam click
+  if (isPlaying) return; 
   if (playBtn && playBtn.disabled) return;
   if (respawnBtn && respawnBtn.disabled) return;
 
@@ -82,6 +101,10 @@ function startGame() {
       clearInterval(respawnInterval);
       respawnInterval = null;
   }
+  if (goAutoScroll) {
+      clearInterval(goAutoScroll); // Dừng tự động nhảy khi vào game
+      goAutoScroll = null;
+  }
   
   if (uiLayer) uiLayer.style.display = 'none';
   if (lobbyScreen) lobbyScreen.style.display = 'none';
@@ -90,7 +113,6 @@ function startGame() {
 
   isPlaying = true;
   
-  // Bọc lỗi an toàn để đảm bảo game luôn gửi được lệnh JOIN
   try {
       if(typeof HUD !== 'undefined' && HUD.showHUD) HUD.showHUD(true); 
   } catch (error) {
@@ -145,6 +167,30 @@ function triggerGameOver(level, kills, xp, killerName) {
             gameOverScreen.style.display = 'flex'; 
             gameOverScreen.style.opacity = '1';
         }
+
+        // TỰ ĐỘNG NHẢY CÁC THẺ TRÊN ĐIỆN THOẠI SAU MỖI 3.5 GIÂY
+        if (goAutoScroll) clearInterval(goAutoScroll);
+        setTimeout(() => {
+            const goWrapper = document.querySelector('.go-wrapper');
+            const panels = document.querySelectorAll('.go-panel');
+            if (goWrapper && window.innerWidth <= 950 && panels.length > 0) {
+                let currentIndex = 1; // Ưu tiên hiện bảng giữa (Thông tin Kẻ hạ gục)
+                
+                if (panels[currentIndex]) {
+                    panels[currentIndex].scrollIntoView({ behavior: 'smooth', inline: 'center' });
+                }
+                
+                goAutoScroll = setInterval(() => {
+                    if (isPlaying || (gameOverScreen && gameOverScreen.style.display === 'none')) {
+                        clearInterval(goAutoScroll); return;
+                    }
+                    currentIndex = (currentIndex + 1) % panels.length;
+                    if (panels[currentIndex]) {
+                        panels[currentIndex].scrollIntoView({ behavior: 'smooth', inline: 'center' });
+                    }
+                }, 3500); // 3.5 giây lướt thẻ 1 lần
+            }
+        }, 150);
 
         const timerEl = document.getElementById('respawn-timer');
         let countdown = 3; 
