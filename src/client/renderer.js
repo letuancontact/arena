@@ -106,7 +106,6 @@ export const Renderer = {
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
-  lastLeaderboardHeight: 0, lastHeightCheck: 0,
   activeAnnouncer: { active: false, name: "", msg: "", color: "", start: 0 },
 
   triggerAnnouncer(name, streak) {
@@ -166,12 +165,12 @@ export const Renderer = {
   },
 
   setupUI() {
-    const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
-    if (speakerIcon) speakerIcon.style.display = "none";
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:100px;right:${isMob ? '5px' : '15px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '150px'} !important;height:${isMob ? '60px' : '100px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid rgba(100, 110, 130, 0.5); background: rgba(30, 34, 45, 0.85);`; 
+    // CHUYỂN MINIMAP LÊN GÓC PHẢI TRÊN (Đối xứng Avatar)
+    this.minimap.style.cssText = `position:fixed; top: max(10px, env(safe-area-inset-top)); right: max(15px, env(safe-area-inset-right)); border-radius:8px; z-index:1002; width:${isMob ? '90px' : '150px'} !important; height:${isMob ? '60px' : '100px'} !important; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid rgba(100, 110, 130, 0.5); background: rgba(30, 34, 45, 0.85);`; 
+    
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   
@@ -511,13 +510,11 @@ export const Renderer = {
     }
 
     const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
-    let killFeedStartY = isMob ? 120 : 190; 
     
+    // Căn KillFeed xuống dưới Cột Trái (Avatar + Leaderboard)
+    let killFeedStartY = isMob ? 160 : 250; 
     const lbEl = document.getElementById("hud-leaderboard");
-    if (lbEl) {
-      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) { this.lastLeaderboardHeight = lbEl.offsetHeight; this.lastHeightCheck = now; }
-      killFeedStartY = lbEl.offsetTop + this.lastLeaderboardHeight + 10;
-    }
+    if (lbEl) killFeedStartY = lbEl.offsetTop + lbEl.offsetHeight + 10;
     
     let activeKillFeeds = 0;
     for (let i = 0; i < this.killFeeds.length; i++) {
@@ -528,7 +525,7 @@ export const Renderer = {
         let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3);
         const yPos = killFeedStartY + (activeKillFeeds * (kfHeight + 5));
         
-        ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 20) + slideX, yPos);
+        ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 15) + slideX, yPos);
         ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, kfWidth, kfHeight);
         ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
         ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
