@@ -1,128 +1,168 @@
 /* --- public/style.css --- */
-body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "Segoe UI", Tahoma, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
-#game { display: block; cursor: url(img/cursor.png), auto; }
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
 
-#ui-layer {
-  background: radial-gradient(circle at center, rgba(10, 20, 30, 0.9) 0%, rgba(2, 4, 8, 0.98) 100%);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000;
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
-
-#game-hud {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    pointer-events: none; z-index: 100; font-family: 'Nunito', sans-serif;
-}
-
-.hud-safe-area {
-    position: relative; width: 100%; height: 100%;
-    padding: max(10px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 10px max(15px, env(safe-area-inset-left));
-    box-sizing: border-box; display: flex; justify-content: center;
-}
-
-.hud-panel { background: rgba(30, 34, 45, 0.85); border: 1.5px solid rgba(100, 110, 130, 0.5); border-radius: 12px; pointer-events: auto; }
+body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: 'Nunito', system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+#game { display: block; cursor: url(img/cursor.png), auto; width: 100vw; height: 100vh; }
 
 /* =========================================
-   1. CỘT TRÁI (Avatar + Bảng xếp hạng)
+   UI NGOÀI GAME (Lobby & Game Over & Settings)
    ========================================= */
-.hud-left-column {
-    position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left));
-    display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
-    max-width: 30vw; /* Giới hạn chiều ngang để không đè ra giữa */
-}
+#ui-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; }
+.screen-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('img/mapbg.png'); background-size: 150px 150px; background-repeat: repeat; background-color: rgba(15, 15, 15, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
-#hud-player-info { 
-    display: flex; align-items: center; 
-    padding: 4px 8px 4px 4px; gap: 8px; max-width: 190px;
-}
+.popup-panel { background: rgba(20, 25, 30, 0.45); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-radius: 20px; width: 85%; max-width: 300px; padding: 25px 20px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); text-align: center; display: flex; flex-direction: column; align-items: center; }
+.panel-section { width: 100%; }
+.popup-panel h1 { color: #ffffff; font-size: 22px; margin: 0 0 5px 0; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.popup-panel h2 { color: #ffaa00; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; }
+.subtitle { color: #cccccc; font-size: 12px; margin: 0; line-height: 1.4; }
+.logo-section { margin: 15px 0 20px 0; }
+.logo-section img { height: 70px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
+
+#player-name { width: 100%; box-sizing: border-box; padding: 12px 15px; margin-bottom: 15px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.4); color: #fff; font-size: 15px; font-family: inherit; font-weight: bold; text-align: center; outline: none; transition: all 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+#player-name:focus { border-color: #ffaa00; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); }
+#status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
+
+.menu-btn { border: none; border-radius: 20px; padding: 12px; color: white; font-family: inherit; font-weight: 900; font-size: 16px; letter-spacing: 1px; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: transform 0.1s, filter 0.2s; width: 100%; background: linear-gradient(135deg, #444, #222); border: 1px solid #666;}
+.primary-btn { background: linear-gradient(135deg, #ff6a00, #d62800); box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4); border: none;}
+.menu-btn:active:not(:disabled) { transform: scale(0.95); }
+.menu-btn:hover:not(:disabled) { filter: brightness(1.15); }
+
+/* Game Over Screen */
+#game-over-screen { background-image: none; background-color: rgba(5,5,5,0.85); backdrop-filter: blur(8px); }
+.go-wrapper { display: flex; gap: 15px; justify-content: center; align-items: stretch; width: 100%; max-width: 850px; padding: 20px; box-sizing: border-box; }
+.go-panel { background: rgba(20, 25, 30, 0.45); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); flex-shrink: 0; }
+.go-side { width: 220px; }
+.go-center { width: 280px; align-items: center; padding-bottom: 20px; padding-top: 15px;}
+.go-header { font-size: 14px; font-weight: bold; color: #ccc; padding: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.go-hints { padding: 15px; color: #b3b3b3; font-size: 12px; line-height: 1.5; text-align: left; flex-grow: 1;}
+.go-title { font-size: 15px; color: #ddd; font-weight: 900; margin-top: 5px; }
+.go-killer { font-size: 18px; color: #ff4a4a; font-weight: 900; margin: 8px 0 15px 0; text-align: center; word-break: break-all; padding: 0 10px;}
+.go-next-text { font-size: 12px; color: #aaa; font-weight: bold; margin-bottom: 10px;}
+.go-center img { width: 85px; height: 85px; object-fit: contain; margin-bottom: 10px;}
+.go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
+.go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+.go-ad img:hover { transform: scale(1.03); }
+.respawn-txt { color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px; }
+@media (max-width: 950px) { .go-wrapper { justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; padding: 20px 50vw; } .go-wrapper::-webkit-scrollbar { display: none; } .go-panel { scroll-snap-align: center; width: 75vw; max-width: 280px; } }
+
+/* Settings Modal */
+#settings-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+.setting-row { width: 100%; margin-top: 15px; text-align: left;}
+.setting-row label { color: #ccc; font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px; }
+.setting-row input[type=range] { width: 100%; cursor: pointer; accent-color: #ffaa00; }
+.setting-row select { width: 100%; padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; outline: none; font-family: inherit; font-weight: bold; }
+
+/* =========================================
+   HUD IN-GAME LỚP
+   ========================================= */
+#game-hud { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100; }
+.hud-safe-area { position: relative; width: 100%; height: 100%; padding: max(10px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 10px max(15px, env(safe-area-inset-left)); box-sizing: border-box; }
+.hud-panel { background: rgba(30, 34, 45, 0.85); border: 1.5px solid rgba(100, 110, 130, 0.5); border-radius: 12px; pointer-events: auto; }
+
+/* 1. CỘT TRÁI (Avatar, Stats, LB) */
+.hud-left-column { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+#hud-player-info { display: flex; align-items: center; padding: 4px 8px 4px 4px; gap: 8px; width: 190px; }
 .avatar-container { position: relative; width: 36px; height: 36px; }
-#player-avatar { width: 100%; height: 100%; border-radius: 8px; background-color: #1a2530; border: 2px solid #5a6b8c; object-fit: contain; box-sizing: border-box; }
+#player-avatar { width: 100%; height: 100%; border-radius: 8px; background-color: #1a2530; border: 2px solid #5a6b8c; object-fit: contain; }
 #player-level-badge { position: absolute; bottom: -4px; left: -4px; background: #4a235a; border: 2px solid #9b59b6; color: white; font-size: 9px; font-weight: 900; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
-
 .stats-container { display: flex; flex-direction: column; gap: 3px; width: 110px; }
 .name-row { display: flex; justify-content: space-between; align-items: flex-end; }
-#hud-player-name { color: #fdfdfd; font-size: 11px; font-weight: 900; text-shadow: 1px 1px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65px;}
-#hud-player-level-text { color: #aab7c4; font-size: 9px; font-weight: 700; }
+#hud-player-name { color: #fdfdfd; font-size: 11px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65px;}
+#hud-player-level-text { color: #aab7c4; font-size: 9px; }
 .bar-row { display: flex; align-items: center; gap: 4px; width: 100%; }
-.bar-label { font-size: 8px; font-weight: 900; width: 16px; text-align: right; letter-spacing: 0.5px; }
+.bar-label { font-size: 8px; font-weight: 900; width: 16px; text-align: right; }
 .bar-bg { flex-grow: 1; height: 8px; background: #0b0c10; border-radius: 4px; border: 1px solid #3a4252; position: relative; overflow: hidden; }
-.bar-fill { height: 100%; width: 100%; border-radius: 3px; transform-origin: left; transform: scaleX(1); will-change: transform; transition: transform 0.2s ease-out; }
+.bar-fill { height: 100%; width: 100%; border-radius: 3px; transform-origin: left; transition: transform 0.2s ease-out; }
 .hp-fill { background: linear-gradient(90deg, #2ecc71, #f1c40f); }
 .exp-fill { background: linear-gradient(90deg, #9b59b6, #e056fd); }
-.bar-text { position: absolute; top: -2px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+.bar-text { position: absolute; top: -2px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #fff; font-weight: bold; }
 
-#hud-leaderboard { 
-    width: 135px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; 
-    background: rgba(15, 20, 25, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); 
-    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); 
-    border-radius: 10px; pointer-events: none;
-}
+#hud-leaderboard { width: 135px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; background: rgba(15, 20, 25, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(4px); pointer-events: none; }
 .lb-header { display: flex; justify-content: space-between; font-size: 9px; color: #aab7c4; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 3px; margin-bottom: 2px; text-transform: uppercase; }
 #lb-pool-container { display: flex; flex-direction: column; gap: 2px; }
 .lb-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; color: #ccd6f6; padding: 2px 3px; border-radius: 4px; }
 .lb-row.rank-1 { color: #f1c40f; background: rgba(241, 196, 15, 0.15); }
 .lb-row.rank-2 { color: #e0e0e0; }
 .lb-row.rank-3 { color: #cd7f32; }
-.lb-row.separator { justify-content: center; color: #5a6b8c; font-weight: normal; letter-spacing: 2px; height: 10px; margin: 0;}
+.lb-row.separator { justify-content: center; color: #5a6b8c; letter-spacing: 2px; height: 10px; margin: 0;}
 .lb-row.is-me { background: rgba(0, 255, 204, 0.2); color: #00ffcc; border-left: 2px solid #00ffcc; border-radius: 0 4px 4px 0;}
 .lb-rank-name { display: flex; gap: 4px; width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-score { font-size: 9px; color: #f1c40f; font-weight: bold;} 
+.lb-score { font-size: 9px; color: #f1c40f; } 
 
-
-/* =========================================
-   2. TOP BAR (Căn giữa tuyệt đối)
-   ========================================= */
-#hud-top-bar { 
-    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
-    display: flex; align-items: center; padding: 2px 8px; gap: 6px; 
-    height: 24px; border-radius: 12px; margin-top: 0; white-space: nowrap;
-}
+/* 2. TOP BAR (Căn giữa tuyệt đối) */
+#hud-top-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; padding: 2px 8px; gap: 6px; height: 24px; border-radius: 12px; white-space: nowrap; }
 .top-stat { display: flex; align-items: center; gap: 3px; color: #fff; font-size: 11px; font-weight: bold; }
-.emoji-icon { font-size: 11px; line-height: 1; margin-right: 1px; }
+.emoji-icon { font-size: 11px; }
 .divider { width: 1px; height: 12px; background: rgba(255,255,255,0.2); }
-.settings-btn { background: none; border: none; color: white; font-size: 13px; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+.settings-btn { background: none; border: none; color: white; font-size: 13px; cursor: pointer; padding: 0; display: flex; align-items: center; transition: transform 0.1s; }
 .settings-btn:active { transform: scale(0.9); }
 
-
 /* =========================================
-   3. RESPONSIVE CHỐNG ĐÈ NHAU (Rất quan trọng)
+   THÔNG BÁO - KILL FEED & COMBO (Hoàn toàn bằng CSS)
    ========================================= */
-@media (max-width: 900px) {
-    .hud-left-column { transform: scale(0.7); transform-origin: top left; top: 5px; left: 5px; }
-    #hud-top-bar { transform: translateX(-50%) scale(0.75); transform-origin: top center; top: 5px; }
-    #combo-announcement { transform: scale(0.85); transform-origin: top right; right: 5px !important; }
-}
-
-
-/* =========================================
-   4. THÔNG BÁO COMBO KILL (Quadra, Penta...)
-   ========================================= */
-#combo-announcement {
+#notification-area {
     position: absolute;
-    top: 150px; /* Nhường chỗ cho Mini Map ở trên */
-    right: 15px; /* Ép mép phải */
-    display: flex; flex-direction: column; align-items: flex-end;
+    top: 100px; /* Cách đỉnh để nhường chỗ cho MiniMap (Minimap 80px + margin 10px) */
+    right: 15px; 
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
     pointer-events: none; z-index: 999;
 }
-.combo-text-wrapper { text-align: right; animation: popInOut 2.5s ease-in-out forwards; }
-.combo-killer-name { font-size: 12px; color: #fff; font-weight: bold; text-shadow: 1px 1px 2px #000; }
-.combo-title { font-size: 22px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+#combo-announcement { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+#kill-feed-container { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
 
-@keyframes popInOut {
-    0% { transform: scale(0.5) translateX(50px); opacity: 0; }
-    15% { transform: scale(1.2) translateX(0); opacity: 1; }
-    30% { transform: scale(1) translateX(0); opacity: 1; }
-    80% { transform: scale(1) translateX(0); opacity: 1; }
-    100% { transform: scale(0.8) translateX(20px); opacity: 0; }
+/* Item Combo */
+.combo-item {
+    background: rgba(0, 0, 0, 0.85); padding: 8px 16px; border-radius: 20px; 
+    font-size: 13px; font-weight: 900; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1.5px solid transparent;
+    animation: slideInPop 3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+.combo-item .name { color: #fff; }
+
+/* Màu sắc theo chuỗi Kill */
+.streak-2 { border-color: #00ffff; box-shadow: 0 0 10px rgba(0,255,255,0.4); }
+.streak-2 .msg { color: #00ffff; }
+.streak-3 { border-color: #00ff00; box-shadow: 0 0 10px rgba(0,255,0,0.4); }
+.streak-3 .msg { color: #00ff00; }
+.streak-4 { border-color: #ffaa00; box-shadow: 0 0 10px rgba(255,170,0,0.4); }
+.streak-4 .msg { color: #ffaa00; }
+.streak-5 { border-color: #ff5500; box-shadow: 0 0 10px rgba(255,85,0,0.4); }
+.streak-5 .msg { color: #ff5500; }
+.streak-max { border-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.6); }
+.streak-max .msg { color: #ff0000; text-transform: uppercase; font-size: 15px;}
+
+/* Item Kill Feed */
+.kf-item {
+    background: rgba(0, 0, 0, 0.5); padding: 5px 12px; border-radius: 8px;
+    font-size: 11px; font-weight: bold; color: #ccc; display: flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    animation: slideInFade 3.5s forwards;
+}
+.kf-item.is-me { background: rgba(255, 200, 0, 0.25); border-color: rgba(255, 200, 0, 0.5); }
+.kf-item .killer { color: #fff; }
+.kf-item.is-me .killer { color: #ffcc00; }
+.kf-item .sword { color: #ff3333; font-size: 11px; }
+
+/* Animations mượt mà */
+@keyframes slideInPop {
+    0% { opacity: 0; transform: translateX(50px) scale(0.8); }
+    10% { opacity: 1; transform: translateX(0) scale(1.1); }
+    15% { transform: scale(1); }
+    85% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-20px); }
+}
+@keyframes slideInFade {
+    0% { opacity: 0; transform: translateX(30px); }
+    10% { opacity: 1; transform: translateX(0); }
+    85% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
 }
 
-
 /* =========================================
-   5. SETTINGS MODAL
+   RESPONSIVE - CHỐNG ĐÈ GIAO DIỆN
    ========================================= */
-#settings-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
-#settings-modal input[type=range] { width: 100%; cursor: pointer; accent-color: #ffaa00; }
-#settings-modal select { width: 100%; padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; outline: none; font-family: inherit; font-weight: bold; }
-#close-settings-btn { background: linear-gradient(135deg, #444, #222); border: 1px solid #666; border-radius: 12px; padding: 10px; color: white; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s; }
-#close-settings-btn:hover { background: #555; }
+@media (max-width: 900px) {
+    .hud-left-column { transform: scale(0.75); transform-origin: top left; top: 5px; left: 5px; }
+    #hud-top-bar { transform: translateX(-50%) scale(0.8); transform-origin: top center; top: 5px; }
+    #notification-area { transform: scale(0.85); transform-origin: top right; top: 90px; right: 5px; }
+}
