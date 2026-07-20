@@ -106,9 +106,122 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  // Giữ lại các hàm báo kill cũ nhưng vô hiệu hóa bên trong để tránh lỗi nếu file main.js vẫn còn gọi tới nó
-  triggerAnnouncer(name, streak) { /* Đã chuyển sang xử lý ở HUDManager (HTML/CSS) */ },
-  addKillFeed(killer, victim, isMe) { /* Đã chuyển sang xử lý ở HUDManager (HTML/CSS) */ },
+  // -- KHU VỰC ĐÃ CẬP NHẬT: Tạo Combo Kill và Kill Feed bằng DOM thay vì Canvas -- //
+  
+  triggerAnnouncer(name, streak) {
+    let msg = "", color = "";
+    if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
+    else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
+    else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
+    else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
+    else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
+    
+    if (!msg) return;
+
+    const container = document.getElementById("combo-announcement");
+    if (!container) return;
+
+    const div = document.createElement("div");
+    div.style.cssText = `
+        background: rgba(0, 0, 0, 0.75);
+        border: 1px solid ${color};
+        box-shadow: 0 0 12px ${color}66;
+        padding: 8px 16px;
+        border-radius: 20px;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        opacity: 0;
+        transform: translateX(50px);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+    `;
+    div.innerHTML = `<span style="color:#fff">${String(name).substring(0, 15)}</span><span style="color:${color}">⚔️ ${msg}</span>`;
+    container.appendChild(div);
+
+    // Bật animation xuất hiện
+    requestAnimationFrame(() => {
+        div.style.opacity = "1";
+        div.style.transform = "translateX(0)";
+    });
+
+    // Sau 3 giây tự động trượt lên và biến mất
+    setTimeout(() => {
+        div.style.opacity = "0";
+        div.style.transform = "translateY(-15px)";
+        setTimeout(() => { if (div.parentNode) div.remove(); }, 300);
+    }, 3000);
+  },
+
+  addKillFeed(killer, victim, isMe) {
+    let container = document.getElementById("kill-feed-container");
+    // Nếu chưa có khung chứa Kill Feed thì tự động tạo
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "kill-feed-container";
+        container.style.cssText = `
+            position: fixed;
+            top: 180px; 
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            pointer-events: none;
+            z-index: 998;
+        `;
+        document.body.appendChild(container);
+    }
+
+    const div = document.createElement("div");
+    const bgColor = isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.45)";
+    const killerColor = isMe ? "#ffff00" : "#ffffff";
+    
+    div.style.cssText = `
+        background: ${bgColor};
+        padding: 5px 15px;
+        border-radius: 6px;
+        margin-bottom: 5px;
+        font-size: 13px;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        opacity: 0;
+        transform: translateX(30px);
+        transition: all 0.3s ease;
+    `;
+    
+    div.innerHTML = `
+        <span style="color: ${killerColor}">${String(killer).substring(0, 15)}</span>
+        <span style="color: #ff3333; font-size: 12px;">⚔️</span>
+        <span style="color: #aaaaaa">${String(victim).substring(0, 15)}</span>
+    `;
+    
+    container.appendChild(div);
+    
+    requestAnimationFrame(() => {
+        div.style.opacity = "1";
+        div.style.transform = "translateX(0)";
+    });
+
+    // Giữ màn hình luôn gọn gàng: Nếu có quá 4 dòng Kill Feed thì xóa dòng cũ nhất
+    if (container.children.length > 4) {
+        container.firstChild.style.opacity = "0";
+        setTimeout(() => { if (container.firstChild) container.firstChild.remove(); }, 300);
+    }
+
+    // Tự động xóa sau 3.5 giây
+    setTimeout(() => {
+        div.style.opacity = "0";
+        setTimeout(() => { if (div.parentNode) div.remove(); }, 300);
+    }, 3500);
+  },
+
+  // -------------------------------------------------------------------------------- //
 
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
@@ -162,13 +275,11 @@ export const Renderer = {
 
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    // Đã xóa các đoạn tạo XP Bar, Level Circle, Leaderboard cũ
-    
-    // Chỉ giữ lại Mini Map và căn chỉnh vị trí mới cho nó
+    // Mini Map đã được căn chỉnh kích thước nhỏ gọn lại
     this.minimap = document.createElement("canvas"); 
     this.minimap.width = 180 * dpr; 
     this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:8px;z-index:90;width:150px !important;height:100px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
+    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:120px !important;height:80px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d"); 
     this.minimapCtx.scale(dpr, dpr);
@@ -189,7 +300,6 @@ export const Renderer = {
   updateUI() {
     if (GameState.isDead) return;
     
-    // Logic cập nhật Mini Map
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
@@ -482,10 +592,6 @@ export const Renderer = {
     }
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const isMob = window.innerWidth <= 768; 
-
-    // Đã xóa toàn bộ đoạn code vẽ killFeeds và activeAnnouncer rườm rà ở khu vực này
-
     const nowKillXp = Date.now();
     for (let i = 0; i < this.xpEffects.length; i++) {
       const e = this.xpEffects[i];
