@@ -14,7 +14,8 @@ export class HUDManager {
             diamond: document.getElementById('hud-diamond'),
             kill: document.getElementById('hud-kill'),
             death: document.getElementById('hud-death'),
-            lbContainer: document.getElementById('lb-pool-container')
+            lbContainer: document.getElementById('lb-pool-container'),
+            killFeed: document.getElementById('kill-feed') // Gọi thêm ID mới
         };
 
         this.MAX_LB_ROWS = 7; // Top 5 + 1 vạch ngang + 1 bản thân
@@ -56,6 +57,29 @@ export class HUDManager {
         if (this.state.death !== death) { this.state.death = death; this.dom.death.innerText = death; }
     }
 
+    // --- Hàm xử lý KILL FEED (Double Kill, Triple Kill...) ---
+    showKillMessage(killerName, killCount) {
+        if (!this.dom.killFeed) return;
+        
+        let killText = "Kill!";
+        if (killCount === 2) killText = "Double Kill!";
+        else if (killCount === 3) killText = "Triple Kill!";
+        else if (killCount === 4) killText = "Quad Kill!";
+        else if (killCount >= 5) killText = "Rampage!";
+        else killText = `${killCount} Kills!`; // Phòng hờ trường hợp không tính được
+        
+        const item = document.createElement('div');
+        item.className = 'kill-feed-item';
+        item.innerText = `${killerName}: ${killText}`;
+        
+        this.dom.killFeed.appendChild(item);
+        
+        // Tự động xóa thông báo sau 3 giây
+        setTimeout(() => {
+            if (item.parentNode) item.parentNode.removeChild(item);
+        }, 3000);
+    }
+
     initLeaderboardPool() {
         if (!this.dom.lbContainer) return;
         for (let i = 0; i < this.MAX_LB_ROWS; i++) {
@@ -72,7 +96,7 @@ export class HUDManager {
 
     updateLeaderboard(playersData, myId) {
         if (!this.dom.lbContainer || !playersData) return;
-        // Logic sắp xếp: Ưu tiên Cấp độ (level), sau đó xét Điểm (score)
+        
         const sorted = [...playersData].sort((a, b) => { 
             if (b.level !== a.level) return b.level - a.level; 
             return (b.score || 0) - (a.score || 0); 
@@ -81,15 +105,12 @@ export class HUDManager {
         const topCount = Math.min(sorted.length, 5);
         let myIndex = sorted.findIndex(p => p.id === myId);
 
-        // Reset toàn bộ pool để dọn rác
         this.lbPool.forEach(p => { p.element.style.display = 'none'; p.active = false; p.element.className = 'lb-row'; });
 
-        // 1. In danh sách Top 5 người chơi
         for (let i = 0; i < topCount; i++) {
             this.renderLbRow(this.lbPool[i], sorted[i], i, myId);
         }
 
-        // 2. Nếu bản thân lọt ngoài Top 5 -> Xử lý vạch kẻ ngang và thông tin bản thân dưới cùng
         if (myIndex >= 5) {
             const separator = this.lbPool[5];
             separator.element.className = 'lb-row separator';
@@ -107,9 +128,8 @@ export class HUDManager {
         poolItem.rank.innerText = `#${index + 1}`;
         poolItem.name.innerText = data.name || "Khách";
         
-        // --- THAY ĐỔI CƠ CHẾ HIỂN THỊ (Level / Crown) ---
         const level = data.level || 1;
-        const crowns = data.crowns || 0; // Trả về số lần Top 1 (0 nếu server chưa có biến này)
+        const crowns = data.crowns || 0; 
         poolItem.score.innerText = `${level} / ${crowns}`;
         
         let classes = 'lb-row';
@@ -117,7 +137,7 @@ export class HUDManager {
         else if (index === 1) classes += ' rank-2';
         else if (index === 2) classes += ' rank-3';
         
-        if (data.id === myId) classes += ' is-me'; // Làm sáng dòng của bản thân
+        if (data.id === myId) classes += ' is-me'; 
         
         poolItem.element.className = classes;
         poolItem.element.style.display = 'flex';
