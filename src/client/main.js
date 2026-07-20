@@ -4,6 +4,7 @@ import { Camera, Resources, Renderer } from './renderer.js';
 import { Sound } from './audio.js';
 import { Network } from './network.js';
 import { Input } from './input.js';
+import { HUD } from './HUDManager.js'; 
 
 const CONFIG = window.GAME_CONFIG;
 const canvas = document.getElementById("game");
@@ -11,7 +12,6 @@ const canvas = document.getElementById("game");
 GameState.freezeUntil = 0;
 let respawnInterval = null; 
 
-// KHIÊN BẢO VỆ: Khóa trạng thái, đảm bảo chưa vào trận thì không hiện Game Over
 let isPlaying = false; 
 
 const uiLayer = document.getElementById("ui-layer");
@@ -51,7 +51,8 @@ function startGame() {
   gameOverScreen.style.display = 'none';
   statusText.innerText = "";
 
-  isPlaying = true; // XÁC NHẬN ĐÃ VÀO TRẬN (Mở khóa cho phép hiện Game Over nếu chết)
+  isPlaying = true;
+  HUD.showHUD(true); 
 
   Network.ws.send(JSON.stringify({ type: "join", name: name }));
 }
@@ -62,16 +63,12 @@ nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !playBtn.disabled && !playBtn.hasAttribute("disabled")) startGame();
 });
 
-// ==========================================
-// HÀM HIỂN THỊ GAME OVER BẤT TỬ
-// ==========================================
 function triggerGameOver(level, kills, xp, killerName) {
-    // --- BỘ LỌC CHỐNG LỖI MÀN HÌNH CHÍNH ---
-    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; // Đang ở sảnh -> Dừng
-    if (!isPlaying) return; // Chưa bấm nút Play -> Dừng
+    if (lobbyScreen && lobbyScreen.style.display !== 'none') return; 
+    if (!isPlaying) return; 
     
-    isPlaying = false; // Đã chết -> Tắt cờ đi để tránh bị gọi lặp lại 2 lần
-    // ----------------------------------------
+    isPlaying = false; 
+    HUD.showHUD(false); 
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
@@ -80,18 +77,13 @@ function triggerGameOver(level, kills, xp, killerName) {
         const killerEl = document.getElementById('go-killer-name');
         if (killerEl) killerEl.innerText = finalKiller;
         
-        // ==========================================
-        // ĐÃ FIX: CHỈ HIỂN THỊ ĐÚNG MỐC TIẾN HÓA TIẾP THEO
-        // ==========================================
-        const evolutionMilestones = [1, 2, 6, 10, 15, 21, 28, 36, 45]; // Các mốc tiến hóa của game
-        let nextEvolutionLevel = evolutionMilestones.find(m => m > currentLevel); // Tìm mốc lớn hơn cấp hiện tại
-        if (!nextEvolutionLevel) nextEvolutionLevel = 45; // Nếu đã đạt cấp tối đa
+        const evolutionMilestones = [1, 2, 6, 10, 15, 21, 28, 36, 45]; 
+        let nextEvolutionLevel = evolutionMilestones.find(m => m > currentLevel); 
+        if (!nextEvolutionLevel) nextEvolutionLevel = 45; 
         
         const nextImgEl = document.getElementById('go-next-img');
         if (nextImgEl) nextImgEl.src = `img/lv${nextEvolutionLevel}.png`;
-        // ==========================================
 
-        // ÉP HIỂN THỊ 100% SÁNG RÕ
         if (uiLayer) {
             uiLayer.style.display = 'block';
             uiLayer.style.opacity = '1';         
@@ -129,7 +121,6 @@ function triggerGameOver(level, kills, xp, killerName) {
 
 export const showGameOver = triggerGameOver;
 window.showGameOver = triggerGameOver; 
-// ==========================================
 
 export function enablePlayButton() {
     playBtn.disabled = false;
@@ -138,13 +129,9 @@ export function enablePlayButton() {
     setTimeout(() => { statusText.innerText = ""; }, 1500);
 }
 
-// ==========================================
-// TỐI ƯU HÓA CHUYỂN ĐỘNG: FIX DELAY VÀ KHỰNG HÌNH
-// ==========================================
 function updatePhysics(dtMultiplier) {
   if (GameState.clientX === null || GameState.clientY === null || GameState.isDead) return;
   
-  // Tăng tốc độ quay chuột (0.15 -> 0.6) để triệt tiêu delay
   let diff = GameState.targetMouseAngle - GameState.mouseAngle;
   while (diff > Math.PI) diff -= 2 * Math.PI; 
   while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -159,7 +146,6 @@ function updatePhysics(dtMultiplier) {
       speed = GameState.getSpeedByLevel(GameState.clientLevel) * (GameState.rightMouseDown && GameState.clientXp > 0 ? CONFIG.SPRINT_MULTIPLIER : 1);
   }
 
-  // Dự đoán di chuyển (Client Prediction)
   if (speed > 0) {
       GameState.clientX += Math.cos(GameState.mouseAngle) * speed * dtMultiplier;
       GameState.clientY += Math.sin(GameState.mouseAngle) * speed * dtMultiplier;
@@ -168,7 +154,6 @@ function updatePhysics(dtMultiplier) {
   GameState.clientX = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_WIDTH - GameState.clientRadius, GameState.clientX));
   GameState.clientY = Math.max(GameState.clientRadius, Math.min(CONFIG.MAP_HEIGHT - GameState.clientRadius, GameState.clientY));
 
-  // Triệt tiêu rung giật bằng cách nới lỏng sai số (Vùng an toàn > 10)
   if (GameState.serverX != null && GameState.serverY != null) {
     const dx = GameState.serverX - GameState.clientX;
     const dy = GameState.serverY - GameState.clientY;
@@ -187,7 +172,6 @@ function updatePhysics(dtMultiplier) {
 
   if (GameState.isAttacking && Date.now() - GameState.attackTime > attackDuration) GameState.isAttacking = false;
 }
-// ==========================================
 
 let lastFrameTime = null;
 function loop(currentTime) {
@@ -219,12 +203,10 @@ function main() {
   
   let wasDead = true; 
 
-  // VÒNG LẶP DỰ PHÒNG: Quét an toàn
   setInterval(() => {
     if (GameState.isDead && !wasDead) {
         wasDead = true;
         setTimeout(() => {
-            // Yêu cầu phải đang trong game (isPlaying = true) mới hiển thị
             if (gameOverScreen && gameOverScreen.style.display === 'none' && isPlaying) {
                 triggerGameOver(GameState.clientLevel, GameState.kills, GameState.clientXp, GameState.killerName);
             }
