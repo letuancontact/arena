@@ -13,14 +13,13 @@
     <div id="game-hud" style="display: none;">
         <div class="hud-safe-area">
             
-            <!-- CỘT TRÁI (Avatar, Stats, Bảng Xếp Hạng) -->
+            <!-- CỘT TRÁI -->
             <div class="hud-left-column">
                 <div id="hud-player-info" class="hud-panel">
                     <div class="avatar-container">
                         <img id="player-avatar" src="img/lv1.png" alt="Avatar">
                         <div id="player-level-badge">1</div>
                     </div>
-                    
                     <div class="stats-container">
                         <div class="name-row">
                             <span id="hud-player-name">PlayerName</span>
@@ -51,7 +50,7 @@
                 </div>
             </div>
 
-            <!-- TOP BAR (Stats) -->
+            <!-- TOP BAR -->
             <div id="hud-top-bar" class="hud-panel">
                 <div class="top-stat"><span class="emoji-icon">🪙</span><span id="hud-gold">0</span></div>
                 <div class="top-stat"><span class="emoji-icon">💎</span><span id="hud-diamond">0</span></div>
@@ -62,11 +61,8 @@
                 <button id="hud-settings-btn" class="settings-btn">⚙️</button>
             </div>
 
-            <!-- KHU VỰC THÔNG BÁO BÊN PHẢI (Nằm dưới Mini Map) -->
-            <div id="notification-area">
-                <div id="combo-announcement"></div>
-                <div id="kill-feed-container"></div>
-            </div>
+            <!-- KHU VỰC THÔNG BÁO BÊN PHẢI (Gộp chung Combo & Kill) -->
+            <div id="notification-area"></div>
 
         </div>
     </div>
@@ -90,9 +86,8 @@
         </div>
     </div>
 
-    <!-- === LỚP UI NGOÀI GAME (Lobby & Game Over) === -->
+    <!-- === LỚP UI NGOÀI GAME === -->
     <div id="ui-layer">
-        
         <!-- SẢNH CHỜ -->
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
@@ -142,29 +137,11 @@
         </div>
     </div>
 
-    <!-- Ẩn các ID cũ để không báo lỗi file main.js -->
+    <!-- Ẩn các ID cũ -->
     <div style="display: none;">
         <div id="killerName"></div><div id="killer-name"></div><div id="killedBy"></div><div id="death-name"></div>
     </div>
 
-    <script>
-      const goScreen = document.getElementById('game-over-screen');
-      const goWrapper = document.querySelector('.go-wrapper');
-      const goCenter = document.querySelector('.go-center');
-      if (goScreen && goWrapper && goCenter) {
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            if (goScreen.style.display !== 'none' && window.innerWidth <= 950) {
-              setTimeout(() => {
-                const centerPos = goCenter.offsetLeft - (goWrapper.clientWidth / 2) + (goCenter.clientWidth / 2);
-                goWrapper.scrollTo({ left: centerPos, behavior: 'smooth' });
-              }, 50);
-            }
-          });
-        });
-        observer.observe(goScreen, { attributes: true, attributeFilter: ['style'] });
-      }
-    </script>
     <script src="/shared/constants.js"></script>
     <script type="module" src="main.js"></script>
   </body>
