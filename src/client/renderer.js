@@ -6,56 +6,31 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 export const Camera = {
-  x: null, y: null, currentZoom: 1.0, targetZoom: 1.0,
-  shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0, flashColor: "255, 255, 255",
-  
+  x: null, y: null, currentZoom: 1.0, targetZoom: 1.0, shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0, flashColor: "255, 255, 255",
   getZoomByLevel(level) {
     let zoom = 1.0; const minZoom = 0.3;
     const zoomReductions = [0.008, 0.001, 0.002, 0.003, 0.004, 0.015, 0.01, 0.004, 0.002, 0.003, 0.008, 0.002, 0.002, 0.003, 0.002, 0.006, 0.002, 0.002, 0.002, 0.002, 0.008, 0.003, 0.008, 0.006, 0.004, 0.006, 0.006, 0.008, 0.007, 0.006, 0.008, 0.009, 0.006, 0.004, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001];
     for (let i = 0; i < level - 1; i++) { zoom -= (zoomReductions[i] || 0); if (zoom < minZoom) { zoom = minZoom; break; } }
-    if (window.innerWidth <= 768) zoom *= 0.55; 
-    return zoom;
+    if (window.innerWidth <= 768) zoom *= 0.55; return zoom;
   },
-  
   addShake(power) { this.shakePower = Math.max(this.shakePower, power); },
-
   update(targetX, targetY, dtMultiplier) {
     if (this.x === null) { this.x = targetX; this.y = targetY; }
     const dist = Math.hypot(targetX - this.x, targetY - this.y);
-    if (dist > 200) { this.x = targetX; this.y = targetY; } 
-    else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
-    
-    if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier;
-    else this.currentZoom = this.targetZoom;
-
-    if (this.shakePower > 0.1) { this.shakeX = (Math.random() - 0.5) * this.shakePower; this.shakeY = (Math.random() - 0.5) * this.shakePower; this.shakePower *= 0.85; } 
-    else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
-    
+    if (dist > 200) { this.x = targetX; this.y = targetY; } else { this.x += (targetX - this.x) * 0.15 * dtMultiplier; this.y += (targetY - this.y) * 0.15 * dtMultiplier; }
+    if (Math.abs(this.currentZoom - this.targetZoom) > 0.001) this.currentZoom += (this.targetZoom - this.currentZoom) * CONFIG.ZOOM_SMOOTHING * dtMultiplier; else this.currentZoom = this.targetZoom;
+    if (this.shakePower > 0.1) { this.shakeX = (Math.random() - 0.5) * this.shakePower; this.shakeY = (Math.random() - 0.5) * this.shakePower; this.shakePower *= 0.85; } else { this.shakeX = 0; this.shakeY = 0; this.shakePower = 0; }
     if (this.screenFlash > 0) { this.screenFlash -= 0.03 * dtMultiplier; if (this.screenFlash < 0) this.screenFlash = 0; }
   },
 };
 
 export const Resources = {
   foodImages: {}, playerImages: {}, weaponImages: {}, mountImg: new Image(), kingImg: new Image(), mapBgImg: new Image(), mapPattern: null, mapPatternReady: false, offscreenCanvas: null, offscreenCtx: null,
-  foodGlowCanvas: null, playerGlowCanvas: null,
-  
   load() {
     for (let i = 0; i < 12; i++) { const img = new Image(); img.src = `img/food${i}.png`; this.foodImages[i] = img; }
     this.mountImg.src = "img/mountsright.png"; this.kingImg.src = "img/king.png";
     this.mapBgImg.onload = () => { this.mapPattern = ctx.createPattern(this.mapBgImg, "repeat"); this.mapPatternReady = true; Renderer.renderBackground(); };
     this.mapBgImg.src = "img/mapbg.png";
-
-    this.foodGlowCanvas = document.createElement('canvas'); this.foodGlowCanvas.width = 128; this.foodGlowCanvas.height = 128;
-    const fgCtx = this.foodGlowCanvas.getContext('2d', { alpha: true });
-    const fGrad = fgCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    fGrad.addColorStop(0, "rgba(255, 235, 180, 0.12)"); fGrad.addColorStop(1, "rgba(0,0,0,0)");
-    fgCtx.fillStyle = fGrad; fgCtx.beginPath(); fgCtx.arc(64, 64, 64, 0, Math.PI*2); fgCtx.fill();
-
-    this.playerGlowCanvas = document.createElement('canvas'); this.playerGlowCanvas.width = 256; this.playerGlowCanvas.height = 256;
-    const pgCtx = this.playerGlowCanvas.getContext('2d', { alpha: true });
-    const pGrad = pgCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    pGrad.addColorStop(0, "rgba(0, 255, 120, 0.08)"); pGrad.addColorStop(1, "rgba(0,0,0,0)");
-    pgCtx.fillStyle = pGrad; pgCtx.beginPath(); pgCtx.arc(128, 128, 128, 0, Math.PI*2); pgCtx.fill();
   },
   getPlayerImage(level) { if (!this.playerImages[level]) { const img = new Image(); img.src = `img/lv${level}.png`; this.playerImages[level] = img; } return this.playerImages[level]; },
   getWeaponImage(level) { if (!this.weaponImages[level]) { const img = new Image(); img.src = `img/weapon${level}.png`; this.weaponImages[level] = img; } return this.weaponImages[level]; },
@@ -106,162 +81,67 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  // -- KHU VỰC ĐÃ CẬP NHẬT: Tạo Combo Kill và Kill Feed bằng DOM thay vì Canvas -- //
-  
+  // --- HTML DOM NOTIFICATIONS CỰC GỌN (CSS lo phần đẹp) ---
   triggerAnnouncer(name, streak) {
-    let msg = "", color = "";
-    if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
-    else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
-    else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
-    else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
-    else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
-    
+    let msg = ""; let streakClass = "";
+    if (streak === 2) { msg = "DOUBLE KILL"; streakClass = "streak-2"; }
+    else if (streak === 3) { msg = "TRIPLE KILL"; streakClass = "streak-3"; }
+    else if (streak === 4 || streak === 5) { msg = "QUAD KILL"; streakClass = "streak-4"; }
+    else if (streak > 5 && streak < 10) { msg = "MEGA KILL"; streakClass = "streak-5"; }
+    else if (streak >= 10) { msg = "LEGENDARY"; streakClass = "streak-max"; }
     if (!msg) return;
 
     const container = document.getElementById("combo-announcement");
     if (!container) return;
-
-    const div = document.createElement("div");
-    div.style.cssText = `
-        background: rgba(0, 0, 0, 0.75);
-        border: 1px solid ${color};
-        box-shadow: 0 0 12px ${color}66;
-        padding: 8px 16px;
-        border-radius: 20px;
-        margin-bottom: 8px;
-        font-size: 14px;
-        font-weight: 900;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        opacity: 0;
-        transform: translateX(50px);
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        pointer-events: none;
-    `;
-    div.innerHTML = `<span style="color:#fff">${String(name).substring(0, 15)}</span><span style="color:${color}">⚔️ ${msg}</span>`;
-    container.appendChild(div);
-
-    // Bật animation xuất hiện
-    requestAnimationFrame(() => {
-        div.style.opacity = "1";
-        div.style.transform = "translateX(0)";
-    });
-
-    // Sau 3 giây tự động trượt lên và biến mất
-    setTimeout(() => {
-        div.style.opacity = "0";
-        div.style.transform = "translateY(-15px)";
-        setTimeout(() => { if (div.parentNode) div.remove(); }, 300);
-    }, 3000);
+    const el = document.createElement("div");
+    el.className = `combo-item ${streakClass}`;
+    el.innerHTML = `<span class="name">${String(name).substring(0, 15)}</span> <span class="msg">⚔️ ${msg}</span>`;
+    container.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3100); // 3s CSS animation
   },
 
   addKillFeed(killer, victim, isMe) {
-    let container = document.getElementById("kill-feed-container");
-    // Nếu chưa có khung chứa Kill Feed thì tự động tạo
-    if (!container) {
-        container = document.createElement("div");
-        container.id = "kill-feed-container";
-        container.style.cssText = `
-            position: fixed;
-            top: 180px; 
-            right: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            pointer-events: none;
-            z-index: 998;
-        `;
-        document.body.appendChild(container);
-    }
-
-    const div = document.createElement("div");
-    const bgColor = isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.45)";
-    const killerColor = isMe ? "#ffff00" : "#ffffff";
-    
-    div.style.cssText = `
-        background: ${bgColor};
-        padding: 5px 15px;
-        border-radius: 6px;
-        margin-bottom: 5px;
-        font-size: 13px;
-        font-family: Arial, sans-serif;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        opacity: 0;
-        transform: translateX(30px);
-        transition: all 0.3s ease;
-    `;
-    
-    div.innerHTML = `
-        <span style="color: ${killerColor}">${String(killer).substring(0, 15)}</span>
-        <span style="color: #ff3333; font-size: 12px;">⚔️</span>
-        <span style="color: #aaaaaa">${String(victim).substring(0, 15)}</span>
-    `;
-    
-    container.appendChild(div);
-    
-    requestAnimationFrame(() => {
-        div.style.opacity = "1";
-        div.style.transform = "translateX(0)";
-    });
-
-    // Giữ màn hình luôn gọn gàng: Nếu có quá 4 dòng Kill Feed thì xóa dòng cũ nhất
-    if (container.children.length > 4) {
-        container.firstChild.style.opacity = "0";
-        setTimeout(() => { if (container.firstChild) container.firstChild.remove(); }, 300);
-    }
-
-    // Tự động xóa sau 3.5 giây
-    setTimeout(() => {
-        div.style.opacity = "0";
-        setTimeout(() => { if (div.parentNode) div.remove(); }, 300);
-    }, 3500);
+    const container = document.getElementById("kill-feed-container");
+    if (!container) return;
+    const el = document.createElement("div");
+    el.className = `kf-item ${isMe ? "is-me" : ""}`;
+    el.innerHTML = `<span class="killer">${String(killer).substring(0, 15)}</span> <span class="sword">⚔️</span> <span>${String(victim).substring(0, 15)}</span>`;
+    container.appendChild(el);
+    if (container.children.length > 4 && container.firstChild) container.firstChild.remove();
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3600); // 3.5s CSS animation
   },
-
-  // -------------------------------------------------------------------------------- //
+  // --------------------------------------------------------
 
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
         if(!this.damageTexts[i].active) {
-            const d = this.damageTexts[i]; 
-            d.x = x; d.y = y; d.amount = amount; d.vx = (Math.random() - 0.5) * 8; d.vy = -7 - Math.random() * 4; d.start = Date.now(); d.active = true; break;
+            const d = this.damageTexts[i]; d.x = x; d.y = y; d.amount = amount; d.vx = (Math.random() - 0.5) * 8; d.vy = -7 - Math.random() * 4; d.start = Date.now(); d.active = true; break;
         }
     }
   },
-
   addHitFlash(id) { this.hitFlashes[id] = Date.now(); },
-
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
-      if(!this.floatingTexts[i].active) {
-        const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
-      }
+      if(!this.floatingTexts[i].active) { const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break; }
     }
   },
-
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
-  
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
-  
   addDeathParticles(x, y, radius) {
-    const isMob = window.innerWidth <= 768; const numParticles = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
-    for (let i = 0; i < numParticles; i++) {
+    const isMob = window.innerWidth <= 768; const num = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
+    for (let i = 0; i < num; i++) {
       const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 3; const color = Math.random() > 0.5 ? "#ff3333" : "#ffcc00";
       FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
-  
   addTrail(x, y, angle, level, radius) {
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
@@ -272,10 +152,9 @@ export const Renderer = {
   setupUI() {
     const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
     if (speakerIcon) speakerIcon.style.display = "none";
-
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    // Mini Map đã được căn chỉnh kích thước nhỏ gọn lại
+    // Tạo Minimap với kích thước thon gọn
     this.minimap = document.createElement("canvas"); 
     this.minimap.width = 180 * dpr; 
     this.minimap.height = 120 * dpr; 
@@ -299,18 +178,15 @@ export const Renderer = {
   
   updateUI() {
     if (GameState.isDead) return;
-    
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
-    
     if (top1) { 
       const px = (top1.x / CONFIG.MAP_WIDTH) * 180; const py = (top1.y / CONFIG.MAP_HEIGHT) * 120; 
       this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4.5, 0, Math.PI * 2); 
       this.minimapCtx.fillStyle = "#ffcc00"; this.minimapCtx.fill(); 
       this.minimapCtx.lineWidth = 1.5; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.stroke(); 
     }
-    
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) { 
       const px = (me.x / CONFIG.MAP_WIDTH) * 180; const py = (me.y / CONFIG.MAP_HEIGHT) * 120; 
@@ -331,7 +207,6 @@ export const Renderer = {
     ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * scaleY); ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
-
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   
@@ -364,25 +239,18 @@ export const Renderer = {
       if (isAttacking && attackTime > 0) {
         t = Math.min(1, (Date.now() - attackTime) / (CONFIG.BASE_ATTACK_DURATION + (level * CONFIG.ATTACK_DURATION_PER_LEVEL)));
         swing = Math.sin(t * Math.PI) * (level < 37 ? CONFIG.ATTACK_SWING_ANGLE : CONFIG.ATTACK_SWING_ANGLE * 0.68);
-        
         if (t > 0.1 && t < 0.9) {
           ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
           ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
-          ctx.strokeStyle = `rgba(200, 230, 255, ${0.4 * (1-t)})`; 
-          ctx.lineCap = "round"; 
-          ctx.stroke(); 
-          ctx.restore();
+          ctx.strokeStyle = `rgba(200, 230, 255, ${0.4 * (1-t)})`; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
         }
       }
-      
       let leftWeaponAngle = angle - Math.PI * 0.7 + swing + sway;
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
-      
       this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
-
   drawShield(x, y, radius, justRespawned) {
     const shieldTimeLeft = CONFIG.HIT_COOLDOWN - (Date.now() - justRespawned);
     if (shieldTimeLeft > 0) { ctx.save(); ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 150) * 0.2; ctx.beginPath(); ctx.arc(x, y, radius + 15, 0, Math.PI * 2); ctx.fillStyle = "rgba(0, 255, 255, 0.3)"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0, 255, 255, 0.8)"; ctx.stroke(); ctx.restore(); }
@@ -390,8 +258,7 @@ export const Renderer = {
 
   drawMobileUI() {
     if(GameState.isDead) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = window.innerWidth, h = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = window.innerWidth, h = window.innerHeight;
     if (GameState.joystick.active) {
       ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(GameState.joystick.baseX, GameState.joystick.baseY, 50, 0, Math.PI * 2); ctx.fillStyle = "black"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "white"; ctx.stroke();
       ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(GameState.joystick.stickX, GameState.joystick.stickY, 25, 0, Math.PI * 2); ctx.fillStyle = "white"; ctx.fill();
@@ -406,206 +273,118 @@ export const Renderer = {
   draw(dtMultiplier = 1) {
     if (GameState.clientX === null || GameState.clientY === null) return;
     const now = Date.now(); Camera.update(GameState.clientX, GameState.clientY, dtMultiplier);
-    
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const winW = window.innerWidth; const winH = window.innerHeight;
-    const centerX = winW / 2; const centerY = winH / 2;
-    const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; 
-    const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); const winW = window.innerWidth; const winH = window.innerHeight; const centerX = winW / 2; const centerY = winH / 2;
+    const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
     
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.scale(Camera.currentZoom, Camera.currentZoom); ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
     
-    if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } 
-    else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
+    if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
     ctx.strokeStyle = "#222"; ctx.lineWidth = 8 / Camera.currentZoom; ctx.strokeRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
     
     const { interpPlayers } = this.getInterpolatedState();
-    const margin = 150 / Camera.currentZoom;
-    const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin;
-    const viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin;
-    const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin;
-    const viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
+    const margin = 150 / Camera.currentZoom; const viewportLeft = Camera.x - winW / (2 * Camera.currentZoom) - margin; const viewportRight = Camera.x + winW / (2 * Camera.currentZoom) + margin; const viewportTop = Camera.y - winH / (2 * Camera.currentZoom) - margin; const viewportBottom = Camera.y + winH / (2 * Camera.currentZoom) + margin;
     
     const foodByType = {};
-    for (const f of GameState.food) {
-      if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) {
-        const type = f.type || 0;
-        if (!foodByType[type]) foodByType[type] = [];
-        foodByType[type].push(f);
-      }
-    }
+    for (const f of GameState.food) { if (f.x > viewportLeft && f.x < viewportRight && f.y > viewportTop && f.y < viewportBottom) { const type = f.type || 0; if (!foodByType[type]) foodByType[type] = []; foodByType[type].push(f); } }
     for (const type in foodByType) {
       const img = Resources.foodImages[type];
       if (img && img.complete) {
-        for (const f of foodByType[type]) {
-          const pulse = 1.0 + Math.sin(now / 200 + (f.x+f.y)%10) * 0.05;
-          const size = f.radius * 2 * pulse;
-          ctx.drawImage(img, f.x - size/2, f.y - size/2, size, size);
-        }
+        for (const f of foodByType[type]) { const pulse = 1.0 + Math.sin(now / 200 + (f.x+f.y)%10) * 0.05; const size = f.radius * 2 * pulse; ctx.drawImage(img, f.x - size/2, f.y - size/2, size, size); }
       }
     }
 
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
       if (t.active) {
-        if (now - t.time >= 200) { t.active = false; } 
-        else {
+        if (now - t.time >= 200) { t.active = false; } else {
           if (t.x < viewportLeft || t.x > viewportRight || t.y < viewportTop || t.y > viewportBottom) continue;
           const img = Resources.getPlayerImage(t.level || 1);
           if (img && img.complete) { ctx.save(); ctx.globalAlpha = (1 - (now - t.time) / 200) * 0.35; this.drawImageWithAspectRatio(img, t.x, t.y, t.radius * 2, t.angle); ctx.restore(); }
         }
       }
     }
-    
     FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
 
     for (const id in interpPlayers) {
-      const p = interpPlayers[id];
-      if (p.isDead) continue;
-      
+      const p = interpPlayers[id]; if (p.isDead) continue;
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
-        if (!this.visualRadius[id]) this.visualRadius[id] = p.radius;
-        this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier;
-        const vRadius = this.visualRadius[id];
-
-        let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
-        let angle = p.angle || 0;
-        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius);
-        this.drawShadow(p.x, p.y, vRadius, breathScale);
-
+        if (!this.visualRadius[id]) this.visualRadius[id] = p.radius; this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier; const vRadius = this.visualRadius[id];
+        let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02); let angle = p.angle || 0;
+        if (p.rightMouseDown) this.addTrail(p.x, p.y, angle, p.level, vRadius); this.drawShadow(p.x, p.y, vRadius, breathScale);
         if (p.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, p.x, p.y, (vRadius + 22) * 2, angle, breathScale);
-        
-        const img = Resources.getPlayerImage(p.level || 1);
-        if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, vRadius * 2, angle, breathScale);
-        
-        if (this.hitFlashes[id] && now - this.hitFlashes[id] < 150) {
-            ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, vRadius, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255, 200, 200, 0.6)"; ctx.fill(); ctx.restore();
-        }
-
-        this.drawWeapons(p.x, p.y, vRadius, p.level, p.angle, p.isAttacking, p.attackTime, p.isMoving);
-        if (p.justRespawned) this.drawShield(p.x, p.y, vRadius, p.justRespawned);
-        
-        if (p.name) {
-          ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
-          ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
-          ctx.strokeText(p.name, p.x, p.y - vRadius - 8); ctx.fillText(p.name, p.x, p.y - vRadius - 8); ctx.restore();
-        }
+        const img = Resources.getPlayerImage(p.level || 1); if (img && img.complete) this.drawImageWithAspectRatio(img, p.x, p.y, vRadius * 2, angle, breathScale);
+        if (this.hitFlashes[id] && now - this.hitFlashes[id] < 150) { ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, vRadius, 0, Math.PI * 2); ctx.fillStyle = "rgba(255, 200, 200, 0.6)"; ctx.fill(); ctx.restore(); }
+        this.drawWeapons(p.x, p.y, vRadius, p.level, p.angle, p.isAttacking, p.attackTime, p.isMoving); if (p.justRespawned) this.drawShield(p.x, p.y, vRadius, p.justRespawned);
+        if (p.name) { ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 4; ctx.strokeText(p.name, p.x, p.y - vRadius - 8); ctx.fillText(p.name, p.x, p.y - vRadius - 8); ctx.restore(); }
       }
     }
     
-    const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1];
-    const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
-    
+    const latestState = GameState.stateBuffer[GameState.stateBuffer.length - 1]; const me = (latestState?.players || []).find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) {
       GameState.prevPositions[GameState.playerId] = { x: GameState.clientX, y: GameState.clientY };
-      if (!this.visualRadius[GameState.playerId]) this.visualRadius[GameState.playerId] = GameState.clientRadius;
-      this.visualRadius[GameState.playerId] += (GameState.clientRadius - this.visualRadius[GameState.playerId]) * 0.1 * dtMultiplier;
-      const vRadius = this.visualRadius[GameState.playerId];
-
+      if (!this.visualRadius[GameState.playerId]) this.visualRadius[GameState.playerId] = GameState.clientRadius; this.visualRadius[GameState.playerId] += (GameState.clientRadius - this.visualRadius[GameState.playerId]) * 0.1 * dtMultiplier; const vRadius = this.visualRadius[GameState.playerId];
       let breathScale = GameState.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02);
-      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius);
-      this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
-
+      if (me.rightMouseDown) this.addTrail(GameState.clientX, GameState.clientY, GameState.mouseAngle, GameState.clientLevel, vRadius); this.drawShadow(GameState.clientX, GameState.clientY, vRadius, breathScale);
       if (me.rightMouseDown && Resources.mountImg.complete) this.drawImageWithAspectRatio(Resources.mountImg, GameState.clientX, GameState.clientY, (vRadius + 22) * 2, GameState.mouseAngle, breathScale);
-      const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1);
-      if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
-      
-      if (this.hitFlashes[GameState.playerId] && now - this.hitFlashes[GameState.playerId] < 150) {
-          ctx.save(); ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 100, 100, 0.5)"; ctx.fill(); ctx.restore();
-      }
-
-      this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving);
-      if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, vRadius, me.justRespawned);
-
+      const mainImg = Resources.getPlayerImage(GameState.clientLevel || 1); if (mainImg && mainImg.complete) this.drawImageWithAspectRatio(mainImg, GameState.clientX, GameState.clientY, vRadius * 2, GameState.mouseAngle, breathScale);
+      if (this.hitFlashes[GameState.playerId] && now - this.hitFlashes[GameState.playerId] < 150) { ctx.save(); ctx.beginPath(); ctx.arc(GameState.clientX, GameState.clientY, vRadius, 0, Math.PI * 2); ctx.fillStyle = "rgba(255, 100, 100, 0.5)"; ctx.fill(); ctx.restore(); }
+      this.drawWeapons(GameState.clientX, GameState.clientY, vRadius, GameState.clientLevel, GameState.mouseAngle, GameState.isAttacking, GameState.attackTime, GameState.isMoving); if (me.justRespawned) this.drawShield(GameState.clientX, GameState.clientY, vRadius, me.justRespawned);
       const cdElapsed = now - (GameState.lastAttackTime || 0), cooldown = 500 + (GameState.clientLevel - 1) * 60;
-      if (cdElapsed < cooldown) {
-        const barW = vRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + vRadius + 12;
-        ctx.save(); ctx.beginPath(); ctx.strokeStyle = "#bfa600"; ctx.lineWidth = 2; ctx.rect(barX, barY, barW, barH); ctx.stroke();
-        ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore();
-      }
-      
-      if (me.name) {
-        ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
-        ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4;
-        ctx.strokeText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.restore();
-      }
+      if (cdElapsed < cooldown) { const barW = vRadius * 2, barH = 7, barX = GameState.clientX - barW / 2, barY = GameState.clientY + vRadius + 12; ctx.save(); ctx.beginPath(); ctx.strokeStyle = "#bfa600"; ctx.lineWidth = 2; ctx.rect(barX, barY, barW, barH); ctx.stroke(); ctx.beginPath(); ctx.fillStyle = "#ffe066"; ctx.rect(barX, barY, barW * (1 - Math.max(0, Math.min(1, cdElapsed / cooldown))), barH); ctx.fill(); ctx.restore(); }
+      if (me.name) { ctx.save(); ctx.font = `bold 18px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#006633"; ctx.lineWidth = 4; ctx.strokeText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.fillText(me.name, GameState.clientX, GameState.clientY - vRadius - 8); ctx.restore(); }
     }
 
     for (let i = 0; i < this.damageTexts.length; i++) {
         const d = this.damageTexts[i];
         if (d.active) {
             const elapsed = now - d.start;
-            if (elapsed > 800) { d.active = false; }
-            else {
+            if (elapsed > 800) { d.active = false; } else {
                 d.x += d.vx * dtMultiplier; d.y += d.vy * dtMultiplier; d.vy += 0.5 * dtMultiplier; 
                 if (d.x < viewportLeft || d.x > viewportRight || d.y < viewportTop || d.y > viewportBottom) continue;
-                const alpha = elapsed > 500 ? 1 - ((elapsed - 500) / 300) : 1;
-                const scale = elapsed < 100 ? 1 + (100 - elapsed)/100 * 0.5 : 1; 
-                ctx.save(); ctx.globalAlpha = alpha; ctx.translate(d.x, d.y); ctx.scale(scale, scale);
-                ctx.font = "900 28px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                ctx.lineWidth = 5; ctx.strokeStyle = "#440000"; ctx.fillStyle = "#ff2222";
-                ctx.strokeText(`-${d.amount}`, 0, 0); ctx.fillText(`-${d.amount}`, 0, 0);
-                ctx.restore();
+                const alpha = elapsed > 500 ? 1 - ((elapsed - 500) / 300) : 1; const scale = elapsed < 100 ? 1 + (100 - elapsed)/100 * 0.5 : 1; 
+                ctx.save(); ctx.globalAlpha = alpha; ctx.translate(d.x, d.y); ctx.scale(scale, scale); ctx.font = "900 28px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = 5; ctx.strokeStyle = "#440000"; ctx.fillStyle = "#ff2222"; ctx.strokeText(`-${d.amount}`, 0, 0); ctx.fillText(`-${d.amount}`, 0, 0); ctx.restore();
             }
         }
     }
-
     for (let i = 0; i < this.levelUpEffects.length; i++) {
       const e = this.levelUpEffects[i];
       if (e.active) {
-        if (now - e.start >= 1500) { e.active = false; }
-        else {
+        if (now - e.start >= 1500) { e.active = false; } else {
           if (e.x < viewportLeft || e.x > viewportRight || e.y < viewportTop || e.y > viewportBottom) continue;
           const t = (now - e.start) / 1500; const alpha = 1 - Math.pow(t, 3); 
-          ctx.save(); ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2);
-          ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.stroke(); ctx.restore();
+          ctx.save(); ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + t * 200, 0, Math.PI * 2); ctx.lineWidth = 8 * (1 - t); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.stroke(); ctx.restore();
         }
       }
     }
-
     for (let i = 0; i < this.floatingTexts.length; i++) {
       const e = this.floatingTexts[i];
       if (e.active) {
-        if (now - e.start >= 1000) { e.active = false; }
-        else {
+        if (now - e.start >= 1000) { e.active = false; } else {
           const t = (now - e.start) / 1000; const floatY = e.y - (t * 50); 
           if (e.x < viewportLeft || e.x > viewportRight || floatY < viewportTop || floatY > viewportBottom) continue;
-          ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); 
-          ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = 3; 
-          if (e.text === "LEVEL UP!") { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; } 
-          else if (e.text === "KILL!") { ctx.fillStyle = e.color; ctx.strokeStyle = "#990000"; } 
-          else { ctx.fillStyle = e.color; ctx.strokeStyle = "#009944"; }
+          ctx.save(); ctx.globalAlpha = 1 - Math.pow(t, 2); ctx.font = `900 ${e.size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineWidth = 3; 
+          if (e.text === "LEVEL UP!") { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#0088ff"; } else if (e.text === "KILL!") { ctx.fillStyle = e.color; ctx.strokeStyle = "#990000"; } else { ctx.fillStyle = e.color; ctx.strokeStyle = "#009944"; }
           ctx.strokeText(e.text, e.x, floatY); ctx.fillText(e.text, e.x, floatY); ctx.restore();
         }
       }
     }
     
     ctx.restore(); 
-
-    if (Camera.screenFlash > 0) {
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = `rgba(${Camera.flashColor}, ${Camera.screenFlash * 0.4})`; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
-    }
+    if (Camera.screenFlash > 0) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(${Camera.flashColor}, ${Camera.screenFlash * 0.4})`; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore(); }
 
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const nowKillXp = Date.now();
     for (let i = 0; i < this.xpEffects.length; i++) {
       const e = this.xpEffects[i];
       if (e.active) {
-        if (nowKillXp - e.start >= 1000) { e.active = false; } 
-        else {
+        if (nowKillXp - e.start >= 1000) { e.active = false; } else {
           const t = (nowKillXp - e.start) / 1000;
-          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1 - t; ctx.font = "bold 20px Arial"; 
-          ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+          ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1 - t; ctx.font = "bold 20px Arial"; ctx.fillStyle = "#00ff66"; ctx.strokeStyle = "#009944"; ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
           const floatY = 100 - t * 40; ctx.strokeText(`+${e.amount} XP`, winW / 2, floatY); ctx.fillText(`+${e.amount} XP`, winW / 2, floatY); ctx.restore(); 
         }
       }
     }
-
     ctx.restore();
     if (GameState.isTouch) this.drawMobileUI();
   }
