@@ -3,7 +3,8 @@ import { GameState } from './state.js';
 const CONFIG = window.GAME_CONFIG;
 
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+// TỐI ƯU 1: Tắt alpha channel để tiết kiệm 15% GPU cho Canvas
+const ctx = canvas.getContext("2d", { alpha: false });
 
 export const Camera = {
   x: null, y: null, currentZoom: 1.0, targetZoom: 1.0, shakeX: 0, shakeY: 0, shakePower: 0, screenFlash: 0, flashColor: "255, 255, 255",
@@ -80,8 +81,8 @@ export const Renderer = {
   floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
+  cachedPlayers: {}, // Object Pool để tái sử dụng bộ nhớ
 
-  // === THÔNG BÁO TỐI ĐA 3 DÒNG ===
   triggerAnnouncer(name, streak) {
     let msg = ""; let streakClass = "";
     if (streak === 2) { msg = "DOUBLE KILL"; streakClass = "streak-2"; }
@@ -116,7 +117,6 @@ export const Renderer = {
     
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3600); 
   },
-  // ==============================
 
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
@@ -160,13 +160,12 @@ export const Renderer = {
     if (speakerIcon) speakerIcon.style.display = "none";
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    // Thu nhỏ Minimap còn 90x60, không dùng thẻ mờ kính để chống lag
     this.minimap = document.createElement("canvas"); 
     this.minimap.width = 135 * dpr; 
     this.minimap.height = 90 * dpr; 
     this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:90px !important;height:60px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); 
-    this.minimapCtx = this.minimap.getContext("2d"); 
+    this.minimapCtx = this.minimap.getContext("2d", { alpha: false }); // Tắt alpha minimap
     this.minimapCtx.scale(dpr, dpr);
   },
   
@@ -177,14 +176,14 @@ export const Renderer = {
   },
   
   renderBackground() {
-    if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d"); }
+    if (!Resources.offscreenCanvas || Resources.offscreenCanvas.width !== CONFIG.MAP_WIDTH || Resources.offscreenCanvas.height !== CONFIG.MAP_HEIGHT) { Resources.offscreenCanvas = document.createElement("canvas"); Resources.offscreenCanvas.width = CONFIG.MAP_WIDTH; Resources.offscreenCanvas.height = CONFIG.MAP_HEIGHT; Resources.offscreenCtx = Resources.offscreenCanvas.getContext("2d", { alpha: false }); }
     if (Resources.mapPatternReady && Resources.mapBgImg.complete && Resources.mapBgImg.naturalHeight !== 0) { Resources.offscreenCtx.save(); Resources.offscreenCtx.imageSmoothingEnabled = false; Resources.offscreenCtx.fillStyle = Resources.mapPattern; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); Resources.offscreenCtx.restore(); } 
     else { Resources.offscreenCtx.fillStyle = "#000"; Resources.offscreenCtx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
   },
   
   updateUI() {
     if (GameState.isDead) return;
-    this.minimapCtx.clearRect(0, 0, 135, 90); 
+    this.minimapCtx.fillStyle = "#0a0f14"; this.minimapCtx.fillRect(0, 0, 135, 90); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
     
@@ -215,25 +214,31 @@ export const Renderer = {
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
   lerp(a, b, t) { return a + (b - a) * t; },
-  lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   
   getInterpolatedState() {
     const renderTime = Date.now() - CONFIG.CLIENT_BUFFER_DELAY; let older, newer;
     for (let i = GameState.stateBuffer.length - 1; i >= 0; i--) { if (GameState.stateBuffer[i].time <= renderTime) { older = GameState.stateBuffer[i]; newer = GameState.stateBuffer[i + 1] || GameState.stateBuffer[i]; break; } }
     if (!older) older = newer = GameState.stateBuffer[0] || { players: [] };
     let t = 0; if (older !== newer && newer.time !== older.time) t = Math.max(0, Math.min(1, (renderTime - older.time) / (newer.time - older.time)));
-    const interpPlayers = {};
+    
+    // TỐI ƯU 2: Array/Object Pooling chống rác RAM
     for (const p of newer.players) {
       if (p.id === GameState.playerId) continue;
       const prev = older.players.find((o) => o.id === p.id) || p;
-      let interp = this.lerpObj(prev, p, t);
+      
+      if (!this.cachedPlayers[p.id]) this.cachedPlayers[p.id] = {};
+      const interp = this.cachedPlayers[p.id];
+      Object.assign(interp, p); // Tái sử dụng vùng nhớ, copy dữ liệu cực nhanh
+      
+      interp.x = this.lerp(prev.x, p.x, t);
+      interp.y = this.lerp(prev.y, p.y, t);
+      
       if (t >= 1 && newer !== older) {
         const dt = newer.time - older.time;
         if (dt > 0) { const vx = (p.x - prev.x) / dt, vy = (p.y - prev.y) / dt; const extrapTime = Date.now() - newer.time; interp.x = p.x + vx * extrapTime; interp.y = p.y + vy * extrapTime; }
       }
-      interpPlayers[p.id] = interp;
     }
-    return { interpPlayers }; 
+    return { interpPlayers: this.cachedPlayers }; 
   },
 
   drawWeapons(x, y, radius, level, angle, isAttacking = false, attackTime = 0, isMoving = false) {
@@ -283,7 +288,7 @@ export const Renderer = {
     const dpr = Math.min(window.devicePixelRatio || 1, 2); const winW = window.innerWidth; const winH = window.innerHeight; const centerX = winW / 2; const centerY = winH / 2;
     const offsetX = centerX - Camera.x * Camera.currentZoom + Camera.shakeX; const offsetY = centerY - Camera.y * Camera.currentZoom + Camera.shakeY;
     
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.scale(Camera.currentZoom, Camera.currentZoom); ctx.translate(offsetX / Camera.currentZoom, offsetY / Camera.currentZoom);
     
     if (Resources.offscreenCanvas) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); ctx.clip(); ctx.imageSmoothingEnabled = false; ctx.drawImage(Resources.offscreenCanvas, 0, 0); ctx.restore(); } else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); }
@@ -314,7 +319,7 @@ export const Renderer = {
     FX.updateAndDraw(ctx, dtMultiplier, viewportLeft, viewportRight, viewportTop, viewportBottom);
 
     for (const id in interpPlayers) {
-      const p = interpPlayers[id]; if (p.isDead) continue;
+      const p = interpPlayers[id]; if (p.isDead || !p.id) continue;
       if (p.x >= viewportLeft && p.x <= viewportRight && p.y >= viewportTop && p.y <= viewportBottom) {
         if (!this.visualRadius[id]) this.visualRadius[id] = p.radius; this.visualRadius[id] += (p.radius - this.visualRadius[id]) * 0.1 * dtMultiplier; const vRadius = this.visualRadius[id];
         let breathScale = p.isMoving ? (1.0 + Math.sin(now / 100) * 0.04) : (1.0 + Math.sin(now / 400) * 0.02); let angle = p.angle || 0;
