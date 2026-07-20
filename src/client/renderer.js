@@ -81,7 +81,7 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  // --- HTML DOM NOTIFICATIONS CỰC GỌN (CSS lo phần đẹp) ---
+  // --- CẬP NHẬT THÔNG BÁO UI (CSS chung .notify-item) ---
   triggerAnnouncer(name, streak) {
     let msg = ""; let streakClass = "";
     if (streak === 2) { msg = "DOUBLE KILL"; streakClass = "streak-2"; }
@@ -94,21 +94,27 @@ export const Renderer = {
     const container = document.getElementById("combo-announcement");
     if (!container) return;
     const el = document.createElement("div");
-    el.className = `combo-item ${streakClass}`;
-    el.innerHTML = `<span class="name">${String(name).substring(0, 15)}</span> <span class="msg">⚔️ ${msg}</span>`;
+    el.className = `notify-item combo-item ${streakClass}`; // Dùng CSS chung
+    el.innerHTML = `<span class="text-limit" style="max-width: 65px;">${String(name)}</span> <span class="msg">⚔️ ${msg}</span>`;
     container.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 3100); // 3s CSS animation
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3100); 
   },
 
   addKillFeed(killer, victim, isMe) {
     const container = document.getElementById("kill-feed-container");
     if (!container) return;
+    
+    // Đảm bảo tối đa 4 dòng, nếu đang có 4 dòng thì xoá dòng trên cùng trước khi nhét thêm
+    while (container.children.length >= 4) {
+        container.firstChild.remove();
+    }
+
     const el = document.createElement("div");
-    el.className = `kf-item ${isMe ? "is-me" : ""}`;
-    el.innerHTML = `<span class="killer">${String(killer).substring(0, 15)}</span> <span class="sword">⚔️</span> <span>${String(victim).substring(0, 15)}</span>`;
+    el.className = `notify-item kf-item ${isMe ? "is-me" : ""}`; // Dùng CSS chung
+    el.innerHTML = `<span class="killer text-limit">${String(killer)}</span> <span class="sword">⚔️</span> <span class="victim text-limit">${String(victim)}</span>`;
     container.appendChild(el);
-    if (container.children.length > 4 && container.firstChild) container.firstChild.remove();
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 3600); // 3.5s CSS animation
+    
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3600); 
   },
   // --------------------------------------------------------
 
@@ -154,11 +160,11 @@ export const Renderer = {
     if (speakerIcon) speakerIcon.style.display = "none";
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    // Tạo Minimap với kích thước thon gọn
+    // Đã thu nhỏ Minimap (Hiển thị 90x60px)
     this.minimap = document.createElement("canvas"); 
-    this.minimap.width = 180 * dpr; 
-    this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:120px !important;height:80px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
+    this.minimap.width = 135 * dpr; // Logic vẽ cho nét
+    this.minimap.height = 90 * dpr; 
+    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:90px !important;height:60px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.7); backdrop-filter: blur(4px);`; 
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d"); 
     this.minimapCtx.scale(dpr, dpr);
@@ -178,19 +184,20 @@ export const Renderer = {
   
   updateUI() {
     if (GameState.isDead) return;
-    this.minimapCtx.clearRect(0, 0, 180, 120); 
+    this.minimapCtx.clearRect(0, 0, 135, 90); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
+    
     if (top1) { 
-      const px = (top1.x / CONFIG.MAP_WIDTH) * 180; const py = (top1.y / CONFIG.MAP_HEIGHT) * 120; 
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4.5, 0, Math.PI * 2); 
+      const px = (top1.x / CONFIG.MAP_WIDTH) * 135; const py = (top1.y / CONFIG.MAP_HEIGHT) * 90; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2); 
       this.minimapCtx.fillStyle = "#ffcc00"; this.minimapCtx.fill(); 
-      this.minimapCtx.lineWidth = 1.5; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.stroke(); 
+      this.minimapCtx.lineWidth = 1; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.stroke(); 
     }
     const me = allPlayersArr.find((p) => p.id === GameState.playerId);
     if (me && !me.isDead) { 
-      const px = (me.x / CONFIG.MAP_WIDTH) * 180; const py = (me.y / CONFIG.MAP_HEIGHT) * 120; 
-      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3.5, 0, Math.PI * 2); 
+      const px = (me.x / CONFIG.MAP_WIDTH) * 135; const py = (me.y / CONFIG.MAP_HEIGHT) * 90; 
+      this.minimapCtx.beginPath(); this.minimapCtx.arc(px, py, 3, 0, Math.PI * 2); 
       this.minimapCtx.fillStyle = "#00ff66"; this.minimapCtx.strokeStyle = "#fff"; this.minimapCtx.lineWidth = 1; this.minimapCtx.fill(); this.minimapCtx.stroke(); 
     }
   },
