@@ -6,9 +6,7 @@ import { HUD } from './HUDManager.js';
 
 const CONFIG = window.GAME_CONFIG;
 let uiHideTimeout = null; 
-
 let cachedUiLayer = null;
-let cachedSpeakerIcon = undefined; 
 
 export const Network = {
   ws: null,
@@ -41,10 +39,7 @@ export const Network = {
         const existingIds = new Set(GameState.food.map(f => f.id));
         const newFoods = data.foodAdded.filter(f => !existingIds.has(f.id));
         GameState.food.push(...newFoods);
-        
-        if (GameState.food.length > 2000) {
-            GameState.food = GameState.food.slice(-2000);
-        }
+        if (GameState.food.length > 2000) GameState.food = GameState.food.slice(-2000);
       }
       
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
@@ -77,9 +72,6 @@ export const Network = {
       const me = (data.players || []).find((p) => p.id === GameState.playerId);
       
       if (!cachedUiLayer) cachedUiLayer = document.getElementById("ui-layer");
-      if (cachedSpeakerIcon === undefined) {
-         cachedSpeakerIcon = document.getElementById("sound-btn") || document.getElementById("mute-btn") || document.querySelector("[class*='sound']") || document.querySelector("[id*='sound']") || null;
-      }
 
       if (me) {
         const oldLevel = GameState.clientLevel;
@@ -91,29 +83,23 @@ export const Network = {
 
         if (prevDead && !me.isDead) { 
           GameState.clientX = GameState.serverX = me.x; GameState.clientY = GameState.serverY = me.y; 
-          
           if (uiHideTimeout) clearTimeout(uiHideTimeout); 
           if (cachedUiLayer) {
               cachedUiLayer.style.opacity = "0"; 
               cachedUiLayer.style.transform = "scale(1.05)"; 
               uiHideTimeout = setTimeout(() => cachedUiLayer.style.display = "none", 400); 
           }
-          
-          if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "block";
         } 
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
           GameState.deaths = (GameState.deaths || 0) + 1; 
           if (uiHideTimeout) clearTimeout(uiHideTimeout); 
-          if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
           
           const killer = (data.players || []).find(k => k.id === me.killerId);
           const finalKillerName = killer ? (killer.name || "MỘT KẺ VÔ DANH") : "MỘT KẺ VÔ DANH";
 
-          if (window.showGameOver) {
-              window.showGameOver(me.level, 0, me.xp, finalKillerName);
-          }
+          if (window.showGameOver) window.showGameOver(me.level, 0, me.xp, finalKillerName);
         }
 
         const playerName = localStorage.getItem("evowar_name") || "Khách";
@@ -122,10 +108,6 @@ export const Network = {
       }
       
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
-
-      if (prevDead && me && me.isDead && cachedSpeakerIcon && cachedUiLayer && cachedUiLayer.style.display !== "none") {
-          cachedSpeakerIcon.style.display = "none";
-      }
 
       for (const p of data.players || []) {
         if (p.isDead && !GameState.prevPlayerDeadState[p.id]) {
@@ -149,7 +131,8 @@ export const Network = {
         GameState.prevPlayerLevels[p.id] = p.level; GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
 
-      HUD.updateLeaderboard(data.players || []);
+      // TRUYỀN ID CỦA BẢN THÂN VÀO LEADERBOARD
+      HUD.updateLeaderboard(data.players || [], GameState.playerId);
     }
   },
 
