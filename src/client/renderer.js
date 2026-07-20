@@ -97,7 +97,7 @@ export const FX = {
 };
 
 export const Renderer = {
-  leaderboardDiv: null, xpBar: null, xpFill: null, fillImage: null, levelCircle: null, minimap: null, minimapCtx: null, 
+  minimap: null, minimapCtx: null, 
   trails: Array.from({length: 150}, () => ({active: false, x:0, y:0, angle:0, level:1, radius:0, time:0})),
   levelUpEffects: Array.from({length: 5}, () => ({active: false, x:0, y:0, radius:0, start:0})),
   xpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, amount:0, start:0})),
@@ -106,10 +106,7 @@ export const Renderer = {
   killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
-
-  lastLeaderboardHeight: 0,
-  lastHeightCheck: 0,
-
+  lastLeaderboardHeight: 0, lastHeightCheck: 0,
   activeAnnouncer: { active: false, name: "", msg: "", color: "", start: 0 },
 
   triggerAnnouncer(name, streak) {
@@ -119,18 +116,9 @@ export const Renderer = {
       else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
       else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
       else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
-      
       if (!msg) return;
-
-      this.activeAnnouncer = {
-          active: true,
-          name: String(name).substring(0, 15),
-          msg: msg,
-          color: color,
-          start: Date.now()
-      };
+      this.activeAnnouncer = { active: true, name: String(name).substring(0, 15), msg: msg, color: color, start: Date.now() };
   },
-
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
         if(!this.damageTexts[i].active) {
@@ -139,17 +127,12 @@ export const Renderer = {
         }
     }
   },
-
   addHitFlash(id) { this.hitFlashes[id] = Date.now(); },
-
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
-      if(!this.floatingTexts[i].active) {
-        const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
-      }
+      if(!this.floatingTexts[i].active) { const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break; }
     }
   },
-
   addKillFeed(killer, victim, isMe) {
     for(let i = this.killFeeds.length - 1; i > 0; i--) {
       this.killFeeds[i].killer = this.killFeeds[i-1].killer; this.killFeeds[i].victim = this.killFeeds[i-1].victim;
@@ -158,19 +141,16 @@ export const Renderer = {
     this.killFeeds[0].killer = String(killer).substring(0, 15); this.killFeeds[0].victim = String(victim).substring(0, 15);
     this.killFeeds[0].isMe = isMe; this.killFeeds[0].start = Date.now(); this.killFeeds[0].active = true;
   },
-
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
-  
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
-  
   addDeathParticles(x, y, radius) {
     const isMob = window.innerWidth <= 768; const numParticles = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
     for (let i = 0; i < numParticles; i++) {
@@ -178,7 +158,6 @@ export const Renderer = {
       FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
-  
   addTrail(x, y, angle, level, radius) {
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
@@ -189,16 +168,10 @@ export const Renderer = {
   setupUI() {
     const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
     if (speakerIcon) speakerIcon.style.display = "none";
-
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
-    this.xpBar = document.createElement("div"); this.xpBar.style.cssText = `bottom:10px;left:50%;transform:translateX(-50%) ${isMob ? 'scale(0.7)' : 'scale(1)'};transform-origin:bottom center;width:300px;height:40px;background:url(img/xpbar.png) no-repeat center center;background-size:cover;z-index:1000;overflow:hidden;position:fixed;`; document.body.appendChild(this.xpBar);
-    this.xpFill = document.createElement("div"); this.xpFill.style.cssText = `position:absolute;bottom:12px;left:76px;width:215px;height:16px;overflow:hidden;`; this.xpBar.appendChild(this.xpFill);
-    this.fillImage = document.createElement("div"); this.fillImage.style.cssText = `position:relative;left:-215px;width:215px;height:100%;background:url(img/progressxp.png) no-repeat left center;background-size:contain;transition:left 0.1s linear;`; this.xpFill.appendChild(this.fillImage);
-    this.levelCircle = document.createElement("div"); this.levelCircle.style.cssText = `position:fixed;bottom:${isMob ? '16px' : '22px'};left:calc(50% - ${isMob ? '100px' : '142px'});width:20px;height:20px;color:white;font-family:Arial;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1001;pointer-events:none;`; this.levelCircle.textContent = GameState.clientLevel; document.body.appendChild(this.levelCircle);
-    this.leaderboardDiv = document.getElementById("leaderboard") || document.createElement("div"); this.leaderboardDiv.id = "leaderboard"; this.leaderboardDiv.style.cssText = `position:fixed;top:${isMob ? '5px' : '20px'};left:${isMob ? '5px' : '20px'};background:rgba(30,30,30,0.85);color:#f0f0f0;font-family:sans-serif;font-size:${isMob ? '10px' : '14px'};line-height:1.4;border-radius:8px;padding:${isMob ? '6px 10px' : '14px 20px'};z-index:1002;min-width:${isMob ? '110px' : '180px'};pointer-events:none;`; document.body.appendChild(this.leaderboardDiv);
     
     this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:5px;right:${isMob ? '5px' : '20px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '180px'} !important;height:${isMob ? '60px' : '120px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
+    this.minimap.style.cssText = `position:fixed;top:100px;right:${isMob ? '5px' : '15px'};border-radius:8px;z-index:1002;width:${isMob ? '90px' : '150px'} !important;height:${isMob ? '60px' : '100px'} !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid rgba(100, 110, 130, 0.5); background: rgba(30, 34, 45, 0.85);`; 
     document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
   },
   
@@ -215,9 +188,7 @@ export const Renderer = {
   },
   
   updateUI() {
-    this.xpBar.style.display = GameState.isDead ? "none" : "block"; this.levelCircle.style.display = GameState.isDead ? "none" : "flex"; if (GameState.isDead) return;
-    const percent = Math.min(1, GameState.clientXp / GameState.clientXpToNext); this.fillImage.style.left = -215 + percent * 215 + "px"; this.levelCircle.textContent = GameState.clientLevel;
-    
+    if (GameState.isDead) return;
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
@@ -237,17 +208,6 @@ export const Renderer = {
     }
   },
   
-  updateLeaderboard(playersArr) {
-    if (!playersArr || playersArr.length === 0) return;
-    const sorted = [...playersArr].sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); });
-    const isMob = window.innerWidth <= 768; const titleSize = isMob ? '12px' : '16px';
-    let html = `<div style="font-weight:bold;font-size:${titleSize};color:#00ffff;margin-bottom:4px;">★ TOP PLAYERS ★</div>`;
-    sorted.slice(0, 5).forEach((p, i) => { html += `<div style="margin:2px 0;"><span style="color:#aaa;">${i + 1}. </span><span style="color:${p.id === GameState.playerId ? "#ff0" : "#fff"};font-weight:bold;">${p.name || "???"}</span><span style="color:#0ff;margin-left:4px;">Lv${p.level}</span></div>`; });
-    const myIndex = sorted.findIndex(p => p.id === GameState.playerId);
-    if (myIndex >= 5) { const me = sorted[myIndex]; html += `<div style="margin:2px 0;color:#888;">...</div><div style="margin:2px 0;"><span style="color:#aaa;">${myIndex + 1}. </span><span style="color:#ff0;font-weight:bold;">${me.name || "Bạn"}</span><span style="color:#0ff;margin-left:4px;">Lv${me.level}</span></div>`; }
-    this.leaderboardDiv.innerHTML = html;
-  },
-  
   getScaledImageSize(img, targetSize) {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return { width: targetSize, height: targetSize };
     const aspectRatio = img.naturalWidth / img.naturalHeight; return aspectRatio > 1 ? { width: targetSize, height: targetSize / aspectRatio } : { width: targetSize * aspectRatio, height: targetSize };
@@ -260,7 +220,6 @@ export const Renderer = {
     ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * scaleY); ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
-
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   
@@ -297,19 +256,13 @@ export const Renderer = {
         if (t > 0.1 && t < 0.9) {
           ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
           ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
-          
-          // ĐÃ TỐI ƯU HÓA: Thay radial gradient bằng RGBA tĩnh siêu nhẹ (tránh GPU bị nghẽn)
           ctx.strokeStyle = `rgba(200, 230, 255, ${0.4 * (1-t)})`; 
-          ctx.lineCap = "round"; 
-          ctx.stroke(); 
-          ctx.restore();
+          ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
         }
       }
-      
       let leftWeaponAngle = angle - Math.PI * 0.7 + swing + sway;
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
-      
       this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
@@ -559,9 +512,11 @@ export const Renderer = {
 
     const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
     let killFeedStartY = isMob ? 120 : 190; 
-    if (this.leaderboardDiv) {
-      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) { this.lastLeaderboardHeight = this.leaderboardDiv.offsetHeight; this.lastHeightCheck = now; }
-      killFeedStartY = this.leaderboardDiv.offsetTop + this.lastLeaderboardHeight + 10;
+    
+    const lbEl = document.getElementById("hud-leaderboard");
+    if (lbEl) {
+      if (!this.lastHeightCheck || now - this.lastHeightCheck > 1000) { this.lastLeaderboardHeight = lbEl.offsetHeight; this.lastHeightCheck = now; }
+      killFeedStartY = lbEl.offsetTop + this.lastLeaderboardHeight + 10;
     }
     
     let activeKillFeeds = 0;
@@ -599,7 +554,5 @@ export const Renderer = {
 
     ctx.restore();
     if (GameState.isTouch) this.drawMobileUI();
-    const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
-    this.updateLeaderboard(allPlayersArr);
   }
 };
