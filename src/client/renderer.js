@@ -103,21 +103,13 @@ export const Renderer = {
   xpEffects: Array.from({length: 15}, () => ({active: false, x:0, y:0, amount:0, start:0})),
   visualRadius: {},
   floatingTexts: Array.from({length: 20}, () => ({active: false, x: 0, y: 0, text: "", color: "", size: 24, start: 0})),
-  killFeeds: Array.from({length: 3}, () => ({active: false, killer: "", victim: "", isMe: false, start: 0})),
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
-  activeAnnouncer: { active: false, name: "", msg: "", color: "", start: 0 },
 
-  triggerAnnouncer(name, streak) {
-      let msg = "", color = "";
-      if (streak === 2) { msg = "DOUBLE KILL"; color = "#00ffff"; }
-      else if (streak === 3) { msg = "TRIPLE KILL"; color = "#00ff00"; }
-      else if (streak === 5) { msg = "QUAD KILL"; color = "#ffaa00"; }
-      else if (streak === 7) { msg = "MEGA KILL"; color = "#ff5500"; }
-      else if (streak >= 10) { msg = "LEGENDARY"; color = "#ff0000"; }
-      if (!msg) return;
-      this.activeAnnouncer = { active: true, name: String(name).substring(0, 15), msg: msg, color: color, start: Date.now() };
-  },
+  // Giữ lại các hàm báo kill cũ nhưng vô hiệu hóa bên trong để tránh lỗi nếu file main.js vẫn còn gọi tới nó
+  triggerAnnouncer(name, streak) { /* Đã chuyển sang xử lý ở HUDManager (HTML/CSS) */ },
+  addKillFeed(killer, victim, isMe) { /* Đã chuyển sang xử lý ở HUDManager (HTML/CSS) */ },
+
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
         if(!this.damageTexts[i].active) {
@@ -126,30 +118,29 @@ export const Renderer = {
         }
     }
   },
+
   addHitFlash(id) { this.hitFlashes[id] = Date.now(); },
+
   addFloatingText(x, y, text, color, size) {
     for(let i=0; i<this.floatingTexts.length; i++) {
-      if(!this.floatingTexts[i].active) { const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break; }
+      if(!this.floatingTexts[i].active) {
+        const e = this.floatingTexts[i]; e.x = x; e.y = y; e.text = text; e.color = color; e.size = size; e.start = Date.now(); e.active = true; break;
+      }
     }
   },
-  addKillFeed(killer, victim, isMe) {
-    for(let i = this.killFeeds.length - 1; i > 0; i--) {
-      this.killFeeds[i].killer = this.killFeeds[i-1].killer; this.killFeeds[i].victim = this.killFeeds[i-1].victim;
-      this.killFeeds[i].isMe = this.killFeeds[i-1].isMe; this.killFeeds[i].start = this.killFeeds[i-1].start; this.killFeeds[i].active = this.killFeeds[i-1].active;
-    }
-    this.killFeeds[0].killer = String(killer).substring(0, 15); this.killFeeds[0].victim = String(victim).substring(0, 15);
-    this.killFeeds[0].isMe = isMe; this.killFeeds[0].start = Date.now(); this.killFeeds[0].active = true;
-  },
+
   addLevelUpEffect(x, y, radius) {
     for(let i=0; i<this.levelUpEffects.length; i++) {
       if(!this.levelUpEffects[i].active) { const e = this.levelUpEffects[i]; e.x = x; e.y = y; e.radius = radius; e.start = Date.now(); e.active = true; break; }
     }
   },
+  
   addKillXpEffect(x, y, amount) {
     for(let i=0; i<this.xpEffects.length; i++) {
       if(!this.xpEffects[i].active) { const e = this.xpEffects[i]; e.x = x; e.y = y; e.amount = amount; e.start = Date.now(); e.active = true; break; }
     }
   },
+  
   addDeathParticles(x, y, radius) {
     const isMob = window.innerWidth <= 768; const numParticles = isMob ? (4 + Math.random() * 3) : (8 + Math.random() * 6); 
     for (let i = 0; i < numParticles; i++) {
@@ -157,6 +148,7 @@ export const Renderer = {
       FX.spawn(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.8 + Math.random() * 0.4, Math.random() * (radius * 0.25) + 3, color, 0);
     }
   },
+  
   addTrail(x, y, angle, level, radius) {
     for (let i = 0; i < this.trails.length; i++) {
       const t = this.trails[i];
@@ -165,13 +157,21 @@ export const Renderer = {
   },
 
   setupUI() {
+    const speakerIcon = document.getElementById("sound-btn") || document.querySelector("[class*='sound']") || document.getElementById("mute-btn");
+    if (speakerIcon) speakerIcon.style.display = "none";
+
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    this.minimap = document.createElement("canvas"); this.minimap.width = 180 * dpr; this.minimap.height = 120 * dpr; 
-    // CHUYỂN MINIMAP LÊN GÓC PHẢI TRÊN (Đối xứng Avatar)
-    this.minimap.style.cssText = `position:fixed; top: max(10px, env(safe-area-inset-top)); right: max(15px, env(safe-area-inset-right)); border-radius:8px; z-index:1002; width:${isMob ? '90px' : '150px'} !important; height:${isMob ? '60px' : '100px'} !important; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid rgba(100, 110, 130, 0.5); background: rgba(30, 34, 45, 0.85);`; 
+    // Đã xóa các đoạn tạo XP Bar, Level Circle, Leaderboard cũ
     
-    document.body.appendChild(this.minimap); this.minimapCtx = this.minimap.getContext("2d"); this.minimapCtx.scale(dpr, dpr);
+    // Chỉ giữ lại Mini Map và căn chỉnh vị trí mới cho nó
+    this.minimap = document.createElement("canvas"); 
+    this.minimap.width = 180 * dpr; 
+    this.minimap.height = 120 * dpr; 
+    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:8px;z-index:90;width:150px !important;height:100px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
+    document.body.appendChild(this.minimap); 
+    this.minimapCtx = this.minimap.getContext("2d"); 
+    this.minimapCtx.scale(dpr, dpr);
   },
   
   resizeCanvas() { 
@@ -188,6 +188,8 @@ export const Renderer = {
   
   updateUI() {
     if (GameState.isDead) return;
+    
+    // Logic cập nhật Mini Map
     this.minimapCtx.clearRect(0, 0, 180, 120); 
     const allPlayersArr = GameState.stateBuffer[GameState.stateBuffer.length - 1]?.players || [];
     let top1 = null; if (allPlayersArr.length > 0) { top1 = allPlayersArr.slice().sort((a, b) => { if (b.level !== a.level) return b.level - a.level; return (b.score || 0) - (a.score || 0); })[0]; }
@@ -219,6 +221,7 @@ export const Renderer = {
     ctx.save(); ctx.translate(x, y + radius * 0.2); ctx.scale(1.0, 0.4 * scaleY); ctx.beginPath(); ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)"; ctx.fill(); ctx.restore();
   },
+
   lerp(a, b, t) { return a + (b - a) * t; },
   lerpObj(a, b, t) { return { ...b, x: this.lerp(a.x, b.x, t), y: this.lerp(a.y, b.y, t) }; },
   
@@ -256,12 +259,16 @@ export const Renderer = {
           ctx.save(); ctx.translate(x, y); const startArc = angle - Math.PI * 0.7; const currentArc = startArc + swing;
           ctx.beginPath(); ctx.arc(0, 0, radius + weaponHeadOffset * 1.5, startArc, currentArc, false); ctx.lineWidth = radius * 0.5;
           ctx.strokeStyle = `rgba(200, 230, 255, ${0.4 * (1-t)})`; 
-          ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+          ctx.lineCap = "round"; 
+          ctx.stroke(); 
+          ctx.restore();
         }
       }
+      
       let leftWeaponAngle = angle - Math.PI * 0.7 + swing + sway;
       const wx = x + Math.cos(leftWeaponAngle) * radius + Math.cos(leftWeaponAngle) * weaponHeadOffset;
       const wy = y + Math.sin(leftWeaponAngle) * radius + Math.sin(leftWeaponAngle) * weaponHeadOffset;
+      
       this.drawImageWithAspectRatio(weaponImg, wx, wy, weaponSize * (level >= 37 ? 1.1 : 1), leftWeaponAngle - Math.PI / 7.5);
     }
   },
@@ -477,64 +484,8 @@ export const Renderer = {
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const isMob = window.innerWidth <= 768; 
 
-    if (this.activeAnnouncer && this.activeAnnouncer.active) {
-      const elapsed = now - this.activeAnnouncer.start;
-      if (elapsed > 3000) { 
-          this.activeAnnouncer.active = false; 
-      } else {
-          let alpha = 1; 
-          if (elapsed < 200) alpha = elapsed / 200; 
-          else if (elapsed > 2700) alpha = 1 - (elapsed - 2700) / 300;
-          
-          let yOffset = 0; 
-          if (elapsed < 200) yOffset = -15 * (1 - elapsed / 200);
+    // Đã xóa toàn bộ đoạn code vẽ killFeeds và activeAnnouncer rườm rà ở khu vực này
 
-          ctx.save(); ctx.globalAlpha = alpha;
-          const cx = winW / 2; const cy = (isMob ? 45 : 55) + yOffset;
-          ctx.font = `bold ${isMob ? 11 : 13}px Arial`;
-          
-          const nW = ctx.measureText(this.activeAnnouncer.name).width;
-          const mW = ctx.measureText(` ⚔️ ${this.activeAnnouncer.msg}`).width;
-          const tW = nW + mW + 24; const h = isMob ? 22 : 26;
-          
-          ctx.fillStyle = "rgba(0, 0, 0, 0.55)"; ctx.beginPath();
-          ctx.arc(cx - tW/2 + h/2, cy, h/2, Math.PI/2, Math.PI*1.5);
-          ctx.arc(cx + tW/2 - h/2, cy, h/2, Math.PI*1.5, Math.PI/2);
-          ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.stroke();
-          
-          ctx.textAlign = "left"; ctx.textBaseline = "middle";
-          ctx.fillStyle = "#fff"; ctx.fillText(this.activeAnnouncer.name, cx - tW/2 + 12, cy + 1);
-          ctx.fillStyle = this.activeAnnouncer.color; ctx.fillText(` ⚔️ ${this.activeAnnouncer.msg}`, cx - tW/2 + 12 + nW, cy + 1);
-          ctx.restore();
-      }
-    }
-
-    const kfWidth = isMob ? 135 : 220; const kfHeight = isMob ? 18 : 26; const kfFontSize = isMob ? 9 : 13;    
-    
-    // Căn KillFeed xuống dưới Cột Trái (Avatar + Leaderboard)
-    let killFeedStartY = isMob ? 160 : 250; 
-    const lbEl = document.getElementById("hud-leaderboard");
-    if (lbEl) killFeedStartY = lbEl.offsetTop + lbEl.offsetHeight + 10;
-    
-    let activeKillFeeds = 0;
-    for (let i = 0; i < this.killFeeds.length; i++) {
-      const kf = this.killFeeds[i];
-      if (kf.active) {
-        const elapsed = now - kf.start; if (elapsed > 3000) { kf.active = false; continue; }
-        let alpha = 1; if (elapsed > 2500) alpha = 1 - ((elapsed - 2500) / 500);
-        let slideX = 0; if (elapsed < 300) slideX = -220 * Math.pow(1 - (elapsed/300), 3);
-        const yPos = killFeedStartY + (activeKillFeeds * (kfHeight + 5));
-        
-        ctx.save(); ctx.globalAlpha = alpha; ctx.translate((isMob ? 8 : 15) + slideX, yPos);
-        ctx.fillStyle = kf.isMe ? "rgba(255, 200, 0, 0.25)" : "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, kfWidth, kfHeight);
-        ctx.font = `bold ${kfFontSize}px Arial`; ctx.textBaseline = "middle";
-        ctx.fillStyle = kf.isMe ? "#ffff00" : "#ffffff"; ctx.textAlign = "left"; ctx.fillText(kf.killer, 6, kfHeight / 2);
-        ctx.fillStyle = "#ff3333"; ctx.textAlign = "center"; ctx.fillText("⚔️", kfWidth / 2, kfHeight / 2);
-        ctx.fillStyle = "#aaaaaa"; ctx.textAlign = "right"; ctx.fillText(kf.victim, kfWidth - 6, kfHeight / 2);
-        ctx.restore(); activeKillFeeds++;
-      }
-    }
-    
     const nowKillXp = Date.now();
     for (let i = 0; i < this.xpEffects.length; i++) {
       const e = this.xpEffects[i];
