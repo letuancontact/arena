@@ -5,122 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>EvoWar Arena</title>
     <link rel="stylesheet" href="style.css" />
-    
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
-
+      /* Các style cơ sở cho màn hình chờ */
       #ui-layer {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         z-index: 9999; font-family: 'Nunito', system-ui, -apple-system, sans-serif;
       }
-
       .screen-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-image: url('img/mapbg.png'); 
-        background-size: 150px 150px; 
-        background-repeat: repeat;
+        background-size: 150px 150px; background-repeat: repeat;
         background-color: rgba(15, 15, 15, 0.6); 
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
         display: flex; flex-direction: column; justify-content: center; align-items: center;
       }
-
       .popup-panel {
-        background: rgba(20, 25, 30, 0.45); 
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border-radius: 20px;
-        width: 85%; max-width: 300px; padding: 25px 20px;
+        background: rgba(20, 25, 30, 0.45); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border-radius: 20px; width: 85%; max-width: 300px; padding: 25px 20px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.15); 
-        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.15); text-align: center;
         display: flex; flex-direction: column; align-items: center;
       }
-      
       .panel-section { width: 100%; margin: 0; padding: 0; border: none; background: transparent; }
       .popup-panel h1 { color: #ffffff; font-size: 22px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
       .popup-panel h2 { color: #ffaa00; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
       .popup-panel p { color: #cccccc; font-size: 12px; margin: 0; line-height: 1.4; }
-      
       .logo-section { margin: 15px 0 20px 0; }
       .logo-section img { height: 70px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
-
       #player-name {
-        width: 100%; box-sizing: border-box;
-        padding: 12px 15px; margin-bottom: 15px;
+        width: 100%; box-sizing: border-box; padding: 12px 15px; margin-bottom: 15px;
         border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2);
         background: rgba(0, 0, 0, 0.4); color: #fff; font-size: 15px;
         font-family: inherit; font-weight: bold; text-align: center;
-        outline: none; transition: all 0.3s ease;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        outline: none; transition: all 0.3s ease; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
       }
       #player-name::placeholder { color: #aaa; font-weight: normal; }
       #player-name:focus { border-color: #ffaa00; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255, 170, 0, 0.2); }
-
       #play-btn, #respawn-btn {
-        background: linear-gradient(135deg, #ff6a00, #d62800);
-        border: none; border-radius: 20px; padding: 12px; color: white;
+        background: linear-gradient(135deg, #ff6a00, #d62800); border: none; border-radius: 20px; padding: 12px; color: white;
         font-family: inherit; font-weight: 900; font-size: 16px; letter-spacing: 1px;
-        cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
+        cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3); box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
         transition: transform 0.1s, filter 0.2s; width: 100%; 
       }
       #respawn-btn { width: 85%; } 
-
       #play-btn:active:not(:disabled), #respawn-btn:active:not(:disabled) { transform: scale(0.95); }
       #play-btn:hover:not(:disabled), #respawn-btn:hover:not(:disabled) { filter: brightness(1.15); }
       #play-btn:disabled, #respawn-btn:disabled { background: #555; color: #888; cursor: not-allowed; box-shadow: none; transform: none; }
-
       #status-text { color: #ffaa00; margin-top: 15px; font-weight: bold; font-size: 13px; }
 
-      #game-over-screen {
-        background-image: none; background-color: rgba(5,5,5,0.85); 
-        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        justify-content: center; align-items: center; overflow: hidden;
-      }
-
-      .go-wrapper {
-        display: flex; gap: 15px; justify-content: center; align-items: stretch;
-        width: 100%; max-width: 850px; padding: 20px; box-sizing: border-box;
-      }
-
-      .go-panel {
-        background: rgba(20, 25, 30, 0.45); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px;
-        display: flex; flex-direction: column; overflow: hidden;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5); flex-shrink: 0; 
-      }
-      
+      /* Game Over Screen */
+      #game-over-screen { background-image: none; background-color: rgba(5,5,5,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); justify-content: center; align-items: center; overflow: hidden; }
+      .go-wrapper { display: flex; gap: 15px; justify-content: center; align-items: stretch; width: 100%; max-width: 850px; padding: 20px; box-sizing: border-box; }
+      .go-panel { background: rgba(20, 25, 30, 0.45); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); flex-shrink: 0; }
       .go-side { width: 220px; }
       .go-center { width: 280px; align-items: center; padding-bottom: 20px; padding-top: 15px;}
-      
-      .go-header {
-        font-size: 14px; font-weight: bold; color: #ccc; text-transform: uppercase;
-        padding: 12px; text-align: center; width: 100%; box-sizing: border-box;
-        border-bottom: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px;
-      }
-      
+      .go-header { font-size: 14px; font-weight: bold; color: #ccc; text-transform: uppercase; padding: 12px; text-align: center; width: 100%; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px; }
       .go-hints { padding: 15px; color: #b3b3b3; font-size: 12px; line-height: 1.5; text-align: left; flex-grow: 1;}
       .go-hints p { margin: 0 0 10px 0; }
-      
       .go-title { font-size: 15px; color: #ddd; font-weight: 900; margin-top: 5px; text-transform: uppercase; text-align: center;}
       .go-killer { font-size: 18px; color: #ff4a4a; font-weight: 900; margin: 8px 0 15px 0; word-break: break-all; padding: 0 10px; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.4); }
       .go-next-text { font-size: 12px; color: #aaa; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
-      
       .go-center img { width: 85px; height: 85px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));}
-      
       .go-ad { padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
       .go-ad img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
-
-      @media (max-width: 950px) { 
-        .go-wrapper { 
-          justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; 
-          -ms-overflow-style: none; scrollbar-width: none; padding: 20px 50vw; 
-        }
-        .go-wrapper::-webkit-scrollbar { display: none; } 
-        .go-panel { scroll-snap-align: center; width: 75vw; max-width: 280px; }
-      }
-      
+      @media (max-width: 950px) { .go-wrapper { justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; -ms-overflow-style: none; scrollbar-width: none; padding: 20px 50vw; } .go-wrapper::-webkit-scrollbar { display: none; } .go-panel { scroll-snap-align: center; width: 75vw; max-width: 280px; } }
       #game { display: block; width: 100vw; height: 100vh; }
     </style>
   </head>
@@ -131,71 +80,78 @@
     <div id="game-hud" style="display: none;">
         <div class="hud-safe-area">
             
-            <div id="hud-player-info" class="hud-panel">
-                <div class="avatar-container">
-                    <!-- AVATAR LÀ THẺ IMG, SẼ ĐƯỢC JS CẬP NHẬT THEO CẤP -->
-                    <img id="player-avatar" src="img/lv1.png" alt="Avatar">
-                    <div id="player-level-badge">1</div>
+            <!-- CỘT TRÁI: Chứa Avatar và Bảng Xếp Hạng -->
+            <div class="hud-left-column">
+                <div id="hud-player-info" class="hud-panel">
+                    <div class="avatar-container">
+                        <img id="player-avatar" src="img/lv1.png" alt="Avatar">
+                        <div id="player-level-badge">1</div>
+                    </div>
+                    
+                    <div class="stats-container">
+                        <div class="name-row">
+                            <span id="hud-player-name">PlayerName</span>
+                            <span id="hud-player-level-text">Level 1</span>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label" style="color: #00ffcc;">HP</span>
+                            <div class="bar-bg">
+                                <div id="hud-hp-fill" class="bar-fill hp-fill"></div>
+                                <span id="hud-hp-text" class="bar-text">100/100</span>
+                            </div>
+                        </div>
+                        <div class="bar-row">
+                            <span class="bar-label" style="color: #b055ff;">EXP</span>
+                            <div class="bar-bg">
+                                <div id="hud-exp-fill" class="bar-fill exp-fill"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="stats-container">
-                    <div class="name-row">
-                        <span id="hud-player-name">PlayerName</span>
-                        <span id="hud-player-level-text">Level 1</span>
+
+                <div id="hud-leaderboard" class="hud-panel">
+                    <div class="lb-header">
+                        <span># Top Sát Thủ</span>
+                        <span>💀 / 👑</span>
                     </div>
-                    
-                    <div class="bar-row">
-                        <span class="bar-label" style="color: #00ffcc;">HP</span>
-                        <div class="bar-bg">
-                            <div id="hud-hp-fill" class="bar-fill hp-fill"></div>
-                            <span id="hud-hp-text" class="bar-text">100/100</span>
-                        </div>
-                    </div>
-                    
-                    <div class="bar-row">
-                        <span class="bar-label" style="color: #b055ff;">EXP</span>
-                        <div class="bar-bg">
-                            <div id="hud-exp-fill" class="bar-fill exp-fill"></div>
-                        </div>
-                    </div>
+                    <div id="lb-pool-container"></div>
                 </div>
             </div>
 
-            <!-- TOP BAR SỬ DỤNG EMOJI THAY VÌ ẢNH ATLAS -->
+            <!-- TOP BAR: Đã được thu nhỏ ở CSS -->
             <div id="hud-top-bar" class="hud-panel">
-                <div class="top-stat">
-                    <span class="emoji-icon">🪙</span>
-                    <span id="hud-gold">0</span>
-                </div>
-                <div class="top-stat">
-                    <span class="emoji-icon">💎</span>
-                    <span id="hud-diamond">0</span>
-                </div>
+                <div class="top-stat"><span class="emoji-icon">🪙</span><span id="hud-gold">0</span></div>
+                <div class="top-stat"><span class="emoji-icon">💎</span><span id="hud-diamond">0</span></div>
                 <div class="divider"></div>
-                <div class="top-stat">
-                    <span class="emoji-icon">⚔️</span>
-                    <span id="hud-kill">0</span>
-                </div>
-                <div class="top-stat">
-                    <span class="emoji-icon">💀</span>
-                    <span id="hud-death">0</span>
-                </div>
+                <div class="top-stat"><span class="emoji-icon">⚔️</span><span id="hud-kill">0</span></div>
+                <div class="top-stat"><span class="emoji-icon">💀</span><span id="hud-death">0</span></div>
                 <div class="divider"></div>
                 <button id="hud-settings-btn" class="settings-btn">⚙️</button>
             </div>
 
-            <div id="hud-leaderboard" class="hud-panel">
-                <div class="lb-header">
-                    <span># Player</span>
-                    <span>💀 / D 👑</span>
-                </div>
-                <div id="lb-pool-container"></div>
-            </div>
         </div>
     </div>
     <!-- === KẾT THÚC: HUD IN-GAME === -->
 
-    <button id="mute-btn">🔊</button>
+    <!-- === MODAL CÀI ĐẶT === -->
+    <div id="settings-modal" style="display: none;">
+        <div class="popup-panel">
+            <h1>CÀI ĐẶT</h1>
+            <div style="width: 100%; margin-top: 15px;">
+                <label style="color: #ccc; font-size: 13px; font-weight: bold; display: block; text-align: left; margin-bottom: 5px;">Âm lượng</label>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1">
+            </div>
+            <div style="width: 100%; margin-top: 15px;">
+                <label style="color: #ccc; font-size: 13px; font-weight: bold; display: block; text-align: left; margin-bottom: 5px;">Ngôn ngữ</label>
+                <select id="language-select">
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <button id="close-settings-btn" style="margin-top: 20px;">ĐÓNG</button>
+        </div>
+    </div>
+    <!-- === KẾT THÚC MODAL === -->
 
     <div id="ui-layer">
         <div id="lobby-screen" class="screen-container" style="display: flex;">
@@ -205,12 +161,9 @@
                     <h2>Chiến đấu - Giết chóc -  Tiến hóa</h2>
                     <p>Nâng cấp để phát triển nhân vật của bạn.<br>Vũ khí lớn hơn, giáp mạnh hơn!</p>
                 </div>
-                
                 <div class="logo-section">
-                    <!-- Nếu có logo.png thì dùng, nếu ko nó tự bỏ qua -->
                     <img src="img/logo.png" alt="Logo">
                 </div>
-
                 <div class="panel-section">
                     <input type="text" id="player-name" placeholder="Nhập tên sát thủ..." maxlength="15" autocomplete="off" spellcheck="false">
                     <button id="play-btn">PLAY</button>
@@ -221,12 +174,11 @@
 
         <div id="game-over-screen" class="screen-container" style="display: none;">
             <div class="go-wrapper">
-                
                 <div id="go-side-hints" class="go-panel go-side">
                     <div class="go-header">GỢI Ý</div>
                     <div class="go-hints">
                         <p>• Giết một kẻ thù lớn mang lại cho bạn rất nhiều kinh nghiệm!</p>
-                        <p>• Những quả cầu lớn mang lại cho bạn nhiều kinh nghiệm hơn, nhưng hạ gục đối thủ mang lại nhiều kinh nghiệm nhất.</p>
+                        <p>• Hạ gục đối thủ mang lại lượng kinh nghiệm lớn nhất.</p>
                         <p>• Hãy cẩn thận với những kẻ thù nhỏ bé vì chúng di chuyển rất nhanh!</p>
                     </div>
                 </div>
@@ -236,18 +188,8 @@
                     <div id="go-killer-name" class="go-killer">ĐANG XÁC NHẬN...</div>
                     <div class="go-next-text">TIẾN HÓA TIẾP THEO</div>
                     <img id="go-next-img" src="img/lv2.png" alt="Tiến hóa">
-                    
                     <div id="respawn-timer" style="color: #ffcc00; font-size: 15px; font-weight: bold; margin-bottom: 12px; height: 20px;"></div>
-                    
                     <button id="respawn-btn">CHƠI LẠI</button>
-                </div>
-
-                <div id="go-side-ads" class="go-panel go-side">
-                    <div class="go-header">TRÒ CHƠI CỦA</div>
-                    <div class="go-ad">
-                        <img src="img/mapbg.png" style="height: 90px; object-fit: cover;" alt="Ads">
-                        <p style="color: #888; font-size: 11px; margin-top: 10px;">More games coming soon...</p>
-                    </div>
                 </div>
             </div>
         </div>
