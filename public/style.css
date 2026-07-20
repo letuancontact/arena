@@ -18,13 +18,13 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 .hud-safe-area {
     position: relative; width: 100%; height: 100%;
     padding: max(10px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 10px max(15px, env(safe-area-inset-left));
-    box-sizing: border-box; display: flex; justify-content: center; /* Đưa top bar ra giữa */
+    box-sizing: border-box; display: flex; justify-content: center;
 }
 
-/* Gom Avatar và Bảng xếp hạng vào Cột Trái */
+/* Cột Trái */
 .hud-left-column {
     position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left));
-    display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
 }
 
 .hud-panel { background: rgba(30, 34, 45, 0.85); border: 1.5px solid rgba(100, 110, 130, 0.5); border-radius: 12px; pointer-events: auto; }
@@ -47,29 +47,34 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 .exp-fill { background: linear-gradient(90deg, #9b59b6, #e056fd); }
 .bar-text { position: absolute; top: -2px; left: 0; width: 100%; text-align: center; font-size: 9px; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000; }
 
-/* 2. TOP BAR TỐI ƯU (Nhỏ gọn hơn) */
-#hud-top-bar {
-    display: flex; align-items: center; padding: 4px 10px; gap: 8px;
-    border-radius: 15px; height: fit-content; margin-top: 0;
-}
+/* 2. TOP BAR */
+#hud-top-bar { display: flex; align-items: center; padding: 4px 10px; gap: 8px; border-radius: 15px; height: fit-content; margin-top: 0; }
 .top-stat { display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; font-weight: bold; }
 .emoji-icon { font-size: 13px; line-height: 1; margin-right: 1px; }
 .divider { width: 1px; height: 14px; background: rgba(255,255,255,0.2); }
 .settings-btn { background: none; border: none; color: white; font-size: 15px; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
 .settings-btn:active { transform: scale(0.9); }
 
-/* 3. LEADERBOARD (Nằm ở cột trái) */
-#hud-leaderboard { width: 180px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
-.lb-header { display: flex; justify-content: space-between; font-size: 10px; color: #8892b0; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 2px; }
-#lb-pool-container { display: flex; flex-direction: column; gap: 3px; }
-.lb-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #ccd6f6; padding: 2px 4px; border-radius: 4px; }
-.lb-row.rank-1 { color: #f1c40f; background: rgba(241, 196, 15, 0.1); }
+/* 3. LEADERBOARD (Đã thu gọn kích thước và làm trong suốt tối đa) */
+#hud-leaderboard { 
+    width: 135px; /* Ép gọn chiều ngang */
+    padding: 6px 8px; 
+    display: flex; flex-direction: column; gap: 3px; 
+    background: rgba(15, 20, 25, 0.4); /* Trong suốt để dễ nhìn map */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Viền mờ */
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); /* Giảm độ mờ kính */
+    border-radius: 10px; pointer-events: none;
+}
+.lb-header { display: flex; justify-content: space-between; font-size: 9px; color: #aab7c4; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 3px; margin-bottom: 2px; text-transform: uppercase; }
+#lb-pool-container { display: flex; flex-direction: column; gap: 2px; }
+.lb-row { display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; color: #ccd6f6; padding: 2px 3px; border-radius: 4px; }
+.lb-row.rank-1 { color: #f1c40f; background: rgba(241, 196, 15, 0.15); }
 .lb-row.rank-2 { color: #e0e0e0; }
 .lb-row.rank-3 { color: #cd7f32; }
-.lb-row.separator { justify-content: center; color: #5a6b8c; font-weight: normal; letter-spacing: 2px; height: 10px; margin: 2px 0;}
-.lb-row.is-me { background: rgba(0, 255, 204, 0.15); color: #00ffcc; border-left: 2px solid #00ffcc; border-radius: 0 4px 4px 0;}
-.lb-rank-name { display: flex; gap: 6px; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-score { font-size: 10px; color: #aab7c4; font-weight: bold;}
+.lb-row.separator { justify-content: center; color: #5a6b8c; font-weight: normal; letter-spacing: 2px; height: 10px; margin: 0;}
+.lb-row.is-me { background: rgba(0, 255, 204, 0.2); color: #00ffcc; border-left: 2px solid #00ffcc; border-radius: 0 4px 4px 0;}
+.lb-rank-name { display: flex; gap: 4px; width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-score { font-size: 9px; color: #f1c40f; font-weight: bold;} /* Tô vàng chữ hiển thị Level / Vương miện */
 
 /* 4. SETTINGS MODAL */
 #settings-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
@@ -80,5 +85,5 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 
 @media (max-width: 700px) {
     #hud-top-bar { transform: scale(0.9); }
-    .hud-left-column { transform: scale(0.9); transform-origin: top left; }
+    .hud-left-column { transform: scale(0.85); transform-origin: top left; }
 }
