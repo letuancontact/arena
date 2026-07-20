@@ -1,6 +1,9 @@
 // --- src/server/server.js ---
 "use strict";
 
+// --- BƯỚC 1: NẠP CẤU HÌNH BIẾN MÔI TRƯỜNG (MỚI THÊM) ---
+require("dotenv").config(); 
+
 const express = require("express");
 const path = require("path");
 const { WebSocketServer } = require("ws");
@@ -14,9 +17,15 @@ const foodLib = require("./food");
 const collisionLib = require("./collision");
 const spatialIndex = require("./spatialIndex");
 
+// --- BƯỚC 2: NẠP FILE KẾT NỐI DATABASE (MỚI THÊM) ---
+const connectDB = require("./db/connect");
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
+
+// --- BƯỚC 3: KÍCH HOẠT KẾT NỐI MONGODB (MỚI THÊM) ---
+connectDB(process.env.MONGO_URI);
 
 app.use(express.static(path.join(__dirname, "../../public"), { maxAge: "7d" }));
 app.use("/shared", express.static(path.join(__dirname, "../shared"), { maxAge: "7d" }));
