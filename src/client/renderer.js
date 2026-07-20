@@ -81,7 +81,7 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  // --- HỆ THỐNG THÔNG BÁO TỐI ƯU (Tối đa 3 dòng tổng cộng) ---
+  // === THÔNG BÁO TỐI ĐA 3 DÒNG ===
   triggerAnnouncer(name, streak) {
     let msg = ""; let streakClass = "";
     if (streak === 2) { msg = "DOUBLE KILL"; streakClass = "streak-2"; }
@@ -94,7 +94,6 @@ export const Renderer = {
     const container = document.getElementById("notification-area");
     if (!container) return;
     
-    // Nếu có từ 3 dòng trở lên, xóa bớt dòng cũ nhất
     while (container.children.length >= 3) { container.firstChild.remove(); }
     
     const el = document.createElement("div");
@@ -108,7 +107,6 @@ export const Renderer = {
     const container = document.getElementById("notification-area");
     if (!container) return;
     
-    // Nếu có từ 3 dòng trở lên, xóa bớt dòng cũ nhất
     while (container.children.length >= 3) { container.firstChild.remove(); }
 
     const el = document.createElement("div");
@@ -118,7 +116,7 @@ export const Renderer = {
     
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3600); 
   },
-  // --------------------------------------------------------
+  // ==============================
 
   addDamageText(x, y, amount) {
     for(let i=0; i<this.damageTexts.length; i++) {
@@ -162,10 +160,10 @@ export const Renderer = {
     if (speakerIcon) speakerIcon.style.display = "none";
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
+    // Thu nhỏ Minimap còn 90x60, không dùng thẻ mờ kính để chống lag
     this.minimap = document.createElement("canvas"); 
     this.minimap.width = 135 * dpr; 
     this.minimap.height = 90 * dpr; 
-    // Đã gỡ bỏ backdrop-filter gây lag
     this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:90px !important;height:60px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d"); 
