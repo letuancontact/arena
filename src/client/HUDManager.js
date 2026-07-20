@@ -72,6 +72,8 @@ export class HUDManager {
 
     updateLeaderboard(playersData, myId) {
         if (!this.dom.lbContainer || !playersData) return;
+        
+        // Thuật toán sắp xếp Top: Ưu tiên Level trước, nếu bằng Level thì ưu tiên Điểm (Score)
         const sorted = [...playersData].sort((a, b) => { 
             if (b.level !== a.level) return b.level - a.level; 
             return (b.score || 0) - (a.score || 0); 
@@ -102,7 +104,12 @@ export class HUDManager {
     renderLbRow(poolItem, data, index, myId) {
         poolItem.rank.innerText = `#${index + 1}`;
         poolItem.name.innerText = data.name || "Khách";
-        const level = data.level || 1; const crowns = data.crowns || 0; 
+        
+        const level = data.level || 1; 
+        
+        // --- CHỈNH SỬA TẠI ĐÂY: Lấy đúng biến killStreak từ Server gửi sang ---
+        const crowns = data.killStreak || 0; 
+        
         poolItem.score.innerText = `${level} / ${crowns}`;
         
         let classes = 'lb-row';
