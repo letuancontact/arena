@@ -72,6 +72,7 @@ export class HUDManager {
 
     updateLeaderboard(playersData, myId) {
         if (!this.dom.lbContainer || !playersData) return;
+        // Logic sắp xếp: Ưu tiên Cấp độ (level), sau đó xét Điểm (score)
         const sorted = [...playersData].sort((a, b) => { 
             if (b.level !== a.level) return b.level - a.level; 
             return (b.score || 0) - (a.score || 0); 
@@ -80,24 +81,21 @@ export class HUDManager {
         const topCount = Math.min(sorted.length, 5);
         let myIndex = sorted.findIndex(p => p.id === myId);
 
-        // Reset toàn bộ pool
+        // Reset toàn bộ pool để dọn rác
         this.lbPool.forEach(p => { p.element.style.display = 'none'; p.active = false; p.element.className = 'lb-row'; });
 
-        // 1. In Top 5
+        // 1. In danh sách Top 5 người chơi
         for (let i = 0; i < topCount; i++) {
             this.renderLbRow(this.lbPool[i], sorted[i], i, myId);
         }
 
-        // 2. Xử lý Vạch kẻ và Bản thân nếu nằm ngoài Top 5
+        // 2. Nếu bản thân lọt ngoài Top 5 -> Xử lý vạch kẻ ngang và thông tin bản thân dưới cùng
         if (myIndex >= 5) {
-            // Vạch kẻ ngang ở vị trí số 5 (pool index 5)
             const separator = this.lbPool[5];
             separator.element.className = 'lb-row separator';
             separator.element.innerHTML = '-------';
             separator.element.style.display = 'flex'; separator.active = true;
 
-            // Dữ liệu bản thân ở vị trí số 6 (pool index 6)
-            // Khôi phục lại cấu trúc HTML vì vạch kẻ ngang đã ghi đè innerHTML
             const meRow = this.lbPool[6];
             meRow.element.innerHTML = '';
             meRow.element.appendChild(meRow.leftDiv); meRow.element.appendChild(meRow.score);
@@ -108,16 +106,18 @@ export class HUDManager {
     renderLbRow(poolItem, data, index, myId) {
         poolItem.rank.innerText = `#${index + 1}`;
         poolItem.name.innerText = data.name || "Khách";
-        const kills = data.kills || data.score || 0;
-        const deaths = data.deaths || 0;
-        poolItem.score.innerText = `${kills} / ${deaths}`;
+        
+        // --- THAY ĐỔI CƠ CHẾ HIỂN THỊ (Level / Crown) ---
+        const level = data.level || 1;
+        const crowns = data.crowns || 0; // Trả về số lần Top 1 (0 nếu server chưa có biến này)
+        poolItem.score.innerText = `${level} / ${crowns}`;
         
         let classes = 'lb-row';
         if (index === 0) classes += ' rank-1';
         else if (index === 1) classes += ' rank-2';
         else if (index === 2) classes += ' rank-3';
         
-        if (data.id === myId) classes += ' is-me';
+        if (data.id === myId) classes += ' is-me'; // Làm sáng dòng của bản thân
         
         poolItem.element.className = classes;
         poolItem.element.style.display = 'flex';
