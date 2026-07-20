@@ -2,13 +2,11 @@
 import { GameState } from './state.js';
 import { Camera, FX, Renderer } from './renderer.js';
 import { Sound } from './audio.js';
+import { HUD } from './HUDManager.js'; 
 
 const CONFIG = window.GAME_CONFIG;
 let uiHideTimeout = null; 
 
-// ==========================================
-// TỐI ƯU HÓA: LƯU BỘ NHỚ TẠM (CACHE DOM)
-// ==========================================
 let cachedUiLayer = null;
 let cachedSpeakerIcon = undefined; 
 
@@ -39,26 +37,16 @@ export const Network = {
       GameState.stateBuffer.push({ time: Date.now(), players: data.players || [] });
       if (GameState.stateBuffer.length > 5) GameState.stateBuffer.shift();
 
-      // ==========================================
-      // FIX LỖI MEMORY LEAK: Lọc trùng lặp & Giới hạn số lượng hiển thị
-      // ==========================================
       if (data.foodAdded && data.foodAdded.length > 0) {
-        // Tạo một Set chứa các ID hiện có để truy xuất siêu tốc (O(1))
         const existingIds = new Set(GameState.food.map(f => f.id));
-        
-        // Chỉ thêm những hạt thức ăn chưa tồn tại
         const newFoods = data.foodAdded.filter(f => !existingIds.has(f.id));
         GameState.food.push(...newFoods);
         
-        // Khóa an toàn: Chặn mảng phình to quá giới hạn 2000 phần tử
         if (GameState.food.length > 2000) {
             GameState.food = GameState.food.slice(-2000);
         }
       }
       
-      // ==========================================
-      // Lọc xóa thức ăn mượt mà
-      // ==========================================
       if (data.foodRemoved && data.foodRemoved.length > 0) { 
         const removedSet = new Set(data.foodRemoved); 
         GameState.food = GameState.food.filter(f => !removedSet.has(f.id)); 
@@ -116,6 +104,7 @@ export const Network = {
         else { GameState.serverX = me.x; GameState.serverY = me.y; }
 
         if (!prevDead && me.isDead) {
+          GameState.deaths = (GameState.deaths || 0) + 1; 
           if (uiHideTimeout) clearTimeout(uiHideTimeout); 
           if (cachedSpeakerIcon) cachedSpeakerIcon.style.display = "none";
           
@@ -126,6 +115,10 @@ export const Network = {
               window.showGameOver(me.level, 0, me.xp, finalKillerName);
           }
         }
+
+        const playerName = localStorage.getItem("evowar_name") || "Khách";
+        HUD.updatePlayerStats(GameState.clientXp, GameState.clientXpToNext, GameState.clientXp, GameState.clientXpToNext, GameState.clientLevel, playerName);
+        HUD.updateTopBar(me.gold || 0, me.diamond || 0, GameState.kills || 0, GameState.deaths || 0);
       }
       
       GameState.isDead = me?.isDead ?? true; GameState.lastAttackTime = me?.lastAttackTime || GameState.lastAttackTime;
@@ -143,6 +136,7 @@ export const Network = {
             Renderer.addKillFeed(killer.name || "Khách", p.name || "Khách", isMe);
           }
           if (p.killerId === GameState.playerId && p.id !== GameState.playerId) {
+            GameState.kills = (GameState.kills || 0) + 1; 
             const xpGained = Math.floor((p.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_HUD);
             Renderer.addFloatingText(p.x, p.y - 12, `+${xpGained} XP`, "#00ff66", 14); Renderer.addFloatingText(p.x, p.y + 12, "KILL!", "#ff3333", 16);        
             Sound.play('kill'); GameState.freezeUntil = Date.now() + 40; Camera.addShake(15); FX.spawnHitSparks(p.x, p.y);
@@ -154,6 +148,8 @@ export const Network = {
         }
         GameState.prevPlayerLevels[p.id] = p.level; GameState.prevPlayerDeadState[p.id] = p.isDead;
       }
+
+      HUD.updateLeaderboard(data.players || []);
     }
   },
 
