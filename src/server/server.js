@@ -198,8 +198,6 @@ setInterval(() => {
             name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
             lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
             deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
-            
-            // --- THÊM DÒNG NÀY ĐỂ GỬI DỮ LIỆU CHUỖI HẠ GỤC VỀ CLIENT ---
             killStreak: p.killStreak || 0 
         });
     };
@@ -216,7 +214,11 @@ setInterval(() => {
 
     for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
     
-    foodAdded = []; foodRemoved = []; hitsBuffer = []; announcementsBuffer = []; 
+    // TỐI ƯU 3: Giữ nguyên vùng nhớ, chỉ dọn sạch dữ liệu mảng (Array Pooling)
+    foodAdded.length = 0; 
+    foodRemoved.length = 0; 
+    hitsBuffer.length = 0; 
+    announcementsBuffer.length = 0; 
   }
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
