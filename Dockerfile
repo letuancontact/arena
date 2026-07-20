@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package.json và package-lock.json trước để tận dụng Docker cache
 COPY package*.json ./
 
-# Cài đặt dependencies
-RUN npm ci --only=production
+# Cài đặt dependencies (Đã sửa từ npm ci thành npm install)
+RUN npm install --production
 
 # Copy source code
 COPY . .
@@ -32,4 +32,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Chạy ứng dụng
-CMD ["npm", "start"] 
+CMD ["npm", "start"]
