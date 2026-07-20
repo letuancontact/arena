@@ -81,7 +81,7 @@ export const Renderer = {
   damageTexts: Array.from({length: 40}, () => ({active: false, x: 0, y: 0, vx: 0, vy: 0, amount: 0, start: 0})),
   hitFlashes: {},
 
-  // --- CẬP NHẬT THÔNG BÁO UI (CSS chung .notify-item) ---
+  // --- HỆ THỐNG THÔNG BÁO TỐI ƯU (Tối đa 3 dòng tổng cộng) ---
   triggerAnnouncer(name, streak) {
     let msg = ""; let streakClass = "";
     if (streak === 2) { msg = "DOUBLE KILL"; streakClass = "streak-2"; }
@@ -91,26 +91,28 @@ export const Renderer = {
     else if (streak >= 10) { msg = "LEGENDARY"; streakClass = "streak-max"; }
     if (!msg) return;
 
-    const container = document.getElementById("combo-announcement");
+    const container = document.getElementById("notification-area");
     if (!container) return;
+    
+    // Nếu có từ 3 dòng trở lên, xóa bớt dòng cũ nhất
+    while (container.children.length >= 3) { container.firstChild.remove(); }
+    
     const el = document.createElement("div");
-    el.className = `notify-item combo-item ${streakClass}`; // Dùng CSS chung
+    el.className = `notify-item combo-item ${streakClass}`;
     el.innerHTML = `<span class="text-limit" style="max-width: 65px;">${String(name)}</span> <span class="msg">⚔️ ${msg}</span>`;
     container.appendChild(el);
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3100); 
   },
 
   addKillFeed(killer, victim, isMe) {
-    const container = document.getElementById("kill-feed-container");
+    const container = document.getElementById("notification-area");
     if (!container) return;
     
-    // Đảm bảo tối đa 4 dòng, nếu đang có 4 dòng thì xoá dòng trên cùng trước khi nhét thêm
-    while (container.children.length >= 4) {
-        container.firstChild.remove();
-    }
+    // Nếu có từ 3 dòng trở lên, xóa bớt dòng cũ nhất
+    while (container.children.length >= 3) { container.firstChild.remove(); }
 
     const el = document.createElement("div");
-    el.className = `notify-item kf-item ${isMe ? "is-me" : ""}`; // Dùng CSS chung
+    el.className = `notify-item kf-item ${isMe ? "is-me" : ""}`; 
     el.innerHTML = `<span class="killer text-limit">${String(killer)}</span> <span class="sword">⚔️</span> <span class="victim text-limit">${String(victim)}</span>`;
     container.appendChild(el);
     
@@ -160,11 +162,11 @@ export const Renderer = {
     if (speakerIcon) speakerIcon.style.display = "none";
     const isMob = window.innerWidth <= 768; const dpr = Math.min(window.devicePixelRatio || 1, 2); 
     
-    // Đã thu nhỏ Minimap (Hiển thị 90x60px)
     this.minimap = document.createElement("canvas"); 
-    this.minimap.width = 135 * dpr; // Logic vẽ cho nét
+    this.minimap.width = 135 * dpr; 
     this.minimap.height = 90 * dpr; 
-    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:90px !important;height:60px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.7); backdrop-filter: blur(4px);`; 
+    // Đã gỡ bỏ backdrop-filter gây lag
+    this.minimap.style.cssText = `position:fixed;top:10px;right:15px;border-radius:6px;z-index:90;width:90px !important;height:60px !important;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.8); overflow:hidden; border: 2px solid #445566; background: rgba(10, 15, 20, 0.85);`; 
     document.body.appendChild(this.minimap); 
     this.minimapCtx = this.minimap.getContext("2d"); 
     this.minimapCtx.scale(dpr, dpr);
