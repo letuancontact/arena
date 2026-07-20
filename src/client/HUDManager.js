@@ -14,11 +14,10 @@ export class HUDManager {
             diamond: document.getElementById('hud-diamond'),
             kill: document.getElementById('hud-kill'),
             death: document.getElementById('hud-death'),
-            lbContainer: document.getElementById('lb-pool-container'),
-            comboFeed: document.getElementById('combo-announcement') // Quản lý thông báo Double, Triple
+            lbContainer: document.getElementById('lb-pool-container')
         };
 
-        this.MAX_LB_ROWS = 7; // Top 5 + 1 vạch ngang + 1 bản thân
+        this.MAX_LB_ROWS = 7;
         this.lbPool = [];
         this.initLeaderboardPool();
 
@@ -57,39 +56,6 @@ export class HUDManager {
         if (this.state.death !== death) { this.state.death = death; this.dom.death.innerText = death; }
     }
 
-    // --- HỆ THỐNG THÔNG BÁO DOUBLE KILL / TRIPLE KILL ---
-    showKillMessage(killerName, killCount) {
-        if (!this.dom.comboFeed) return;
-
-        // Bỏ qua nếu chưa đạt mốc combo (1 kill thì không hiện thông báo bự)
-        if (killCount < 2) return;
-
-        let comboText = "";
-        let color = "#fff";
-
-        if (killCount === 2) { comboText = "DOUBLE KILL!"; color = "#ffaa00"; }      // Vàng cam
-        else if (killCount === 3) { comboText = "TRIPLE KILL!"; color = "#00ffcc"; } // Xanh ngọc
-        else if (killCount === 4) { comboText = "QUADRA KILL!"; color = "#b055ff"; } // Tím
-        else if (killCount >= 5) { comboText = "PENTA KILL!"; color = "#ff0044"; }   // Đỏ
-
-        // Dọn sạch chữ cũ trước khi đẩy chữ mới vào để đè lên nhau đẹp mắt
-        this.dom.comboFeed.innerHTML = '';
-
-        const item = document.createElement('div');
-        item.className = 'combo-text-wrapper';
-        item.innerHTML = `
-            <div class="combo-killer-name">${killerName}</div>
-            <div class="combo-title" style="color: ${color};">${comboText}</div>
-        `;
-
-        this.dom.comboFeed.appendChild(item);
-
-        // Tự động xóa sau 2.5 giây
-        setTimeout(() => {
-            if (item.parentNode) item.parentNode.removeChild(item);
-        }, 2500);
-    }
-
     initLeaderboardPool() {
         if (!this.dom.lbContainer) return;
         for (let i = 0; i < this.MAX_LB_ROWS; i++) {
@@ -106,7 +72,6 @@ export class HUDManager {
 
     updateLeaderboard(playersData, myId) {
         if (!this.dom.lbContainer || !playersData) return;
-        
         const sorted = [...playersData].sort((a, b) => { 
             if (b.level !== a.level) return b.level - a.level; 
             return (b.score || 0) - (a.score || 0); 
@@ -137,17 +102,13 @@ export class HUDManager {
     renderLbRow(poolItem, data, index, myId) {
         poolItem.rank.innerText = `#${index + 1}`;
         poolItem.name.innerText = data.name || "Khách";
-        
-        // Hiển thị Level và Vương Miện
-        const level = data.level || 1;
-        const crowns = data.crowns || 0; 
+        const level = data.level || 1; const crowns = data.crowns || 0; 
         poolItem.score.innerText = `${level} / ${crowns}`;
         
         let classes = 'lb-row';
         if (index === 0) classes += ' rank-1';
         else if (index === 1) classes += ' rank-2';
         else if (index === 2) classes += ' rank-3';
-        
         if (data.id === myId) classes += ' is-me'; 
         
         poolItem.element.className = classes;
