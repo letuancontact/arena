@@ -23,17 +23,18 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 
 .hud-panel { background: rgba(30, 34, 45, 0.85); border: 1.5px solid rgba(100, 110, 130, 0.5); border-radius: 12px; pointer-events: auto; }
 
-/* 1. CỘT TRÁI (Chứa Avatar và Leaderboard) */
+/* =========================================
+   1. CỘT TRÁI (Avatar + Bảng xếp hạng)
+   ========================================= */
 .hud-left-column {
     position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left));
     display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+    max-width: 30vw; /* Giới hạn chiều ngang để không đè ra giữa */
 }
 
-/* PLAYER INFO - Đã thu nhỏ */
 #hud-player-info { 
     display: flex; align-items: center; 
-    padding: 4px 8px 4px 4px; gap: 8px; 
-    max-width: 190px;
+    padding: 4px 8px 4px 4px; gap: 8px; max-width: 190px;
 }
 .avatar-container { position: relative; width: 36px; height: 36px; }
 #player-avatar { width: 100%; height: 100%; border-radius: 8px; background-color: #1a2530; border: 2px solid #5a6b8c; object-fit: contain; box-sizing: border-box; }
@@ -51,12 +52,9 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 .exp-fill { background: linear-gradient(90deg, #9b59b6, #e056fd); }
 .bar-text { position: absolute; top: -2px; left: 0; width: 100%; text-align: center; font-size: 8px; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000; }
 
-/* LEADERBOARD */
 #hud-leaderboard { 
-    width: 135px; padding: 6px 8px; 
-    display: flex; flex-direction: column; gap: 3px; 
-    background: rgba(15, 20, 25, 0.4); 
-    border: 1px solid rgba(255, 255, 255, 0.1); 
+    width: 135px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; 
+    background: rgba(15, 20, 25, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); 
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); 
     border-radius: 10px; pointer-events: none;
 }
@@ -71,15 +69,14 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 .lb-rank-name { display: flex; gap: 4px; width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-score { font-size: 9px; color: #f1c40f; font-weight: bold;} 
 
-/* 2. TOP BAR (Căn giữa tuyệt đối, không bị đè) */
+
+/* =========================================
+   2. TOP BAR (Căn giữa tuyệt đối)
+   ========================================= */
 #hud-top-bar { 
-    position: absolute; 
-    top: 10px; 
-    left: 50%; 
-    transform: translateX(-50%); 
-    display: flex; align-items: center; 
-    padding: 4px 10px; gap: 8px; 
-    height: 26px; border-radius: 12px; margin-top: 0; 
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
+    display: flex; align-items: center; padding: 2px 8px; gap: 6px; 
+    height: 24px; border-radius: 12px; margin-top: 0; white-space: nowrap;
 }
 .top-stat { display: flex; align-items: center; gap: 3px; color: #fff; font-size: 11px; font-weight: bold; }
 .emoji-icon { font-size: 11px; line-height: 1; margin-right: 1px; }
@@ -87,44 +84,45 @@ body { margin: 0; padding: 0; overflow: hidden; background: #111; font-family: "
 .settings-btn { background: none; border: none; color: white; font-size: 13px; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
 .settings-btn:active { transform: scale(0.9); }
 
-/* 3. KILL FEED (Dưới Mini Map bên phải) */
-#kill-feed {
-    position: absolute;
-    top: 180px; /* Cách mép trên để nhường chỗ cho Minimap */
-    right: 15px; /* Ép sang phải */
-    width: 150px; /* Bằng với Minimap */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end; /* Chữ căn lề phải */
-    gap: 4px;
-    pointer-events: none;
-    z-index: 90;
-}
-.kill-feed-item {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    color: #fff;
-    font-weight: bold;
-    border-left: 2px solid #ff4a4a; /* Vạch đỏ bên trái cho ngầu */
-    white-space: nowrap;
-    animation: fade-in-left 0.2s ease-out forwards;
-}
-@keyframes fade-in-left {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
+
+/* =========================================
+   3. RESPONSIVE CHỐNG ĐÈ NHAU (Rất quan trọng)
+   ========================================= */
+@media (max-width: 900px) {
+    .hud-left-column { transform: scale(0.7); transform-origin: top left; top: 5px; left: 5px; }
+    #hud-top-bar { transform: translateX(-50%) scale(0.75); transform-origin: top center; top: 5px; }
+    #combo-announcement { transform: scale(0.85); transform-origin: top right; right: 5px !important; }
 }
 
-/* SETTINGS MODAL */
+
+/* =========================================
+   4. THÔNG BÁO COMBO KILL (Quadra, Penta...)
+   ========================================= */
+#combo-announcement {
+    position: absolute;
+    top: 150px; /* Nhường chỗ cho Mini Map ở trên */
+    right: 15px; /* Ép mép phải */
+    display: flex; flex-direction: column; align-items: flex-end;
+    pointer-events: none; z-index: 999;
+}
+.combo-text-wrapper { text-align: right; animation: popInOut 2.5s ease-in-out forwards; }
+.combo-killer-name { font-size: 12px; color: #fff; font-weight: bold; text-shadow: 1px 1px 2px #000; }
+.combo-title { font-size: 22px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+
+@keyframes popInOut {
+    0% { transform: scale(0.5) translateX(50px); opacity: 0; }
+    15% { transform: scale(1.2) translateX(0); opacity: 1; }
+    30% { transform: scale(1) translateX(0); opacity: 1; }
+    80% { transform: scale(1) translateX(0); opacity: 1; }
+    100% { transform: scale(0.8) translateX(20px); opacity: 0; }
+}
+
+
+/* =========================================
+   5. SETTINGS MODAL
+   ========================================= */
 #settings-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
 #settings-modal input[type=range] { width: 100%; cursor: pointer; accent-color: #ffaa00; }
 #settings-modal select { width: 100%; padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; outline: none; font-family: inherit; font-weight: bold; }
 #close-settings-btn { background: linear-gradient(135deg, #444, #222); border: 1px solid #666; border-radius: 12px; padding: 10px; color: white; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s; }
 #close-settings-btn:hover { background: #555; }
-
-@media (max-width: 700px) {
-    #hud-top-bar { transform: translateX(-50%) scale(0.9); }
-    .hud-left-column { transform: scale(0.85); transform-origin: top left; }
-    #kill-feed { transform: scale(0.85); transform-origin: top right; }
-}
