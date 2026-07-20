@@ -11,7 +11,6 @@ const canvas = document.getElementById("game");
 
 GameState.freezeUntil = 0;
 let respawnInterval = null; 
-
 let isPlaying = false; 
 
 const uiLayer = document.getElementById("ui-layer");
@@ -20,20 +19,45 @@ const gameOverScreen = document.getElementById("game-over-screen");
 const playBtn = document.getElementById("play-btn");
 const respawnBtn = document.getElementById("respawn-btn");
 const nameInput = document.getElementById("player-name");
-const muteBtn = document.getElementById("mute-btn");
 const statusText = document.getElementById("status-text");
+
+// === SETTINGS MODAL LOGIC ===
+const settingsBtn = document.getElementById("hud-settings-btn");
+const settingsModal = document.getElementById("settings-modal");
+const closeSettingsBtn = document.getElementById("close-settings-btn");
+const volumeSlider = document.getElementById("volume-slider");
+const languageSelect = document.getElementById("language-select");
+
+settingsBtn.addEventListener("click", () => {
+    Sound.init(); Sound.play('click');
+    settingsModal.style.display = 'flex';
+});
+
+closeSettingsBtn.addEventListener("click", () => {
+    Sound.play('click');
+    settingsModal.style.display = 'none';
+});
+
+volumeSlider.addEventListener("input", (e) => {
+    const volume = parseFloat(e.target.value);
+    if (Sound.setVolume) {
+        Sound.setVolume(volume); // Nếu file audio.js của bạn có hàm setVolume
+    }
+    // Logic fallback nếu bạn chỉ dùng cờ isMuted
+    if (volume === 0) { Sound.isMuted = true; } 
+    else { Sound.isMuted = false; }
+});
+
+languageSelect.addEventListener("change", (e) => {
+    // Để sẵn bộ khung, sau này làm hệ thống dịch thuật sẽ tích hợp vào đây
+    console.log("Language changed to:", e.target.value);
+});
+// ==============================
 
 playBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 respawnBtn.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("mouseenter", () => { Sound.init(); Sound.play('hover'); });
 nameInput.addEventListener("focus", () => { Sound.init(); Sound.play('click'); });
-
-muteBtn.addEventListener("click", () => {
-    Sound.init();
-    const muted = Sound.toggleMute();
-    muteBtn.innerHTML = muted ? "🔇" : "🔊";
-    if (!muted) Sound.play('click');
-});
 
 nameInput.value = localStorage.getItem("evowar_name") || "";
 
@@ -69,6 +93,7 @@ function triggerGameOver(level, kills, xp, killerName) {
     
     isPlaying = false; 
     HUD.showHUD(false); 
+    settingsModal.style.display = 'none'; // Ẩn settings nếu đang mở lúc chết
 
     try {
         const currentLevel = level || GameState.clientLevel || 1;
@@ -194,7 +219,6 @@ function main() {
   Input.setup(canvas);
   
   Camera.currentZoom = Camera.getZoomByLevel(1); Camera.targetZoom = Camera.currentZoom;
-  muteBtn.innerHTML = Sound.isMuted ? "🔇" : "🔊";
   
   playBtn.disabled = true;
   playBtn.innerText = "ĐANG KẾT NỐI...";
