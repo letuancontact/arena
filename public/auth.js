@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const authPasswordInput = document.getElementById("auth-password");
     const authMessage = document.getElementById("auth-message");
     
-    // Nút mạng xã hội (tạm thời)
+    // Nút mạng xã hội 
     const btnGoogle = document.getElementById("btn-google");
     const btnFacebook = document.getElementById("btn-facebook");
     
@@ -23,12 +23,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let currentMode = "login"; 
 
-    // 3. KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP
+    // 3. KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP (Chỉnh sửa hiển thị Text mới)
     const savedUser = localStorage.getItem("evoUsername");
     const savedScore = localStorage.getItem("evoHighScore"); 
     
     if (savedUser) {
-        profileNameDisplay.textContent = savedUser;
+        // Nếu đã đăng nhập: Hiện tên + Nút Đăng xuất
+        profileNameDisplay.textContent = savedUser + " (Đăng xuất)";
         profileNameDisplay.style.color = "#00ffcc"; 
         
         if (gameNameInput) {
@@ -39,6 +40,10 @@ document.addEventListener("DOMContentLoaded", () => {
             highestScoreVal.textContent = savedScore;
             lobbyHighScore.style.display = "block";
         }
+    } else {
+        // Nếu chưa đăng nhập
+        profileNameDisplay.textContent = "ĐĂNG NHẬP / ĐĂNG KÝ";
+        profileNameDisplay.style.color = "#ccc";
     }
 
     // 4. MỞ / ĐÓNG MODAL
@@ -59,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
         authModal.style.display = "none";
     });
 
-    // 5. LOGIC CHUYỂN TAB (Đã tối ưu cho giao diện mới)
+    // 5. LOGIC CHUYỂN TAB 
     tabLogin.addEventListener("click", () => {
         currentMode = "login";
         tabLogin.classList.add("active-tab");
@@ -74,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
         authMessage.textContent = "";
     });
 
-    // 6. SỰ KIỆN NÚT GOOGLE / FACEBOOK (Báo tính năng sắp ra mắt)
+    // 6. SỰ KIỆN NÚT GOOGLE / FACEBOOK 
     if (btnGoogle) {
         btnGoogle.addEventListener("click", () => {
             alert("Tính năng Đăng nhập bằng Google đang được phát triển, vui lòng chờ bản cập nhật sau nhé!");
@@ -121,7 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     localStorage.setItem("evoUsername", data.username);
                     localStorage.setItem("evoHighScore", data.highestScore || 0);
                     
-                    profileNameDisplay.textContent = data.username;
+                    // Cập nhật text mới
+                    profileNameDisplay.textContent = data.username + " (Đăng xuất)";
                     profileNameDisplay.style.color = "#00ffcc";
                     
                     if (gameNameInput) {
