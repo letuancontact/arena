@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Các Element giao diện
+    // Các Element giao diện Auth
     const authModal = document.getElementById("auth-modal");
     const openAuthBtn = document.getElementById("user-profile-btn");
     const closeAuthBtn = document.getElementById("close-auth-btn");
@@ -10,29 +10,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const authPasswordInput = document.getElementById("auth-password");
     const authMessage = document.getElementById("auth-message");
     
+    // Các Element ngoài Sảnh chờ
     const profileNameDisplay = document.getElementById("profile-name-display");
     const gameNameInput = document.getElementById("player-name");
+    const lobbyHighScore = document.getElementById("lobby-high-score");
+    const highestScoreVal = document.getElementById("highest-score-val");
 
-    let currentMode = "login"; // Trạng thái hiện tại: login hoặc register
+    let currentMode = "login"; 
 
-    // 1. Kiểm tra xem người dùng đã đăng nhập từ lần trước chưa
+    // 1. Kiểm tra trạng thái đăng nhập khi vừa vào web
     const savedUser = localStorage.getItem("evoUsername");
+    const savedScore = localStorage.getItem("evoHighScore"); // Lấy điểm đã lưu
+    
     if (savedUser) {
         profileNameDisplay.textContent = savedUser;
-        profileNameDisplay.style.color = "#00ffcc"; // Đổi màu xanh lá báo hiệu đã đăng nhập
+        profileNameDisplay.style.color = "#00ffcc"; 
         if (gameNameInput) {
             gameNameInput.value = savedUser;
-            gameNameInput.disabled = true; // Khóa input tên nếu đã đăng nhập
+            gameNameInput.disabled = true; 
+        }
+        // Hiện điểm kỷ lục
+        if (savedScore !== null && lobbyHighScore) {
+            highestScoreVal.textContent = savedScore;
+            lobbyHighScore.style.display = "block";
         }
     }
 
     // 2. Mở / Đóng Modal
     openAuthBtn.addEventListener("click", () => {
-        // Nếu đã đăng nhập, bấm vào Avatar sẽ hỏi Đăng xuất
         if (localStorage.getItem("evoUsername")) {
             if (confirm("Bạn có muốn đăng xuất khỏi tài khoản này không?")) {
                 localStorage.removeItem("evoUsername");
-                location.reload(); // Tải lại trang để về trạng thái Khách
+                localStorage.removeItem("evoHighScore"); // Xóa luôn điểm khi đăng xuất
+                location.reload(); 
             }
             return;
         }
@@ -93,23 +103,28 @@ document.addEventListener("DOMContentLoaded", () => {
                 authMessage.textContent = data.message;
                 
                 if (currentMode === "login") {
-                    // Đăng nhập thành công -> Lưu vào máy
+                    // Đăng nhập thành công -> Lưu tên và điểm vào máy
                     localStorage.setItem("evoUsername", data.username);
+                    localStorage.setItem("evoHighScore", data.highestScore || 0);
                     
                     // Cập nhật giao diện lập tức
                     profileNameDisplay.textContent = data.username;
                     profileNameDisplay.style.color = "#00ffcc";
+                    
                     if (gameNameInput) {
                         gameNameInput.value = data.username;
                         gameNameInput.disabled = true; 
                     }
+                    if (lobbyHighScore) {
+                        highestScoreVal.textContent = data.highestScore || 0;
+                        lobbyHighScore.style.display = "block";
+                    }
                     
-                    // Tự động đóng Popup sau 1 giây
                     setTimeout(() => {
                         authModal.style.display = "none";
                     }, 1000);
                 } else {
-                    // Đăng ký thành công -> Tự động chuyển qua tab Đăng nhập
+                    // Đăng ký thành công
                     setTimeout(() => {
                         tabLogin.click();
                         authMessage.style.color = "#00ffcc";
@@ -117,7 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     }, 1000);
                 }
             } else {
-                // Báo lỗi từ server (Trùng tên, sai mật khẩu...)
                 authMessage.style.color = "#ff4444";
                 authMessage.textContent = data.message;
             }
