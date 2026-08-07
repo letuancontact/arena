@@ -18,6 +18,26 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    // ==========================================
+    // MỚI THÊM: HỆ THỐNG TIỀN TỆ VÀ TRANG PHỤC
+    // ==========================================
+    gold: {
+        type: Number,
+        default: 0    // Vàng kiếm được trong game
+    },
+    diamonds: {
+        type: Number,
+        default: 0    // Kim cương (nạp tiền hoặc thưởng sự kiện)
+    },
+    ownedSkins: {
+        type: [String],
+        default: ["lv1"] // Danh sách các ID trang phục đã mua/sở hữu
+    },
+    equippedSkin: {
+        type: String,
+        default: "lv1"   // Trang phục đang mặc hiện tại
+    },
+    // ==========================================
     createdAt: {
         type: Date,
         default: Date.now
