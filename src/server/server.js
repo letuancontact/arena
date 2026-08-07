@@ -24,8 +24,18 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// =========================================================
+// MỚI THÊM: CẤU HÌNH API BẢO MẬT TÀI KHOẢN
+// =========================================================
+// Cho phép Express đọc dữ liệu JSON gửi lên từ trình duyệt
+app.use(express.json()); 
+
 // --- BƯỚC 3: KÍCH HOẠT KẾT NỐI MONGODB (MỚI THÊM) ---
 connectDB(process.env.MONGO_URI);
+
+// Gắn Route xử lý Đăng nhập/Đăng ký vào đường dẫn /api/auth
+app.use("/api/auth", require("./routes/auth"));
+// =========================================================
 
 app.use(express.static(path.join(__dirname, "../../public"), { maxAge: "7d" }));
 app.use("/shared", express.static(path.join(__dirname, "../shared"), { maxAge: "7d" }));
