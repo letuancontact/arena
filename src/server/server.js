@@ -17,7 +17,6 @@ const collisionLib = require("./collision");
 const spatialIndex = require("./spatialIndex");
 
 const connectDB = require("./db/connect");
-// GỌI MODEL USER ĐỂ LƯU ĐIỂM
 const User = require("./models/User");
 
 const app = express();
@@ -86,7 +85,6 @@ wss.on("connection", (ws) => {
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn(getActiveEntities(), CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           player.x = safePos.x; player.y = safePos.y; player.killStreak = 0;
-          // Khởi tạo điểm lúc mới hồi sinh
           player.score = 0; 
         }
       }
@@ -178,9 +176,7 @@ setInterval(() => {
           hitsBuffer.push({ x: victim.x, y: victim.y, amount: damageAmount, victimId: victim.id, attackerId: attacker.id });
           victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           
-          // =========================================================
-          // MỚI THÊM: LƯU KỶ LỤC VÀO MONGODB NẾU LÀ NGƯỜI CHƠI THẬT
-          // =========================================================
+          // LƯU KỶ LỤC VÀO MONGODB NẾU LÀ NGƯỜI CHƠI THẬT
           if (victim.name && victim.name !== "Khách" && (victim.score || 0) > 0) {
               User.findOne({ username: victim.name }).then(user => {
                   if (user && victim.score > user.highestScore) {
@@ -189,7 +185,6 @@ setInterval(() => {
                   }
               }).catch(err => console.error(err));
           }
-          // =========================================================
 
           victim.killStreak = 0; 
           attacker.killStreak = (attacker.killStreak || 0) + 1; 
@@ -198,6 +193,26 @@ setInterval(() => {
           if (s === 2 || s === 3 || s === 5 || s === 7 || s === 10) {
               announcementsBuffer.push({ type: "killstreak", name: attacker.name || "Khách", streak: s });
           }
+
+          // =========================================================
+          // MỚI THÊM: THƯỞNG VÀNG VÀ KIM CƯƠNG KHI HẠ GỤC
+          // =========================================================
+          if (attacker.name && attacker.name !== "Khách") {
+              User.findOne({ username: attacker.name }).then(user => {
+                  if (user) {
+                      // Thưởng 10 Vàng cho mỗi lần tiêu diệt
+                      user.gold += 10; 
+                      
+                      // Nếu đạt chuỗi kill thì thưởng thêm 1 Kim Cương
+                      if (s === 2 || s === 3 || s === 5 || s === 7 || s === 10) {
+                          user.diamonds += 1;
+                      }
+                      
+                      user.save().catch(err => console.error(err));
+                  }
+              }).catch(err => console.error(err));
+          }
+          // =========================================================
 
           let gainXp = Math.floor((victim.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_ATTACKER);
           attacker.xp += gainXp; attacker.score = (attacker.score || 0) + gainXp;
