@@ -1,6 +1,5 @@
 // --- public/auth.js ---
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Khai báo các Element giao diện Auth 
     const authModal = document.getElementById("auth-modal");
     const openAuthBtn = document.getElementById("user-profile-btn");
     const closeAuthBtn = document.getElementById("close-auth-btn");
@@ -11,24 +10,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const authPasswordInput = document.getElementById("auth-password");
     const authMessage = document.getElementById("auth-message");
     
-    // Nút mạng xã hội 
     const btnGoogle = document.getElementById("btn-google");
     const btnFacebook = document.getElementById("btn-facebook");
     
-    // 2. Khai báo các Element ngoài Sảnh chờ
     const profileNameDisplay = document.getElementById("profile-name-display");
     const gameNameInput = document.getElementById("player-name");
     const lobbyHighScore = document.getElementById("lobby-high-score");
     const highestScoreVal = document.getElementById("highest-score-val");
+    const respawnBtn = document.getElementById("respawn-btn"); // Nút Chơi Lại
 
     let currentMode = "login"; 
 
-    // 3. KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP (Chỉnh sửa hiển thị Text mới)
+    // 1. KIỂM TRA TRẠNG THÁI
     const savedUser = localStorage.getItem("evoUsername");
     const savedScore = localStorage.getItem("evoHighScore"); 
     
     if (savedUser) {
-        // Nếu đã đăng nhập: Hiện tên + Nút Đăng xuất
         profileNameDisplay.textContent = savedUser + " (Đăng xuất)";
         profileNameDisplay.style.color = "#00ffcc"; 
         
@@ -41,12 +38,11 @@ document.addEventListener("DOMContentLoaded", () => {
             lobbyHighScore.style.display = "block";
         }
     } else {
-        // Nếu chưa đăng nhập
         profileNameDisplay.textContent = "ĐĂNG NHẬP / ĐĂNG KÝ";
         profileNameDisplay.style.color = "#ccc";
     }
 
-    // 4. MỞ / ĐÓNG MODAL
+    // 2. MỞ / ĐÓNG MODAL
     openAuthBtn.addEventListener("click", () => {
         if (localStorage.getItem("evoUsername")) {
             if (confirm("Bạn có muốn đăng xuất khỏi tài khoản này không?")) {
@@ -64,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
         authModal.style.display = "none";
     });
 
-    // 5. LOGIC CHUYỂN TAB 
+    // 3. CHUYỂN TAB 
     tabLogin.addEventListener("click", () => {
         currentMode = "login";
         tabLogin.classList.add("active-tab");
@@ -79,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
         authMessage.textContent = "";
     });
 
-    // 6. SỰ KIỆN NÚT GOOGLE / FACEBOOK 
+    // 4. SỰ KIỆN NÚT GOOGLE / FACEBOOK 
     if (btnGoogle) {
         btnGoogle.addEventListener("click", () => {
             alert("Tính năng Đăng nhập bằng Google đang được phát triển, vui lòng chờ bản cập nhật sau nhé!");
@@ -91,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 7. GỬI DỮ LIỆU VỀ SERVER
+    // 5. GỬI DỮ LIỆU ĐĂNG NHẬP
     authSubmitBtn.addEventListener("click", async () => {
         const username = authUsernameInput.value.trim();
         const password = authPasswordInput.value.trim();
@@ -126,7 +122,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     localStorage.setItem("evoUsername", data.username);
                     localStorage.setItem("evoHighScore", data.highestScore || 0);
                     
-                    // Cập nhật text mới
                     profileNameDisplay.textContent = data.username + " (Đăng xuất)";
                     profileNameDisplay.style.color = "#00ffcc";
                     
@@ -163,4 +158,26 @@ document.addEventListener("DOMContentLoaded", () => {
             authSubmitBtn.textContent = "XÁC NHẬN";
         }
     });
+
+    // 6. TỰ ĐỘNG CẬP NHẬT KỶ LỤC KHI BẤM "CHƠI LẠI"
+    if (respawnBtn) {
+        respawnBtn.addEventListener("click", () => {
+            const currentUsername = localStorage.getItem("evoUsername");
+            if (currentUsername) {
+                // Đợi 0.5s để Server kịp ghi dữ liệu xuống MongoDB rồi mới gọi API lấy về
+                setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/auth/${currentUsername}`);
+                        const data = await response.json();
+                        if (data.success) {
+                            localStorage.setItem("evoHighScore", data.highestScore);
+                            if (highestScoreVal) highestScoreVal.textContent = data.highestScore;
+                        }
+                    } catch (error) {
+                        console.log("Không thể cập nhật điểm mới", error);
+                    }
+                }, 500); 
+            }
+        });
+    }
 });
