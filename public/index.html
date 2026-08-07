@@ -86,7 +86,7 @@
         </div>
     </div>
 
-    <!-- === LỚP UI NGOÀI GAME (Sảnh chờ & Game Over) === -->
+    <!-- === LỚP UI NGOÀI GAME (Sảnh chờ, Đăng nhập, Cửa hàng & Game Over) === -->
     <div id="ui-layer">
         
         <!-- === KHUNG MODAL ĐĂNG NHẬP / ĐĂNG KÝ (GIAO DIỆN PRO) === -->
@@ -98,13 +98,11 @@
                     <img src="img/logo.png" alt="EvoWar">
                 </div>
 
-                <!-- Thanh chuyển Tab -->
                 <div class="auth-tabs">
                     <div id="tab-login" class="auth-tab active-tab">ĐĂNG NHẬP</div>
                     <div id="tab-register" class="auth-tab">ĐĂNG KÝ</div>
                 </div>
 
-                <!-- Form Nhập liệu -->
                 <div class="auth-form">
                     <div class="input-group">
                         <span class="input-icon">👤</span>
@@ -120,7 +118,6 @@
                     <button id="auth-submit-btn" class="menu-btn primary-btn auth-submit">XÁC NHẬN</button>
                 </div>
 
-                <!-- Phần Đăng nhập Mạng xã hội -->
                 <div class="auth-divider">
                     <span>Hoặc tiếp tục với</span>
                 </div>
@@ -138,6 +135,24 @@
             </div>
         </div>
 
+        <!-- === KHUNG MODAL CỬA HÀNG === -->
+        <div id="shop-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center;">
+            <div class="shop-box">
+                <button id="close-shop-btn" class="close-btn">×</button>
+                <h2 style="color: #ffcc00; margin-top: 0; text-align: center; text-transform: uppercase;">CỬA HÀNG TRANG PHỤC</h2>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="color: white; font-weight: bold; font-size: 14px;">🪙 Vàng: <span id="shop-gold" style="color: #f1c40f;">0</span></div>
+                    <div style="color: white; font-weight: bold; font-size: 14px;">💎 Kim cương: <span id="shop-diamond" style="color: #00ffcc;">0</span></div>
+                </div>
+
+                <div id="shop-grid" class="shop-grid">
+                    <!-- Javascript sẽ tự động điền danh sách Skin vào đây -->
+                </div>
+                <div id="shop-message" style="text-align: center; color: #ff4444; font-weight: bold; margin-top: 15px; min-height: 20px;"></div>
+            </div>
+        </div>
+
         <!-- SẢNH CHỜ -->
         <div id="lobby-screen" class="screen-container" style="display: flex;">
             <div class="popup-panel">
@@ -150,18 +165,21 @@
                     <img src="img/logo.png" alt="Logo">
                 </div>
                 
-                <!-- KHU VỰC NHẬP TÊN, NÚT PLAY VÀ NÚT ĐĂNG NHẬP -->
+                <!-- KHU VỰC NHẬP TÊN & CÁC NÚT -->
                 <div class="panel-section">
                     <input type="text" id="player-name" placeholder="Nhập tên..." maxlength="15" autocomplete="off" spellcheck="false">
                     
-                    <!-- DÒNG HIỂN THỊ KỶ LỤC KHI ĐÃ ĐĂNG NHẬP -->
                     <div id="lobby-high-score" style="display: none; color: #ffcc00; font-size: 13px; font-weight: 900; margin-top: -5px; margin-bottom: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
                         Kỷ lục cao nhất: <span id="highest-score-val">0</span> 🏆
                     </div>
 
-                    <button id="play-btn" class="menu-btn primary-btn">PLAY</button>
+                    <!-- Hàng chứa nút Play và Cửa Hàng -->
+                    <div style="display: flex; gap: 10px;">
+                        <button id="play-btn" class="menu-btn primary-btn" style="flex: 2;">PLAY</button>
+                        <button id="shop-btn" class="menu-btn" style="flex: 1; background: linear-gradient(135deg, #f39c12, #d35400); border: none; box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4); display: none;">🛒 SHOP</button>
+                    </div>
                     
-                    <!-- NÚT TÀI KHOẢN NẰM NGAY DƯỚI NÚT PLAY -->
+                    <!-- Nút Tài Khoản -->
                     <button id="user-profile-btn" class="menu-btn" style="margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); display: flex; justify-content: center; align-items: center; gap: 8px; color: #ccc;">
                         <span style="font-size: 16px;">👤</span>
                         <span id="profile-name-display" style="font-size: 14px; text-transform: uppercase; font-weight: 900;">Đăng nhập / Đăng ký</span>
