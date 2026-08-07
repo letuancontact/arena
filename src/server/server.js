@@ -1,7 +1,6 @@
 // --- src/server/server.js ---
 "use strict";
 
-// --- BƯỚC 1: NẠP CẤU HÌNH BIẾN MÔI TRƯỜNG (MỚI THÊM) ---
 require("dotenv").config(); 
 
 const express = require("express");
@@ -17,25 +16,19 @@ const foodLib = require("./food");
 const collisionLib = require("./collision");
 const spatialIndex = require("./spatialIndex");
 
-// --- BƯỚC 2: NẠP FILE KẾT NỐI DATABASE (MỚI THÊM) ---
 const connectDB = require("./db/connect");
+// GỌI MODEL USER ĐỂ LƯU ĐIỂM
+const User = require("./models/User");
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// =========================================================
-// MỚI THÊM: CẤU HÌNH API BẢO MẬT TÀI KHOẢN
-// =========================================================
-// Cho phép Express đọc dữ liệu JSON gửi lên từ trình duyệt
 app.use(express.json()); 
 
-// --- BƯỚC 3: KÍCH HOẠT KẾT NỐI MONGODB (MỚI THÊM) ---
 connectDB(process.env.MONGO_URI);
 
-// Gắn Route xử lý Đăng nhập/Đăng ký vào đường dẫn /api/auth
 app.use("/api/auth", require("./routes/auth"));
-// =========================================================
 
 app.use(express.static(path.join(__dirname, "../../public"), { maxAge: "7d" }));
 app.use("/shared", express.static(path.join(__dirname, "../shared"), { maxAge: "7d" }));
@@ -93,6 +86,8 @@ wss.on("connection", (ws) => {
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn(getActiveEntities(), CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           player.x = safePos.x; player.y = safePos.y; player.killStreak = 0;
+          // Khởi tạo điểm lúc mới hồi sinh
+          player.score = 0; 
         }
       }
       if (data.type === "move") playerLib.handlePlayerMove(player, data);
@@ -116,7 +111,6 @@ setInterval(() => {
                 p.ws.close();
             }
             players.delete(id);
-            console.log(`[Hệ thống] Đã ngắt kết nối player ${id} do AFK.`);
         }
     }
 }, 10000); 
@@ -151,10 +145,11 @@ setInterval(() => {
     for (const f of nearbyFood) {
       if (collisionLib.checkFoodCollision(p, f)) {
         food.splice(food.indexOf(f), 1); foodRemoved.push(f.id);
+        p.score = (p.score || 0) + (f.xp || 10);
         if (p.level < CONFIG.MAX_LEVEL) {
-          p.xp += f.xp || 10; p.score += f.xp || 10;
+          p.xp += f.xp || 10;
           while (p.xp >= playerLib.getXpToNext(p.level) && p.level < CONFIG.MAX_LEVEL) { p.xp -= playerLib.getXpToNext(p.level); p.level++; p.radius = playerLib.getRadiusByLevel(p.level); }
-        } else { p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL)); p.score += f.xp || 10; }
+        } else { p.xp = Math.min(p.xp + (f.xp || 10), playerLib.getXpToNext(CONFIG.MAX_LEVEL)); }
         break;
       }
     }
@@ -183,6 +178,19 @@ setInterval(() => {
           hitsBuffer.push({ x: victim.x, y: victim.y, amount: damageAmount, victimId: victim.id, attackerId: attacker.id });
           victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           
+          // =========================================================
+          // MỚI THÊM: LƯU KỶ LỤC VÀO MONGODB NẾU LÀ NGƯỜI CHƠI THẬT
+          // =========================================================
+          if (victim.name && victim.name !== "Khách" && (victim.score || 0) > 0) {
+              User.findOne({ username: victim.name }).then(user => {
+                  if (user && victim.score > user.highestScore) {
+                      user.highestScore = victim.score;
+                      user.save().catch(err => console.error(err));
+                  }
+              }).catch(err => console.error(err));
+          }
+          // =========================================================
+
           victim.killStreak = 0; 
           attacker.killStreak = (attacker.killStreak || 0) + 1; 
           
@@ -233,7 +241,6 @@ setInterval(() => {
 
     for (const p of players.values()) { if (p.ws.readyState === p.ws.OPEN) p.ws.send(statePayload); }
     
-    // TỐI ƯU 3: Giữ nguyên vùng nhớ, chỉ dọn sạch dữ liệu mảng (Array Pooling)
     foodAdded.length = 0; 
     foodRemoved.length = 0; 
     hitsBuffer.length = 0; 
@@ -242,7 +249,6 @@ setInterval(() => {
 
   if (now - lastHeavyTick >= CONFIG.HEAVY_TICK_RATE) {
     lastHeavyTick = now;
-    
     const allEntities = getActiveEntities();
     
     for (const entity of allEntities) {
@@ -250,7 +256,7 @@ setInterval(() => {
         if (entity.isBot) {
           playerLib.respawnPlayer(entity, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn(allEntities, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
-          entity.x = safePos.x; entity.y = safePos.y; entity.angle = Math.random() * Math.PI * 2; entity.killerId = null; entity.killStreak = 0;
+          entity.x = safePos.x; entity.y = safePos.y; entity.angle = Math.random() * Math.PI * 2; entity.killerId = null; entity.killStreak = 0; entity.score = 0;
         }
       }
     }
@@ -258,7 +264,7 @@ setInterval(() => {
     let botTarget = Math.max(0, CONFIG.MAX_PLAYERS - players.size); let botCount = bots.size;
     if (botCount < botTarget) { 
       for (let i = botCount; i < botTarget; i++) {
-        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.killStreak = 0;
+        const bot = botLib.createBot(CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); bot.killStreak = 0; bot.score = 0;
         const safePos = getSafeSpawn(allEntities, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT); 
         bot.x = safePos.x; bot.y = safePos.y; 
         bots.set(bot.id, bot); 
