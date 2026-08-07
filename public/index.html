@@ -89,35 +89,57 @@
     <!-- === LỚP UI NGOÀI GAME (Sảnh chờ & Game Over) === -->
     <div id="ui-layer">
         
-        <!-- ======================================================== -->
-        <!-- MỚI THÊM: NÚT TÀI KHOẢN (AVATAR) GÓC TRÊN CÙNG BÊN PHẢI   -->
-        <!-- ======================================================== -->
-        <div id="user-profile-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 30px; border: 2px solid #555; color: white; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; z-index: 100; transition: 0.2s;">
+        <!-- NÚT TÀI KHOẢN (AVATAR) GÓC TRÊN CÙNG BÊN PHẢI -->
+        <div id="user-profile-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); color: white; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; z-index: 100; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
             <span style="font-size: 20px;">👤</span>
             <span id="profile-name-display" style="text-transform: uppercase;">Khách</span>
         </div>
 
-        <!-- ======================================================== -->
-        <!-- MỚI THÊM: KHUNG MODAL ĐĂNG NHẬP / ĐĂNG KÝ                -->
-        <!-- ======================================================== -->
-        <div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center;">
-            <div class="popup-panel" style="width: 320px; padding: 25px; position: relative;">
-                <button id="close-auth-btn" style="position: absolute; top: 10px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
+        <!-- KHUNG MODAL ĐĂNG NHẬP / ĐĂNG KÝ (GIAO DIỆN PRO) -->
+        <div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 999; justify-content: center; align-items: center;">
+            <div class="auth-box">
+                <button id="close-auth-btn" class="close-btn">×</button>
                 
+                <div class="auth-logo">
+                    <img src="img/logo.png" alt="EvoWar">
+                </div>
+
                 <!-- Thanh chuyển Tab -->
-                <div style="display: flex; margin-bottom: 25px; border-bottom: 2px solid #444; width: 100%;">
-                    <div id="tab-login" style="flex: 1; text-align: center; padding: 10px; cursor: pointer; color: #00ffcc; border-bottom: 3px solid #00ffcc; font-weight: bold; transition: 0.3s;">ĐĂNG NHẬP</div>
-                    <div id="tab-register" style="flex: 1; text-align: center; padding: 10px; cursor: pointer; color: #888; border-bottom: 3px solid transparent; font-weight: bold; transition: 0.3s;">ĐĂNG KÝ</div>
+                <div class="auth-tabs">
+                    <div id="tab-login" class="auth-tab active-tab">ĐĂNG NHẬP</div>
+                    <div id="tab-register" class="auth-tab">ĐĂNG KÝ</div>
                 </div>
 
                 <!-- Form Nhập liệu -->
-                <div style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
-                    <input type="text" id="auth-username" placeholder="Tên tài khoản" maxlength="15" autocomplete="off" style="padding: 12px; border-radius: 8px; border: none; font-size: 16px; outline: none; background: #222; color: #fff; text-align: center; border: 1px solid #444; width: 100%; box-sizing: border-box;">
-                    <input type="password" id="auth-password" placeholder="Mật khẩu" maxlength="20" style="padding: 12px; border-radius: 8px; border: none; font-size: 16px; outline: none; background: #222; color: #fff; text-align: center; border: 1px solid #444; width: 100%; box-sizing: border-box;">
+                <div class="auth-form">
+                    <div class="input-group">
+                        <span class="input-icon">👤</span>
+                        <input type="text" id="auth-username" placeholder="Tên tài khoản" maxlength="15" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="auth-password" placeholder="Mật khẩu" maxlength="20">
+                    </div>
                     
-                    <div id="auth-message" style="color: #ff4444; font-size: 13px; text-align: center; min-height: 18px; font-weight: bold;"></div>
+                    <div id="auth-message" class="auth-message"></div>
                     
-                    <button id="auth-submit-btn" class="menu-btn primary-btn" style="width: 100%; margin-top: 5px;">XÁC NHẬN</button>
+                    <button id="auth-submit-btn" class="menu-btn primary-btn auth-submit">XÁC NHẬN</button>
+                </div>
+
+                <!-- Phần Đăng nhập Mạng xã hội -->
+                <div class="auth-divider">
+                    <span>Hoặc tiếp tục với</span>
+                </div>
+                
+                <div class="social-logins">
+                    <button id="btn-google" class="social-btn google-btn">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google">
+                        <span>Google</span>
+                    </button>
+                    <button id="btn-facebook" class="social-btn facebook-btn">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook">
+                        <span>Facebook</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -136,9 +158,7 @@
                 <div class="panel-section">
                     <input type="text" id="player-name" placeholder="Nhập tên..." maxlength="15" autocomplete="off" spellcheck="false">
                     
-                    <!-- ======================================================== -->
-                    <!-- MỚI THÊM: DÒNG HIỂN THỊ KỶ LỤC KHI ĐÃ ĐĂNG NHẬP          -->
-                    <!-- ======================================================== -->
+                    <!-- DÒNG HIỂN THỊ KỶ LỤC KHI ĐÃ ĐĂNG NHẬP -->
                     <div id="lobby-high-score" style="display: none; color: #ffcc00; font-size: 13px; font-weight: 900; margin-top: -5px; margin-bottom: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
                         Kỷ lục cao nhất: <span id="highest-score-val">0</span> 🏆
                     </div>
@@ -185,12 +205,7 @@
     </div>
 
     <script src="/shared/constants.js"></script>
-    
-    <!-- ======================================================== -->
-    <!-- MỚI THÊM: KẾT NỐI VỚI FILE auth.js VỪA TẠO               -->
-    <!-- ======================================================== -->
     <script src="auth.js"></script>
-    
     <script type="module" src="main.js"></script>
   </body>
 </html>
