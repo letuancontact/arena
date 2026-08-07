@@ -17,13 +17,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const gameNameInput = document.getElementById("player-name");
     const lobbyHighScore = document.getElementById("lobby-high-score");
     const highestScoreVal = document.getElementById("highest-score-val");
-    const respawnBtn = document.getElementById("respawn-btn"); // Nút Chơi Lại
+    const respawnBtn = document.getElementById("respawn-btn"); 
+    
+    // UI hiển thị Tiền tệ trên HUD
+    const hudGold = document.getElementById("hud-gold");
+    const hudDiamond = document.getElementById("hud-diamond");
 
     let currentMode = "login"; 
 
-    // 1. KIỂM TRA TRẠNG THÁI
+    // 1. KIỂM TRA TRẠNG THÁI VÀ HIỂN THỊ TIỀN TỆ KHI VỪA VÀO WEB
     const savedUser = localStorage.getItem("evoUsername");
     const savedScore = localStorage.getItem("evoHighScore"); 
+    const savedGold = localStorage.getItem("evoGold") || 0;
+    const savedDiamonds = localStorage.getItem("evoDiamonds") || 0;
     
     if (savedUser) {
         profileNameDisplay.textContent = savedUser + " (Đăng xuất)";
@@ -37,6 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
             highestScoreVal.textContent = savedScore;
             lobbyHighScore.style.display = "block";
         }
+        // Cập nhật lên thanh HUD
+        if (hudGold) hudGold.textContent = savedGold;
+        if (hudDiamond) hudDiamond.textContent = savedDiamonds;
     } else {
         profileNameDisplay.textContent = "ĐĂNG NHẬP / ĐĂNG KÝ";
         profileNameDisplay.style.color = "#ccc";
@@ -46,8 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
     openAuthBtn.addEventListener("click", () => {
         if (localStorage.getItem("evoUsername")) {
             if (confirm("Bạn có muốn đăng xuất khỏi tài khoản này không?")) {
-                localStorage.removeItem("evoUsername");
-                localStorage.removeItem("evoHighScore"); 
+                localStorage.clear(); // Xóa sạch dữ liệu cũ
                 location.reload(); 
             }
             return;
@@ -77,14 +85,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 4. SỰ KIỆN NÚT GOOGLE / FACEBOOK 
     if (btnGoogle) {
-        btnGoogle.addEventListener("click", () => {
-            alert("Tính năng Đăng nhập bằng Google đang được phát triển, vui lòng chờ bản cập nhật sau nhé!");
-        });
+        btnGoogle.addEventListener("click", () => alert("Tính năng Đăng nhập bằng Google đang được phát triển!"));
     }
     if (btnFacebook) {
-        btnFacebook.addEventListener("click", () => {
-            alert("Tính năng Đăng nhập bằng Facebook đang được phát triển, vui lòng chờ bản cập nhật sau nhé!");
-        });
+        btnFacebook.addEventListener("click", () => alert("Tính năng Đăng nhập bằng Facebook đang được phát triển!"));
     }
 
     // 5. GỬI DỮ LIỆU ĐĂNG NHẬP
@@ -105,7 +109,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             const endpoint = currentMode === "login" ? "/api/auth/login" : "/api/auth/register";
-            
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -119,8 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 authMessage.textContent = data.message;
                 
                 if (currentMode === "login") {
+                    // LƯU TOÀN BỘ CHỈ SỐ VÀO TRÌNH DUYỆT
                     localStorage.setItem("evoUsername", data.username);
                     localStorage.setItem("evoHighScore", data.highestScore || 0);
+                    localStorage.setItem("evoGold", data.gold || 0);
+                    localStorage.setItem("evoDiamonds", data.diamonds || 0);
+                    localStorage.setItem("evoEquippedSkin", data.equippedSkin || "lv1");
                     
                     profileNameDisplay.textContent = data.username + " (Đăng xuất)";
                     profileNameDisplay.style.color = "#00ffcc";
@@ -133,10 +140,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         highestScoreVal.textContent = data.highestScore || 0;
                         lobbyHighScore.style.display = "block";
                     }
+                    if (hudGold) hudGold.textContent = data.gold || 0;
+                    if (hudDiamond) hudDiamond.textContent = data.diamonds || 0;
                     
-                    setTimeout(() => {
-                        authModal.style.display = "none";
-                    }, 1000);
+                    setTimeout(() => { authModal.style.display = "none"; }, 1000);
                 } else {
                     setTimeout(() => {
                         tabLogin.click();
@@ -159,22 +166,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 6. TỰ ĐỘNG CẬP NHẬT KỶ LỤC KHI BẤM "CHƠI LẠI"
+    // 6. TỰ ĐỘNG CẬP NHẬT KỶ LỤC & TIỀN TỆ KHI BẤM "CHƠI LẠI"
     if (respawnBtn) {
         respawnBtn.addEventListener("click", () => {
             const currentUsername = localStorage.getItem("evoUsername");
             if (currentUsername) {
-                // Đợi 0.5s để Server kịp ghi dữ liệu xuống MongoDB rồi mới gọi API lấy về
                 setTimeout(async () => {
                     try {
                         const response = await fetch(`/api/auth/${currentUsername}`);
                         const data = await response.json();
                         if (data.success) {
                             localStorage.setItem("evoHighScore", data.highestScore);
+                            localStorage.setItem("evoGold", data.gold);
+                            localStorage.setItem("evoDiamonds", data.diamonds);
+                            
                             if (highestScoreVal) highestScoreVal.textContent = data.highestScore;
+                            if (hudGold) hudGold.textContent = data.gold;
+                            if (hudDiamond) hudDiamond.textContent = data.diamonds;
                         }
                     } catch (error) {
-                        console.log("Không thể cập nhật điểm mới", error);
+                        console.log("Không thể cập nhật chỉ số mới", error);
                     }
                 }, 500); 
             }
