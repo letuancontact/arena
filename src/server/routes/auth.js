@@ -5,13 +5,20 @@ const User = require("../models/User");
 
 const router = express.Router();
 
-// 1. API Lấy thông tin user (Để cập nhật điểm kỷ lục sau khi chết)
+// 1. API Lấy thông tin user (Để cập nhật điểm, vàng, kim cương...)
 router.get("/:username", async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username });
         if (!user) return res.status(404).json({ success: false, message: "Không tìm thấy user" });
         
-        res.status(200).json({ success: true, highestScore: user.highestScore });
+        res.status(200).json({ 
+            success: true, 
+            highestScore: user.highestScore,
+            gold: user.gold,
+            diamonds: user.diamonds,
+            ownedSkins: user.ownedSkins,
+            equippedSkin: user.equippedSkin
+        });
     } catch (error) {
         console.error("[Auth] Lỗi lấy thông tin:", error);
         res.status(500).json({ success: false, message: "Lỗi máy chủ!" });
@@ -64,7 +71,11 @@ router.post("/login", async (req, res) => {
             success: true, 
             message: "Đăng nhập thành công!",
             username: user.username,
-            highestScore: user.highestScore
+            highestScore: user.highestScore,
+            gold: user.gold,
+            diamonds: user.diamonds,
+            ownedSkins: user.ownedSkins,
+            equippedSkin: user.equippedSkin
         });
 
     } catch (error) {
