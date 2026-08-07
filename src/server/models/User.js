@@ -1,11 +1,12 @@
+// --- src/server/models/User.js ---
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: true,
-        unique: true, // Không cho phép trùng tên đăng nhập
-        trim: true,   // Tự động xóa khoảng trắng ở 2 đầu
+        unique: true,
+        trim: true,
         minlength: 3,
         maxlength: 20
     },
@@ -15,11 +16,7 @@ const userSchema = new mongoose.Schema({
     },
     highestScore: {
         type: Number,
-        default: 0    // Điểm cao nhất mặc định khi mới tạo tài khoản là 0
-    },
-    coins: {
-        type: Number,
-        default: 0    // Tiền tệ trong game (để dành mua skin sau này)
+        default: 0
     },
     createdAt: {
         type: Date,
