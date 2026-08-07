@@ -9,7 +9,7 @@
   <body>
     <canvas id="game"></canvas>
 
-    <!-- === HUD IN-GAME (KHÔNG THỂ THIẾU CÁC ID NÀY) === -->
+    <!-- === HUD IN-GAME === -->
     <div id="game-hud" style="display: none;">
         <div class="hud-safe-area">
             
@@ -61,7 +61,7 @@
                 <button id="hud-settings-btn" class="settings-btn">⚙️</button>
             </div>
 
-            <!-- KHU VỰC THÔNG BÁO BÊN PHẢI (Gộp chung Combo & Kill) -->
+            <!-- KHU VỰC THÔNG BÁO BÊN PHẢI -->
             <div id="notification-area"></div>
 
         </div>
@@ -89,13 +89,7 @@
     <!-- === LỚP UI NGOÀI GAME (Sảnh chờ & Game Over) === -->
     <div id="ui-layer">
         
-        <!-- NÚT TÀI KHOẢN (AVATAR) GÓC TRÊN CÙNG BÊN PHẢI -->
-        <div id="user-profile-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); color: white; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; z-index: 100; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-            <span style="font-size: 20px;">👤</span>
-            <span id="profile-name-display" style="text-transform: uppercase;">Khách</span>
-        </div>
-
-        <!-- KHUNG MODAL ĐĂNG NHẬP / ĐĂNG KÝ (GIAO DIỆN PRO) -->
+        <!-- === KHUNG MODAL ĐĂNG NHẬP / ĐĂNG KÝ (GIAO DIỆN PRO) === -->
         <div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 999; justify-content: center; align-items: center;">
             <div class="auth-box">
                 <button id="close-auth-btn" class="close-btn">×</button>
@@ -155,6 +149,8 @@
                 <div class="logo-section">
                     <img src="img/logo.png" alt="Logo">
                 </div>
+                
+                <!-- KHU VỰC NHẬP TÊN, NÚT PLAY VÀ NÚT ĐĂNG NHẬP -->
                 <div class="panel-section">
                     <input type="text" id="player-name" placeholder="Nhập tên..." maxlength="15" autocomplete="off" spellcheck="false">
                     
@@ -164,6 +160,13 @@
                     </div>
 
                     <button id="play-btn" class="menu-btn primary-btn">PLAY</button>
+                    
+                    <!-- NÚT TÀI KHOẢN NẰM NGAY DƯỚI NÚT PLAY -->
+                    <button id="user-profile-btn" class="menu-btn" style="margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); display: flex; justify-content: center; align-items: center; gap: 8px; color: #ccc;">
+                        <span style="font-size: 16px;">👤</span>
+                        <span id="profile-name-display" style="font-size: 14px; text-transform: uppercase; font-weight: 900;">Đăng nhập / Đăng ký</span>
+                    </button>
+
                     <div id="status-text"></div>
                 </div>
             </div>
