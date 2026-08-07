@@ -27,7 +27,9 @@ app.use(express.json());
 
 connectDB(process.env.MONGO_URI);
 
+// BẢO MẬT & CỬA HÀNG
 app.use("/api/auth", require("./routes/auth"));
+app.use("/api/shop", require("./routes/shop")); // <--- KẾT NỐI API CỬA HÀNG MỚI TẠO
 
 app.use(express.static(path.join(__dirname, "../../public"), { maxAge: "7d" }));
 app.use("/shared", express.static(path.join(__dirname, "../shared"), { maxAge: "7d" }));
@@ -82,6 +84,10 @@ wss.on("connection", (ws) => {
       if (data.type === "join") {
         if (player.isDead) {
           player.name = String(data.name || "Khách").substring(0, 15);
+          
+          // MỚI: NHẬN DIỆN TRANG PHỤC TỪ TRÌNH DUYỆT GỬI LÊN
+          player.skin = String(data.skin || "lv1"); 
+          
           playerLib.respawnPlayer(player, CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           const safePos = getSafeSpawn(getActiveEntities(), CONFIG.MAP_WIDTH, CONFIG.MAP_HEIGHT);
           player.x = safePos.x; player.y = safePos.y; player.killStreak = 0;
@@ -176,7 +182,6 @@ setInterval(() => {
           hitsBuffer.push({ x: victim.x, y: victim.y, amount: damageAmount, victimId: victim.id, attackerId: attacker.id });
           victim.isDead = true; victim.deadTime = now; victim.killerId = attacker.id;
           
-          // LƯU KỶ LỤC VÀO MONGODB NẾU LÀ NGƯỜI CHƠI THẬT
           if (victim.name && victim.name !== "Khách" && (victim.score || 0) > 0) {
               User.findOne({ username: victim.name }).then(user => {
                   if (user && victim.score > user.highestScore) {
@@ -194,25 +199,17 @@ setInterval(() => {
               announcementsBuffer.push({ type: "killstreak", name: attacker.name || "Khách", streak: s });
           }
 
-          // =========================================================
-          // MỚI THÊM: THƯỞNG VÀNG VÀ KIM CƯƠNG KHI HẠ GỤC
-          // =========================================================
           if (attacker.name && attacker.name !== "Khách") {
               User.findOne({ username: attacker.name }).then(user => {
                   if (user) {
-                      // Thưởng 10 Vàng cho mỗi lần tiêu diệt
                       user.gold += 10; 
-                      
-                      // Nếu đạt chuỗi kill thì thưởng thêm 1 Kim Cương
                       if (s === 2 || s === 3 || s === 5 || s === 7 || s === 10) {
                           user.diamonds += 1;
                       }
-                      
                       user.save().catch(err => console.error(err));
                   }
               }).catch(err => console.error(err));
           }
-          // =========================================================
 
           let gainXp = Math.floor((victim.score || 0) * CONFIG.KILL_SCORE_MULTIPLIER_ATTACKER);
           attacker.xp += gainXp; attacker.score = (attacker.score || 0) + gainXp;
@@ -240,7 +237,8 @@ setInterval(() => {
             name: p.name, score: p.score || 0, isAttacking: !!p.isAttacking, attackTime: p.attackTime || 0,
             lastAttackTime: p.lastAttackTime || 0, justRespawned: p.justRespawned || 0, isDead: !!p.isDead,
             deadTime: p.deadTime || 0, killerId: p.killerId || null, isBot: !!p.isBot,
-            killStreak: p.killStreak || 0 
+            killStreak: p.killStreak || 0,
+            skin: p.skin || "lv1" // MỚI: Truyền dữ liệu trang phục xuống cho toàn bản đồ
         });
     };
     for (const p of players.values()) pushPlayerState(p);
